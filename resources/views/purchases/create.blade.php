@@ -73,9 +73,9 @@
               </thead>
               <tbody id="Purchase1Table">
                 <tr>
-                    <td><input type="text" name="item_cod[]" id="item_cod1" class="form-control" onchange="getItemDetails(1,1)"></td>
+                    <td><input type="text" name="item_cod[]" id="item_cod1" class="form-control"></td>
                     <td>
-                        <select name="item_name[]" id="item_name1" class="form-control select2-js" onchange="getItemDetails(1,2)">
+                        <select name="item_name[]" id="item_name1" class="form-control select2-js">
                         <option value="">Select Item</option>
                         @foreach ($products as $product)
                             <option value="{{ $product->id }}">{{ $product->name }}</option>
@@ -177,9 +177,9 @@
         let table = $("#Purchase1Table");
         let newRow = `
             <tr>
-                <td><input type="text" name="item_cod[]" id="item_cod${index}" class="form-control" onchange="getItemDetails(${index},1)"></td>
+                <td><input type="text" name="item_cod[]" id="item_cod${index}" class="form-control" ></td>
                 <td>
-                    <select name="item_name[]" id="item_name${index}" class="form-control select2-js" onchange="getItemDetails(${index},2)">
+                    <select name="item_name[]" id="item_name${index}" class="form-control select2-js">
                         <option value="">Select Item</option>
                         @foreach ($products as $product)
                             <option value="{{ $product->id }}">{{ $product->name }}</option>
@@ -206,31 +206,6 @@
         $('#item_name' + index).select2();
         index++;
     }
-
-    function getItemDetails(row_no, option) {
-        let itemId = option === 1 ? $('#item_cod' + row_no).val() : $('#item_name' + row_no).val();
-        $.ajax({
-            url: "{{ route('products.details') }}",
-            method: "GET",
-            data: { id: itemId },
-            success: function (data) {
-                $('#item_cod' + row_no).val(data.code);
-                $('#item_name' + row_no).val(data.id).trigger('change');
-                $('#remarks' + row_no).val(data.unit);
-
-                let currentPrice = $('#pur_price' + row_no).val();
-                if (!currentPrice || parseFloat(currentPrice) === 0) {
-                    $('#pur_price' + row_no).val(data.price);
-                }
-
-                rowTotal(row_no);
-            },
-            error: function () {
-                alert("Error retrieving item details.");
-            }
-        });
-    }
-
 
     function rowTotal(row_no) {
         let quantity = parseFloat($('#pur_qty' + row_no).val()) || 0;

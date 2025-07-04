@@ -60,8 +60,11 @@ class ProductController extends Controller
                 'opening_stock' => $request->opening_stock,
             ]);
 
-            // Log product creation
-            Log::info('Product created', ['product_id' => $product->id]);
+            Log::info('[Product Store] Product created successfully', [
+                'product_id' => $product->id,
+                'name' => $product->name,
+                'sku' => $product->sku,
+            ]);
 
             // Upload Images
             if ($request->hasFile('prod_att')) {
@@ -69,8 +72,13 @@ class ProductController extends Controller
                     $path = $image->store('products', 'public');
                     $product->images()->create(['image_path' => $path]);
 
-                    Log::info('Product image uploaded', ['path' => $path, 'product_id' => $product->id]);
+                    Log::info('[Product Store] Image uploaded', [
+                        'product_id' => $product->id,
+                        'file_path' => $path
+                    ]);
                 }
+            } else {
+                Log::warning('[Product Store] No product images uploaded', ['product_id' => $product->id]);
             }
 
             // Handle Variations
@@ -82,32 +90,41 @@ class ProductController extends Controller
                         'stock' => $variationData['stock'],
                     ]);
 
-                    Log::info('Variation created', ['variation_id' => $variation->id]);
+                    Log::info('[Product Store] Variation created', [
+                        'variation_id' => $variation->id,
+                        'product_id' => $product->id,
+                    ]);
 
-                    if (isset($variationData['attributes'])) {
+                    if (!empty($variationData['attributes'])) {
                         foreach ($variationData['attributes'] as $attr) {
                             $variation->values()->create([
                                 'attribute_value_id' => $attr['attribute_value_id'],
                             ]);
-                            Log::info('Variation value linked', [
+                            Log::info('[Product Store] Variation attribute linked', [
                                 'variation_id' => $variation->id,
                                 'attribute_value_id' => $attr['attribute_value_id']
                             ]);
                         }
+                    } else {
+                        Log::warning('[Product Store] Variation created without attributes', [
+                            'variation_id' => $variation->id
+                        ]);
                     }
                 }
+            } else {
+                Log::warning('[Product Store] No variations submitted', ['product_id' => $product->id]);
             }
 
             DB::commit();
+
             return redirect()->route('products.index')->with('success', 'Product created successfully.');
         } catch (\Exception $e) {
-            DB::rollback();
+            DB::rollBack();
 
-            // Log error
-            Log::error('Product creation failed', [
+            Log::error('[Product Store] Failed to create product', [
                 'error_message' => $e->getMessage(),
-                'stack' => $e->getTraceAsString(),
-                'request' => $request->all()
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->except(['prod_att', '_token'])
             ]);
 
             return back()->withErrors(['error' => 'Product creation failed. Check logs for details.']);
@@ -120,7 +137,7 @@ class ProductController extends Controller
         return view('products.show', compact('product'));
     }
 
-        public function details(Request $request)
+    public function details(Request $request)
     {
         $product = Product::findOrFail($request->id);
 
@@ -132,7 +149,7 @@ class ProductController extends Controller
             'price' => $product->price ?? 0,          // Or get price from variation
         ]);
     }
-    
+
     public function edit($id)
     {
         $product = Product::with(['images', 'variations'])->findOrFail($id);
