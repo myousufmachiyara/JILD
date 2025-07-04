@@ -11,7 +11,7 @@ use App\Http\Controllers\{
     COAController,
     SaleController,
     ProductionController,
-    PurchaseController,
+    PurchaseInvoiceController,
     ProductController,
     UserController,
     RoleController,
@@ -30,12 +30,13 @@ Route::middleware(['auth', RoleMiddleware::class . ':admin|superadmin'])->group(
 Route::middleware(['auth'])->group(function () {
     
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/products/details', [ProductController::class, 'details'])->name('products.details');
 
     $modules = [
         'coa' => ['controller' => COAController::class, 'permission' => 'coa'],
         'shoa' => ['controller' => SubHeadOfAccController::class, 'permission' => 'shoa'],
         'products' => ['controller' => ProductController::class, 'permission' => 'products'],
-        'purchase_invoices' => ['controller' => PurchaseController::class, 'permission' => 'purchase_invoices'],
+        'purchase_invoices' => ['controller' => PurchaseInvoiceController::class, 'permission' => 'purchase_invoices'],
         'purchase_return' => ['controller' => PurchaseReturnController::class, 'permission' => 'purchase_return'],
         'production' => ['controller' => ProductionController::class, 'permission' => 'production'],
         'sale_vouchers' => ['controller' => SaleController::class, 'permission' => 'sale_vouchers'],

@@ -3,343 +3,276 @@
 @section('title', 'Purchases | New Invoice')
 
 @section('content')
-  <div class="row">
-    <div class="col">
-      <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data">
-        @csrf
-        <section class="card">
-          <header class="card-header">
-            <div class="d-flex justify-content-between">
-              <h2 class="card-title">New Purchase</h2>
+<div class="row">
+  <div class="col">
+    <form action="{{ route('purchase_invoices.store') }}" method="POST" enctype="multipart/form-data">
+      @csrf
+      <section class="card">
+        <header class="card-header d-flex justify-content-between align-items-center">
+          <h2 class="card-title">New Purchase Invoice</h2>
+        </header>
+
+        <div class="card-body">
+          <div class="row">
+            <input type="hidden" id="itemCount" name="items" value="1">
+
+            <div class="col-md-2 mb-3">
+              <label>Invoice Date</label>
+              <input type="date" name="invoice_date" class="form-control" value="{{ date('Y-m-d') }}" required>
             </div>
-            <div class="card-actions">
-                <button type="button" class="btn btn-primary" onclick="addNewRow_btn()"> <i class="fas fa-plus"></i> Add New Row </button>
+
+            <div class="col-md-3 mb-3">
+              <label>Vendor</label>
+              <select name="vendor_id" class="form-control select2-js" required>
+                <option value="">Select Vendor</option>
+                @foreach ($vendors as $vendor)
+                  <option value="{{ $vendor->id }}">{{ $vendor->name }}</option>
+                @endforeach
+              </select>
             </div>
-            @if ($errors->has('error'))
-              <strong class="text-danger">{{ $errors->first('error') }}</strong>
-            @endif
-          </header>
-          <div class="card-body">
-                <div class="row form-group mb-2">
-                    <div class="col-6 col-md-2 mb-2">
-                        <label class="col-form-label" >Invoice No.</label>
-                        <input type="text" placeholder="(New Invoice)" class="form-control" disabled>
-                        <input type="hidden" id="itemCount" name="items" value="1" class="form-control">
-                    </div>
-                    <div class="col-6 col-md-2  mb-2">
-                        <label class="col-form-label" >Date</label>
-                        <input type="date" name="pur_date"  value="<?php echo date('Y-m-d'); ?>" class="form-control">
-                    </div>
-                    <div class="col-sm-12 col-md-3 mb-3">
-                        <td>
-                            <label class="col-form-label">Vendor Name<span style="color: red;"><strong>*</strong></span></label>
-                            <select data-plugin-selecttwo class="form-control select2-js"  name="ac_cod" required>
-                                <option value="" disabled selected>Select Vendor</option>
 
-                            </select>
-                        </td>
-                    </div>
-                    <div class="col-6 col-md-2  mb-2">
-                        <label class="col-form-label" >Payment Terms</label>
-                        <input type="text" placeholder="Payment Terms" name="pur_bill_no" class="form-control">
-                    </div>
-                    <div class="col-6 col-md-2 mb-2">
-                        <label class="col-form-label" >Bill #</label>
-                        <input type="text" placeholder="Bill #" name="pur_sale_inv" class="form-control">
-                    </div>
-                    <div class="col-6 col-md-2 mb-2">
-                        <label class="col-form-label" >Ref #</label>
-                        <input type="text" placeholder="Ref #" name="pur_sale_inv" class="form-control">
-                    </div>
-                    <div class="col-sm-12 col-md-4 mb-3">
-                        <label class="col-form-label">Attachements</label>
-                        <input type="file" class="form-control" name="att[]" multiple accept=".zip, appliation/zip, application/pdf, image/png, image/jpeg">
-                    </div>
-
-                    <div class="col-12 mb-2">
-                        <label class="col-form-label">Remarks</label>
-                        <textarea rows="4" cols="50" name="pur_remarks" id="pur_remarks" placeholder="Remarks" class="form-control cust-textarea"></textarea>
-                    </div>	
-                </div>
+            <div class="col-md-2 mb-3">
+              <label>Payment Terms</label>
+              <input type="text" name="payment_terms" class="form-control">
             </div>
-								
-            <div class="col-12 mb-3">
-                <section class="card">
-                    <div class="card-body" style="overflow-x:auto;max-height:450px;overflow-y:auto">
-                        <table class="table table-bordered table-striped mb-0" id="myTable" >
-                            <thead>
-                                <tr>
-                                    <th width="10%">Item Code<span style="color: red;"><strong>*</strong></span></th>
-                                    <th width="20%">Item Name<span style="color: red;"><strong>*</strong></span></th>
-                                    <th width="10%">Bud/Pkg<span style="color: red;"><strong>*</strong></span></th>
-                                    <th width="10%">Qty<span style="color: red;"><strong>*</strong></span></th>
-                                    <th width="10%">Unit<span style="color: red;"><strong>*</strong></span></th>
-                                    <th width="10%">Price<span style="color: red;"><strong>*</strong></span></th>
-                                    <th width="10%">Amount</th>
-                                    <th width="5%"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="Purchase1Table">
-                                <tr>
-                                    <td>
-                                        <input type="text" class="form-control" name="item_cod[]"  id="item_cod1" onchange="getItemDetails(1,1)" required>
-                                    </td>	
-                                    <td>
-                                        <select data-plugin-selecttwo class="form-control select2-js"  id="item_name1" name="item_name[]" onchange="getItemDetails(1,2)" required>
-                                            <option value="" selected disabled>Select Item</option>
-                                        </select>													
-                                    </td>
-                                    <td>
-                                        <input type="text" class="form-control" onchange="rowTotal(1)" id="pur_qty2_1" name="pur_qty2[]" value="0" required>
-                                    </td>
-                                    <td>
-                                        <input type="number" class="form-control" name="pur_qty[]" id="pur_qty1" onchange="rowTotal(1)" value="0" step="any" required>
-                                    </td>
-                                    <td>
-                                        <input type="text" class="form-control" id="remarks1" name="remarks[]">
-                                    </td>
 
-                                    <td>
-                                        <input type="number" class="form-control" name="pur_price[]" id="pur_price1" onchange="rowTotal(1)" value="0" step="any" required>
-                                    </td>
-
-                                    <td>
-                                        <input type="number" class="form-control" id="amount1" onchange="tableTotal()" value="0" disabled required step="any">
-                                    </td>
-
-                                    <td style="vertical-align: middle;">
-                                        <button type="button" onclick="removeRow(this)" class="btn btn-danger" tabindex="1"><i class="fas fa-times"></i></button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <footer class="card-footer" >
-                        <div class="row">
-                            <div class="row form-group mb-3">
-                                <div class="col-6 col-md-2 pb-sm-3 pb-md-0">
-                                    <label class="col-form-label">Total Amount</label>
-                                    <input type="text" id="totalAmount" name="totalAmount" placeholder="Total Amount" class="form-control" disabled>
-                                    <input type="hidden" id="total_amount_show" name="total_amount" placeholder="Total Weight" class="form-control">
-                                </div>
-
-                                <div class="col-6 col-md-2 pb-sm-3 pb-md-0">
-                                    <label class="col-form-label">Total Pkg/Bnd</label>
-                                    <input type="text" id="total_weight" placeholder="Total Weight" class="form-control" disabled>
-                                    <input type="hidden" id="total_weight_show" name="total_weight" placeholder="Total Weight" class="form-control">
-                                </div>
-
-                                <div class="col-6 col-md-2 pb-sm-3 pb-md-0">
-                                    <label class="col-form-label">Total Quantity</label>
-                                    <input type="text" id="total_quantity" placeholder="Total Quantity" class="form-control" disabled>
-                                    <input type="hidden" id="total_quantity_show" name="total_quantity" placeholder="Total Quantity" class="form-control">
-                                </div>
-
-                                <div class="col-6 col-md-2 pb-sm-3 pb-md-0">
-                                    <label class="col-form-label">Convance Charges</label>
-                                    <input type="text" id="convance_charges" onchange="netTotal()" name="pur_convance_char" placeholder="Convance Charges" class="form-control">
-                                </div>
-
-                                <div class="col-6 col-md-2 pb-sm-3 pb-md-0">
-                                    <label class="col-form-label">Labour Charges</label>
-                                    <input type="text" id="labour_charges"  onchange="netTotal()" name="pur_labor_char" placeholder="Labour Charges" class="form-control">
-                                </div>
-                                <div class="col-6 col-md-2 pb-sm-3 pb-md-0">
-                                    <label class="col-form-label">Bill Discount</label>
-                                    <input type="text" id="bill_discount"  onchange="netTotal()" name="bill_discount" placeholder="Bill Discount" class="form-control">
-                                </div>
-                                <div class="col-12 pb-sm-3 pb-md-0 text-end">
-                                    <h3 class="font-weight-bold mt-3 mb-0 text-5 text-primary">Net Amount</h3>
-                                    <span>
-                                        <strong class="text-4 text-primary">PKR <span id="netTotal" class="text-4 text-danger">0.00 </span></strong>
-                                    </span>
-                                    <input type="hidden" id="net_amount" name="net_amount" placeholder="Total Weight" class="form-control">
-                                </div>
-                            </div>
-                        </div>
-                    </footer>
-                    <footer class="card-footer">
-                        <div class="row form-group mb-2">
-                            <div class="text-end">
-                                <button type="button" class="btn btn-danger mt-2"  onclick="window.location='{{ route('purchases.index') }}'"> <i class="fas fa-trash"></i> Discard Invoice</button>
-                                <button type="submit" class="btn btn-primary mt-2"> <i class="fas fa-save"></i> Add Invoice</button>
-                            </div>
-                        </div>
-                    </footer>
-                </section>
+            <div class="col-md-2 mb-3">
+              <label>Bill #</label>
+              <input type="text" name="bill_no" class="form-control">
             </div>
-      </form>
-    </div>
+
+            <div class="col-md-2 mb-3">
+              <label>Ref #</label>
+              <input type="text" name="ref_no" class="form-control">
+            </div>
+
+            <div class="col-md-6 mb-3">
+              <label>Attachments</label>
+              <input type="file" name="attachments[]" class="form-control" multiple accept=".pdf,.jpg,.jpeg,.png,.zip">
+            </div>
+
+            <div class="col-md-12 mb-3">
+              <label>Remarks</label>
+              <textarea name="remarks" class="form-control" rows="3"></textarea>
+            </div>
+          </div>
+
+          <div class="table-responsive mb-3">
+            <table class="table table-bordered" id="purchaseTable">
+              <thead>
+                <tr>
+                  <th>Item Code</th>
+                  <th>Item Name</th>
+                  <th>Bundle</th>
+                  <th>Quantity</th>
+                  <th>Unit</th>
+                  <th>Price</th>
+                  <th>Amount</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="Purchase1Table">
+                <tr>
+                    <td><input type="text" name="item_cod[]" id="item_cod1" class="form-control" onchange="getItemDetails(1,1)"></td>
+                    <td>
+                        <select name="item_name[]" id="item_name1" class="form-control select2-js" onchange="getItemDetails(1,2)">
+                        <option value="">Select Item</option>
+                        @foreach ($products as $product)
+                            <option value="{{ $product->id }}">{{ $product->name }}</option>
+                        @endforeach
+                        </select>
+                    </td>
+                    <td><input type="text" name="bundle[]" id="pur_qty2_1" class="form-control" value="0" onchange="rowTotal(1)"></td>
+                    <td><input type="number" name="quantity[]" id="pur_qty1" class="form-control" value="0" step="any" onchange="rowTotal(1)"></td>
+                    <td><input type="text" name="unit[]" id="remarks1" class="form-control"></td>
+                    <td><input type="number" name="price[]" id="pur_price1" class="form-control" value="0" step="any" onchange="rowTotal(1)"></td>
+                    <td><input type="number" id="amount1" class="form-control" value="0" step="any" disabled></td>
+                    <td>
+                        <button type="button" class="btn btn-danger" onclick="removeRow(this)">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <button type="button" class="btn btn-primary mt-1" onclick="addNewRow_btn()">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </td>                
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-2">
+              <label>Total Amount</label>
+              <input type="text" id="totalAmount" class="form-control" disabled>
+              <input type="hidden" name="total_amount" id="total_amount_show">
+            </div>
+            <div class="col-md-2">
+              <label>Total Bundle</label>
+              <input type="text" id="total_weight" class="form-control" disabled>
+              <input type="hidden" name="total_weight" id="total_weight_show">
+            </div>
+            <div class="col-md-2">
+              <label>Total Quantity</label>
+              <input type="text" id="total_quantity" class="form-control" disabled>
+              <input type="hidden" name="total_quantity" id="total_quantity_show">
+            </div>
+            <div class="col-md-2">
+              <label>Convance Charges</label>
+              <input type="number" name="convance_charges" id="convance_charges" class="form-control" value="0" onchange="netTotal()">
+            </div>
+            <div class="col-md-2">
+              <label>Labour Charges</label>
+              <input type="number" name="labour_charges" id="labour_charges" class="form-control" value="0" onchange="netTotal()">
+            </div>
+            <div class="col-md-2">
+              <label>Bill Discount</label>
+              <input type="number" name="bill_discount" id="bill_discount" class="form-control" value="0" onchange="netTotal()">
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col text-end">
+              <h4>Net Amount: <strong class="text-danger">PKR <span id="netTotal">0.00</span></strong></h4>
+              <input type="hidden" name="net_amount" id="net_amount">
+            </div>
+          </div>
+        </div>
+
+        <footer class="card-footer text-end">
+          <button type="submit" class="btn btn-success"> <i class="fas fa-save"></i> Save Invoice</button>
+        </footer>
+      </section>
+    </form>
   </div>
-
+</div>
 <script>
-	
-	var index=2;
-	var itemCount = Number($('#itemCount').val());
+    var index = 2;
 
-	$(document).ready(function() {
-		$(window).keydown(function(event){
-			if(event.keyCode == 13) {
-				event.preventDefault();
-				return false;
-			}
-		});
-	});
+    $(document).ready(function () {
+        $(window).keydown(function (event) {
+            if (event.keyCode == 13) {
+                event.preventDefault();
+                return false;
+            }
+        });
+
+        $('.select2-js').select2();
+    });
 
     function removeRow(button) {
-		var tableRows = $("#Purchase1Table tr").length;
-		if(tableRows>1){
-			var row = button.parentNode.parentNode;
-			row.parentNode.removeChild(row);
-			index--;	
-			itemCount = Number($('#itemCount').val());
-			itemCount = itemCount-1;
-			$('#itemCount').val(itemCount);
-		}  
-		tableTotal(); 
+        let tableRows = $("#Purchase1Table tr").length;
+        if (tableRows > 1) {
+            $(button).closest('tr').remove();
+            $('#itemCount').val(--tableRows);
+            tableTotal();
+        }
     }
 
-	function addNewRow(){
-		var lastRow =  $('#myTable tr:last');
-		latestValue=lastRow[0].cells[2].querySelector('select').value;
-		if(latestValue!=""){
-			var table = document.getElementById('myTable').getElementsByTagName('tbody')[0];
-			var newRow = table.insertRow(table.rows.length);
+    function addNewRow_btn() {
+        addNewRow();
+        $('#item_cod' + (index - 1)).focus();
+    }
 
-			var cell1 = newRow.insertCell(0);
-			var cell2 = newRow.insertCell(1);
-			var cell3 = newRow.insertCell(2);
-			var cell4 = newRow.insertCell(3);
-			var cell5 = newRow.insertCell(4);
-			var cell6 = newRow.insertCell(5);
-			var cell7 = newRow.insertCell(6);
-			var cell8 = newRow.insertCell(7);
+    function addNewRow() {
+        let table = $("#Purchase1Table");
+        let newRow = `
+            <tr>
+                <td><input type="text" name="item_cod[]" id="item_cod${index}" class="form-control" onchange="getItemDetails(${index},1)"></td>
+                <td>
+                    <select name="item_name[]" id="item_name${index}" class="form-control select2-js" onchange="getItemDetails(${index},2)">
+                        <option value="">Select Item</option>
+                        @foreach ($products as $product)
+                            <option value="{{ $product->id }}">{{ $product->name }}</option>
+                        @endforeach
+                    </select>
+                </td>
+                <td><input type="text" name="bundle[]" id="pur_qty2_${index}" class="form-control" value="0" onchange="rowTotal(${index})"></td>
+                <td><input type="number" name="quantity[]" id="pur_qty${index}" class="form-control" value="0" step="any" onchange="rowTotal(${index})"></td>
+                <td><input type="text" name="unit[]" id="remarks${index}" class="form-control"></td>
+                <td><input type="number" name="price[]" id="pur_price${index}" class="form-control" value="0" step="any" onchange="rowTotal(${index})"></td>
+                <td><input type="number" id="amount${index}" class="form-control" value="0" step="any" disabled></td>
+                <td>
+                    <button type="button" class="btn btn-danger" onclick="removeRow(this)">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button type="button" class="btn btn-primary mt-1" onclick="addNewRow_btn()">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </td>            
+            </tr>
+        `;
+        table.append(newRow);
+        $('#itemCount').val(index);
+        $('#item_name' + index).select2();
+        index++;
+    }
 
-			cell1.innerHTML  = '<input type="text" class="form-control" name="item_cod[]" id="item_cod'+index+'"  onchange="getItemDetails('+index+','+1+')" required>';
-			cell2.innerHTML  = '<input type="text" class="form-control" onchange="rowTotal('+index+')" id="pur_qty2_'+index+'" value="0" name="pur_qty2[]" step="any" required>';
-			cell3.innerHTML  = '<select data-plugin-selecttwo class="form-control select2-js" id="item_name'+index+'"  onchange="getItemDetails('+index+','+2+')" name ="item_name[]" required>'+
-									'<option value="" disabled selected>Select Account</option>'+
-									
-								'</select>';
-			cell4.innerHTML  = '<input type="text" class="form-control" id="remarks'+index+'" name="remarks[]">';
-			cell5.innerHTML  = '<input type="number" id="pur_qty'+index+'" class="form-control" name="pur_qty[]" value="0" onchange="rowTotal('+index+')" step="any" required>';
-			cell6.innerHTML  = '<input type="number" id="pur_price'+index+'" class="form-control" name="pur_price[]"  value="0" onchange="rowTotal('+index+')" step="any" required>';
-			cell7.innerHTML  = '<input type="number" id="amount'+index+'" class="form-control"  value="0" onchange="tableTotal()" step="any" disabled>';
-			cell8.innerHTML = '<button type="button" onclick="removeRow(this)" class="btn btn-danger" tabindex="1"><i class="fas fa-times"></i></button>';
-			index++;
+    function getItemDetails(row_no, option) {
+        let itemId = option === 1 ? $('#item_cod' + row_no).val() : $('#item_name' + row_no).val();
+        $.ajax({
+            url: "{{ route('products.details') }}",
+            method: "GET",
+            data: { id: itemId },
+            success: function (data) {
+                $('#item_cod' + row_no).val(data.code);
+                $('#item_name' + row_no).val(data.id).trigger('change');
+                $('#remarks' + row_no).val(data.unit);
 
-			itemCount = Number($('#itemCount').val());
-			itemCount = itemCount+1;
-			$('#itemCount').val(itemCount);
-			$('#myTable select[data-plugin-selecttwo]').select2();
+                let currentPrice = $('#pur_price' + row_no).val();
+                if (!currentPrice || parseFloat(currentPrice) === 0) {
+                    $('#pur_price' + row_no).val(data.price);
+                }
 
-	
-		}
-	}
-		
-		function addNewRow_btn() {
-
-    		addNewRow(); // Call the same function
-			// Set focus on the new item_code input field
-			document.getElementById('item_cod' + (index - 1)).focus();
+                rowTotal(row_no);
+            },
+            error: function () {
+                alert("Error retrieving item details.");
+            }
+        });
+    }
 
 
-		}
+    function rowTotal(row_no) {
+        let quantity = parseFloat($('#pur_qty' + row_no).val()) || 0;
+        let price = parseFloat($('#pur_price' + row_no).val()) || 0;
+        let amount = (quantity * price).toFixed(2);
+        $('#amount' + row_no).val(amount);
+        tableTotal();
+    }
 
-	function getItemDetails(row_no,option){
-		var itemId;
-		if(option==1){
-			itemId = document.getElementById("item_cod"+row_no).value;
-		}
-		else if(option==2){
-			itemId = document.getElementById("item_name"+row_no).value;
-		}
-		$.ajax({
-			type: "GET",
-			url: "/items/detail",
-			data: {id:itemId},
-			success: function(result){
-				$('#item_cod'+row_no).val(result[0]['it_cod']);
-				$('#item_name'+row_no).val(result[0]['it_cod']).select2();
-				$('#remarks'+row_no).val(result[0]['item_remark']);
-				$('#pur_price'+row_no).val(result[0]['OPP_qty_cost']);
-				addNewRow();
-			},
-			error: function(){
-				alert("error");
-			}
-		});
-		
-	}
+    function tableTotal() {
+        let totalAmount = 0, totalWeight = 0, totalQuantity = 0;
+        $("#Purchase1Table tr").each(function () {
+            totalAmount += parseFloat($(this).find('input[id^="amount"]').val()) || 0;
+            totalWeight += parseFloat($(this).find('input[name="bundle[]"]').val()) || 0;
+            totalQuantity += parseFloat($(this).find('input[name="quantity[]"]').val()) || 0;
+        });
 
-	function getCOADetails(){
-		var coaId = document.getElementById("coa_name").value;
-		
-		$.ajax({
-			type: "GET",
-			url: "/coa/detail",
-			data: {id:coaId},
-			success: function(result){
-				$('#address').val(result[0]['address']);
-				$('#cash_pur_phone').val(result[0]['phone_no']);
-				$('#remarks').val(result[0]['remarks']);
-			},
-			error: function(){
-				alert("error");
-			}
-		});
-	}
+        $('#totalAmount').val(totalAmount.toFixed(2));
+        $('#total_amount_show').val(totalAmount.toFixed(2));
+        $('#total_weight').val(totalWeight.toFixed(2));
+        $('#total_weight_show').val(totalWeight.toFixed(2));
+        $('#total_quantity').val(totalQuantity.toFixed(2));
+        $('#total_quantity_show').val(totalQuantity.toFixed(2));
 
-	function rowTotal(index){
-		var weight = $('#pur_qty'+index+'').val();
-		var price = $('#pur_price'+index+'').val();
-		var amount = weight * price;
-		$('#amount'+index+'').val(amount);
-		tableTotal();
-	}
+        netTotal();
+    }
 
-	function tableTotal(){
-		var totalAmount=0;
-		var totalWeight=0;
-		var totalQuantity=0;
-		var tableRows = $("#Purchase1Table tr").length;
-		var table = document.getElementById('myTable').getElementsByTagName('tbody')[0];
+    function netTotal() {
+        let total = parseFloat($('#totalAmount').val()) || 0;
+        let conv = parseFloat($('#convance_charges').val()) || 0;
+        let labour = parseFloat($('#labour_charges').val()) || 0;
+        let discount = parseFloat($('#bill_discount').val()) || 0;
 
-		for (var i = 0; i < tableRows; i++) {
-			var currentRow =  table.rows[i];
-			totalAmount = totalAmount + Number(currentRow.cells[6].querySelector('input').value);
-			totalWeight = totalWeight + Number(currentRow.cells[4].querySelector('input').value);
-			totalQuantity = totalQuantity + Number(currentRow.cells[1].querySelector('input').value);
-        }
+        let net = (total + conv + labour - discount).toFixed(2);
+        $('#netTotal').text(formatNumberWithCommas(net));
+        $('#net_amount').val(net);
+    }
 
-		$('#totalAmount').val(totalAmount);
-		$('#total_amount_show').val(totalAmount);
-		$('#total_weight').val(totalWeight);
-		$('#total_weight_show').val(totalWeight);
-		$('#total_quantity').val(totalQuantity);
-		$('#total_quantity_show').val(totalQuantity);
-		
-		netTotal();
-	}
-
-	function netTotal(){
-		var netTotal = 0;
-		var total = Number($('#totalAmount').val());
-		var convance_charges = Number($('#convance_charges').val());
-		var labour_charges = Number($('#labour_charges').val());
-		var bill_discount = Number($('#bill_discount').val());
-
-		netTotal = total + convance_charges + labour_charges - bill_discount;
-		netTotal = netTotal.toFixed(0);
-		FormattednetTotal = formatNumberWithCommas(netTotal);
-		document.getElementById("netTotal").innerHTML = '<span class="text-4 text-danger">'+FormattednetTotal+'</span>';
-		$('#net_amount').val(netTotal);
-	}
- 
-	function formatNumberWithCommas(number) {
-    	// Convert number to string and add commas
-    	return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-	}
+    function formatNumberWithCommas(x) {
+        return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
 </script>
+
+
 @endsection

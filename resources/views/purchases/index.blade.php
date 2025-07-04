@@ -19,7 +19,7 @@
             <div style="display: flex;justify-content: space-between;">
                 <h2 class="card-title">All Purchases</h2>
                 <div>
-                  <a href="{{ route('purchases.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Add Purchases </a>
+                  <a href="{{ route('purchase_invoices.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Add Purchases </a>
                 </div>
             </div>
         </header>

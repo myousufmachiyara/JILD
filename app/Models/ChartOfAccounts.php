@@ -28,4 +28,9 @@ class ChartOfAccounts extends Model
     {
         return $this->belongsTo(SubHeadOfAccounts::class, 'shoa_id', 'id');
     }
+
+    public function purchaseInvoices()
+    {
+        return $this->hasMany(PurchaseInvoice::class, 'vendor_id');
+    }
 }

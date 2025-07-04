@@ -120,6 +120,19 @@ class ProductController extends Controller
         return view('products.show', compact('product'));
     }
 
+        public function details(Request $request)
+    {
+        $product = Product::findOrFail($request->id);
+
+        return response()->json([
+            'id' => $product->id,
+            'name' => $product->name,
+            'code' => $product->item_code ?? '',      // If you have `item_code`
+            'unit' => $product->unit ?? '',           // If your table has `unit`
+            'price' => $product->price ?? 0,          // Or get price from variation
+        ]);
+    }
+    
     public function edit($id)
     {
         $product = Product::with(['images', 'variations'])->findOrFail($id);
