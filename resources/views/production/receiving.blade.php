@@ -60,38 +60,36 @@
                   </tr>
                 </thead>
                 <tbody id="PurPOTbleBody">
-                    <tr>
-                                    <td>
-                                        <input type="text" class="form-control" name="item_cod[]"  id="item_cod1" onchange="getItemDetails(1,1)" required>
-                                    </td>	
-                                    <td>
-                                        <select data-plugin-selecttwo class="form-control select2-js"   name="item_name[]" onchange="getItemDetails(1,2)" required>
-                                            <option value="" selected disabled>Select Item</option>
-                                        </select>													
-                                    </td>
-                                    <td>
-                                        <select data-plugin-selecttwo class="form-control select2-js"   name="item_name[]" onchange="getItemDetails(1,2)" required>
-                                            <option value="" selected disabled>Select Variation</option>
-                                        </select>													
-                                    </td>
-                                    <td>
-                                        <input type="number" class="form-control" name="pur_qty[]" id="pur_qty1" onchange="rowTotal(1)" value="0" step="any" disabled>
-                                    </td>
-                                    <td>
-                                        <input type="number" class="form-control" name="pur_qty[]" id="pur_qty1" onchange="rowTotal(1)" value="0" step="any" required>
-                                    </td>
-                                    <td>
-                                        <input type="text" class="form-control" id="remarks1" name="remarks[]">
-                                    </td>
-
-                                    <td>
-                                        <input type="number" class="form-control" id="amount1" onchange="tableTotal()" value="0" disabled required step="any">
-                                    </td>
-
-                                    <td style="vertical-align: middle;">
-                                        <button type="button" onclick="removeRow(this)" class="btn btn-danger" tabindex="1"><i class="fas fa-times"></i></button>
-                                    </td>
-                                </tr>
+                  <tr>
+                    <td>
+                      <input type="text" class="form-control" name="item_cod[]"  id="item_cod1" onchange="getItemDetails(1,1)" required>
+                    </td>	
+                    <td>
+                        <select data-plugin-selecttwo class="form-control select2-js"   name="item_name[]" onchange="getItemDetails(1,2)" required>
+                            <option value="" selected disabled>Select Item</option>
+                        </select>													
+                    </td>
+                    <td>
+                        <select data-plugin-selecttwo class="form-control select2-js"   name="item_name[]" onchange="getItemDetails(1,2)" required>
+                            <option value="" selected disabled>Select Variation</option>
+                        </select>													
+                    </td>
+                    <td>
+                        <input type="number" class="form-control" name="pur_qty[]" id="pur_qty1" onchange="rowTotal(1)" value="0" step="any" disabled>
+                    </td>
+                    <td>
+                        <input type="number" class="form-control" name="pur_qty[]" id="pur_qty1" onchange="rowTotal(1)" value="0" step="any" required>
+                    </td>
+                    <td>
+                        <input type="text" class="form-control" id="remarks1" name="remarks[]">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control" id="amount1" onchange="tableTotal()" value="0" disabled required step="any">
+                    </td>
+                    <td style="vertical-align: middle;">
+                        <button type="button" onclick="removeRow(this)" class="btn btn-danger" tabindex="1"><i class="fas fa-times"></i></button>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
                                   <footer class="card-footer" >

@@ -21,44 +21,42 @@
             <a class="nav-link" href="/"> <i class="fa fa-home" aria-hidden="true"></i><span>Dashboard</span></a>    
           </li>
 
-          <!-- <li class="nav-parent">
-            <a class="nav-link" href="#">
-              <i style="font-size:16px" class="fa fa-layer-group" aria-hidden="true"></i>
-              <span>Purchasing</span>
-            </a>
-            <ul class="nav nav-children">
-              <li><a class="nav-link">Status</a></li>
-              <li><a class="nav-link">All Projects</a></li>	
-            </ul>
-          </li> -->
-          <li class="nav-parent">
-            <a class="nav-link" href="#">
-              <i style="font-size:16px" class="fa fa-layer-group" aria-hidden="true"></i>
-              <span>User</span>
-            </a>
-            <ul class="nav nav-children">
-              <li><a class="nav-link">Roles</a></li>
-              <li><a class="nav-link">All Users</a></li>	
-            </ul>
-          </li>
+          @if(auth()->user()->can('user_roles.index') || auth()->user()->can('users.index'))
+            <li class="nav-parent">
+              <a class="nav-link" href="#"><i class="fa fa-user-shield"></i><span>User Management</span></a>
+              <ul class="nav nav-children">
+                @can('user_roles.index')
+                <li><a class="nav-link" href="{{ route('roles.index') }}">Roles & Permissions</a></li>
+                @endcan
+                @can('users.index')
+                <li><a class="nav-link" href="{{ route('users.index') }}">Users</a></li>
+                @endcan
+              </ul>
+            </li>
+          @endif
 
-          <li class="nav-parent">
-            <a class="nav-link" href="#">
-              <i style="font-size:16px" class="fa fa-layer-group" aria-hidden="true"></i>
-              <span>Accounts</span>
-            </a>
-            <ul class="nav nav-children">
-              <li><a class="nav-link">Sub Heads</a></li>
-              <li><a class="nav-link">All Accounts</a></li>	
-            </ul>
-          </li>
+          @if(auth()->user()->can('coa.index') || auth()->user()->can('shoa.index'))
+            <li class="nav-parent">
+              <a class="nav-link" href="#"><i class="fa fa-book"></i><span>Accounts</span></a>
+              <ul class="nav nav-children">
+                @can('coa.index')
+                <li><a class="nav-link" href="{{ route('coa.index') }}">Chart of Accounts</a></li>
+                @endcan
+                @can('shoa.index')
+                <li><a class="nav-link" href="{{ route('shoa.index') }}">Sub Heads</a></li>
+                @endcan
+              </ul>
+            </li>
+          @endif
 
-          <li>
-            <a class="nav-link" href="/products">
-              <i style="font-size:16px" class="fa fa-layer-group" aria-hidden="true"></i>
-              <span>Products</span>
-            </a>
-          </li>
+            <li class="nav-parent">
+              <a class="nav-link" href="#"><i class="fa fa-book"></i><span>Products</span></a>
+              <ul class="nav nav-children">
+                <li><a class="nav-link" href="{{ route('product-categories.index') }}">Categories</a></li>
+                <li><a class="nav-link" href="{{ route('attributes.index') }}">Attributes</a></li>
+                <li><a class="nav-link" href="{{ route('products.index') }}">All Products</a></li>
+              </ul>
+            </li>
 
           <li>
             <a class="nav-link" href="/purchases">
@@ -74,14 +72,11 @@
             </a>
           </li>
 
-          <li class="nav-parent">
-            <a class="nav-link">
+          <li>
+            <a class="nav-link" href="/sales">
               <i style="font-size:16px" class="fa fa-layer-group" aria-hidden="true"></i>
-              <span>Stock Management</span>
+              <span>Sales</span>
             </a>
-            <ul class="nav nav-children">
-              <li><a class="nav-link">Transfer</a></li>
-            </ul>
           </li>
 
           <li>

@@ -3,125 +3,82 @@
 @section('title', 'Product | All Product')
 
 @section('content')
-  <div class="row">
-    <div class="col">
-      <section class="card">
-        @if (session('success'))
-        <div class="alert alert-success">
-            {{ session('success') }}
-        </div>
-        @elseif (session('error'))
-        <div class="alert alert-danger">
-            {{ session('error') }}
-        </div>
-        @endif
-        <header class="card-header">
-            <div style="display: flex;justify-content: space-between;">
-                <h2 class="card-title">All Products</h2>
-                <div>
-                  <a href="{{ route('products.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Add Products </a>
-                </div>
-            </div>
-        </header>
+<div class="row">
+  <div class="col">
+    <section class="card">
+      @if (session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+      @elseif (session('error'))
+        <div class="alert alert-danger">{{ session('error') }}</div>
+      @endif
 
-        <div class="card-body">
-            <!-- <div class="col-md-12 text-end mb-3">
-                <button class="btn btn-success">Bulk Action</button>
-            </div> -->
-            <!-- <form method="GET" action="" class="mb-3">
-                <div class="row">
-                    <div class="col-md-3">
-                        <label for="date">Filter by Date:</label>
-                        <input type="date" name="date" id="date" class="form-control" value="{{ request('date', date('Y-m-d')) }}">
-                    </div>
-
-                    <div class="col-md-1 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100">Filter</button>
-                    </div>
-                </div>
-            </form> -->
-            <div class="modal-wrapper table-scroll" style="overflow-x: auto;">
-                <table class="table table-bordered table-striped mb-0" id="cust-datatable-default">
-                    <thead>
-                        <tr>
-                            <th><input type="checkbox" id="select-all-tasks"></th>
-                            <th>S.No</th>
-                            <th>Image</th>
-                            <th>Item Name </th>
-                            <th>SKU</th>
-                            <th>Category</th>
-                            <th>M.Cost</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                      
-                    </tbody>
-                </table>
-            </div>
+      <header class="card-header">
+        <div style="display: flex;justify-content: space-between;">
+          <h2 class="card-title">All Products</h2>
+          <div>
+            <a href="{{ route('products.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Add Products</a>
+          </div>
         </div>
-      </section>
+      </header>
 
-    </div>
+      <div class="card-body">
+        <div class="modal-wrapper table-scroll" style="overflow-x: auto;">
+          <table class="table table-bordered table-striped mb-0" id="cust-datatable-default">
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="select-all-tasks"></th>
+                <th>S.No</th>
+                <th>Image</th>
+                <th>Item Name</th>
+                <th>SKU</th>
+                <th>Category</th>
+                <th>M. Cost</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach($products as $index => $product)
+              <tr>
+                <td><input type="checkbox" class="task-checkbox" value="{{ $product->id }}"></td>
+                <td>{{ $index + 1 }}</td>
+                <td>
+                  @if($product->images->first())
+                    <img src="{{ asset('storage/' . $product->images->first()->image_path) }}" width="60" height="60" style="object-fit:cover;border-radius:5px;">
+                  @else
+                    <span class="text-muted">No Image</span>
+                  @endif
+                </td>
+                <td>{{ $product->name }}</td>
+                <td>{{ $product->sku }}</td>
+                <td>{{ $product->category->name ?? '-' }}</td>
+                <td>{{ number_format($product->price, 2) }}</td>
+                <td>
+                  <a href="{{ route('products.edit', $product->id) }}" class="btn btn-sm btn-warning">Edit</a>
+                  <form method="POST" action="{{ route('products.destroy', $product->id) }}" style="display:inline-block">
+                    @csrf
+                    @method('DELETE')
+                    <button class="btn btn-sm btn-danger" onclick="return confirm('Delete this product?')">Delete</button>
+                  </form>
+                </td>
+              </tr>
+              @endforeach
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
   </div>
-  <script>
-    $(document).ready(function(){
-        var table = $('#cust-datatable-default').DataTable(
-            {
-                "pageLength": 100,  // Show all rows
-            }
-        );
+</div>
 
-        // $('#bulk-complete').on('click', function () {
-        //     const ids = $('.task-checkbox:checked').map(function () {
-        //         return this.value;
-        //     }).get();
-
-        //     if (!ids.length) {
-        //         alert('Select tasks first.');
-        //         return;
-        //     }
-
-        //     $.ajax({
-        //         url: "",
-        //         type: 'POST',
-        //         data: {
-        //             _token: '{{ csrf_token() }}',
-        //             task_ids: ids
-        //         },
-        //         success: function () {
-        //             location.reload();
-        //         }
-        //     });
-        // });
-
-        // $('#bulk-delete-tasks').on('click', function () {
-        //     const ids = $('.task-checkbox:checked').map(function () {
-        //         return this.value;
-        //     }).get();
-
-        //     if (!ids.length || !confirm('Are you sure you want to delete selected tasks?')) {
-        //         return;
-        //     }
-
-        //     $.ajax({
-        //         url: "",
-        //         type: 'POST',
-        //         data: {
-        //             _token: '{{ csrf_token() }}',
-        //             task_ids: ids
-        //         },
-        //         success: function () {
-        //             location.reload();
-        //         }
-        //     });
-        // });
+<script>
+  $(document).ready(function () {
+    $('#cust-datatable-default').DataTable({
+      "pageLength": 100
     });
-
 
     $('#select-all-tasks').on('click', function () {
-        $('.task-checkbox').prop('checked', this.checked);
+      $('.task-checkbox').prop('checked', this.checked);
     });
-
-  </script>
+  });
+</script>
 @endsection

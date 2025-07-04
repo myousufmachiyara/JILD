@@ -3,300 +3,198 @@
 @section('title', 'Products | New Product')
 
 @section('content')
-  <div class="row">
-    <div class="col">
-      <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data">
-        @csrf
-        <section class="card">
-          <header class="card-header">
-            <div class="d-flex justify-content-between">
-              <h2 class="card-title">New Product</h2>
+<div class="row">
+  <div class="col">
+    <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data">
+      @csrf
+      <section class="card">
+        <header class="card-header">
+          <h2 class="card-title">New Product</h2>
+        </header>
+
+        <div class="card-body">
+          <div class="row pb-3">
+            <div class="col-md-4">
+              <label>Product Name *</label>
+              <input type="text" name="name" class="form-control" required value="{{ old('name') }}">
+              @error('name')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
-            @if ($errors->has('error'))
-              <strong class="text-danger">{{ $errors->first('error') }}</strong>
-            @endif
-          </header>
-          <div class="card-body">
-            <div class="row pb-3">
-              <div class="col-12 col-md-2 mb-2">
-                <label class="text-lg-end mb-0">Product Name <span style="color: red;"><strong>*</strong></span></label>
-                <input type="text" class="form-control" placeholder="Product Name" name="name" value="{{ old('name') }}" required>
-                @error('name')<div class="text-danger">{{ $message }}</div>@enderror
-              </div>
+            <div class="col-md-4">
+              <label>Category *</label>
+              <select name="category_id" class="form-control select2-js" required id="categorySelect">
+                <option value="" disabled selected>Select Category</option>
+                @foreach($categories as $cat)
+                  <option value="{{ $cat->id }}" data-code="{{ $cat->shortcode }}">{{ $cat->name }}</option>
+                @endforeach
+              </select>
+              @error('category_id')<div class="text-danger">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-md-4">
+              <label>SKU (Auto-generated)</label>
+              <input type="text" class="form-control" id="skuDisplay" disabled>
+              <input type="hidden" name="sku" id="sku" value="{{ old('sku') }}">
+              @error('sku')<div class="text-danger">{{ $message }}</div>@enderror
+            </div>
 
-              <div class="col-12 col-md-2 mb-2">
-                <label>Category <span style="color: red;"><strong>*</strong></span></label>
-                <select data-plugin-selecttwo class="form-control select2-js" name="category_id" required>
-                  <option value="" selected disabled>Select Category</option>
-                  
-                </select>
-                @error('category_id')<div class="text-danger">{{ $message }}</div>@enderror
-              </div>
+            <div class="col-md-4 mt-3">
+              <label>Unit</label>
+              <select name="measurement_unit" class="form-control select2-js" required>
+                <option value="" disabled selected>Select Unit</option>
+                <option value="mtr">Meter</option>
+                <option value="pcs">Pieces</option>
+                <option value="yrd">Yards</option>
+                <option value="rd">Round</option>
+              </select>
+              @error('measurement_unit')<div class="text-danger">{{ $message }}</div>@enderror
+            </div>
 
-              <div class="col-12 col-md-2 mb-2">
-                <label class="text-lg-end mb-0">SKU <span style="color: red;"><strong>(system generated)</strong></span></label>
-                <input type="text" class="form-control" id="base-sku" placeholder="Product SKU" value="{{ old('sku') }}" disabled />
-                <!-- <input type="hidden" class="form-control" id="show-sku" placeholder="Product SKU" name="sku" value="{{ old('sku') }}" required /> -->
-                @error('sku')<div class="text-danger">{{ $message }}</div>@enderror
-              </div>
+            <div class="col-md-4 mt-3">
+              <label>Item Type</label>
+              <select name="item_type" class="form-control select2-js" required>
+                <option value="" disabled selected>Item Type</option>
+                <option value="fg">F.G</option>
+                <option value="raw">Raw</option>
+              </select>
+              @error('item_type')<div class="text-danger">{{ $message }}</div>@enderror
+            </div>
 
-              <div class="col-12 col-md-2 mb-2">
-                <label>Unit</label>
-                <select data-plugin-selecttwo class="form-control select2-js" name="measurement_unit" required>
-                  <option value="" selected disabled>Select Unit</option>
-                  <option value="mtr" {{ old('measurement_unit') == 'mtr' ? 'selected' : '' }}>meter</option>
-                  <option value="pcs" {{ old('measurement_unit') == 'pcs' ? 'selected' : '' }}>pieces</option> 
-                  <option value="yrd" {{ old('measurement_unit') == 'yrd' ? 'selected' : '' }}>yards</option> 
-                  <option value="rd" {{ old('measurement_unit') == 'rd' ? 'selected' : '' }}>round</option> 
-                </select>
-                @error('measurement_unit')<div class="text-danger">{{ $message }}</div>@enderror
-              </div>
+            <div class="col-md-4 mt-3">
+              <label>Manufacturing Cost</label>
+              <input type="number" step=".01" name="price" class="form-control" value="{{ old('price', '0.00') }}">
+              @error('price')<div class="text-danger">{{ $message }}</div>@enderror
+            </div>
 
-              <div class="col-12 col-md-2 mb-2">
-                <label>Item Type</label>
-                <select data-plugin-selecttwo class="form-control select2-js" name="item_type" id="item_type" required>
-                  <option value="" selected disabled>Item Type</option>
-                  <option value="fg" {{ old('item_type') == 'fg' ? 'selected' : '' }}>F.G</option>
-                  <option value="raw" {{ old('item_type') == 'raw' ? 'selected' : '' }}>Raw</option> 
-                </select>
-                @error('item_type')<div class="text-danger">{{ $message }}</div>@enderror
-              </div>
+            <div class="col-md-4 mt-3">
+              <label>Opening Stock</label>
+              <input type="number" name="opening_stock" class="form-control" value="{{ old('opening_stock', '0') }}">
+              @error('opening_stock')<div class="text-danger">{{ $message }}</div>@enderror
+            </div>
 
-                <div class="col-12 col-md-2 mb-2">
-                    <label>Manufacuring Cost</label>
-                    <input type="number" step=".00" class="form-control" value="{{ old('price', '0.00') }}" name="price" required />
-                    @error('price')<div class="text-danger">{{ $message }}</div>@enderror
-                </div>
+            <div class="col-md-8 mt-3">
+              <label>Description</label>
+              <textarea name="description" class="form-control">{{ old('description') }}</textarea>
+              @error('description')<div class="text-danger">{{ $message }}</div>@enderror
+            </div>
 
-                <div class="col-12 col-md-2 mb-2">
-                    <label>Opening</label>
-                    <input type="number" step=".00" class="form-control" value="{{ old('opening_stock', '0') }}" name="opening_stock" required />
-                    @error('opening_stock')<div class="text-danger">{{ $message }}</div>@enderror
-                </div>
-            	
-                <div class="col-12 col-md-3 mb-2">
-                    <label>Images</label>
-                    <input type="file" class="form-control" name="prod_att[]" id="imageUpload" multiple accept="image/png, image/jpeg, image/jpg, image/webp">  
-                    @error('prod_att')<div class="text-danger">{{ $message }}</div>@enderror
-                </div>
-
-                <div class="col-12 col-md-4 mb-2">
-                    <label>Description</label>
-                    <textarea class="form-control" rows="3" placeholder="Description" name="description">{{ old('description') }}</textarea>
-                    @error('description')<div class="text-danger">{{ $message }}</div>@enderror
-                </div>
+            <div class="col-md-12 mt-3">
+              <label>Product Images</label>
+              <input type="file" name="prod_att[]" multiple class="form-control">
+              @error('prod_att')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
           </div>
 
-          <!-- Product variation card body here -->
-          <div class="card-body">
-            <div class="row">
-              <div class="col-6">
-                <div class="card-title mb-3" style="display:inline-block">
-                  Product Has Variations
-                  <input type="hidden" id="hasVariationsHidden" name="has_variations" value="0">
-                  <input type="checkbox" id="toggleTableSwitch" value="1" onchange="toggleVariationFields()">
-                </div>
-
-                <div id="prodVariationsDiv" style="display:none">
-                  <div class="row">
-                    <div class="col-12 col-md-4">
-                      <label>Variation</label>
-                      <select data-plugin-selecttwo class="form-control select2-js" id="attributeSelect" name="variations[0][attribute_id]">
-                        <option value="" selected disabled>Select Variation</option>
-                        
-                      </select>
-                      @error('variations.0.attribute_id')<div class="text-danger">{{ $message }}</div>@enderror
-                    </div>
-
-                    <div class="col-12 col-md-6 mb-2">
-                      <label>Values</label>
-                      <select data-plugin-selecttwo multiple class="form-control select2-js" id="valueSelect">
-                        <option value="" disabled>Values</option>
-                      </select>
-                      @error('variations.0.value_id')<div class="text-danger">{{ $message }}</div>@enderror
-                    </div>
-
-                    <div class="col-12 col-md-2 d-flex align-items-center">
-                      <button type="button" class="btn btn-success" id="generate-variations-btn">Generate</button>
-                    </div>
+          {{-- Attribute Selection --}}
+          <div class="row mt-4">
+            <div class="col-md-12">
+              <h5>Product Variations</h5>
+              <div class="row">
+                @foreach($attributes as $attribute)
+                  <div class="col-md-4">
+                    <label>{{ $attribute->name }}</label>
+                    <select name="attributes[{{ $attribute->id }}][]" multiple class="form-control select2-js variation-select" data-attribute="{{ $attribute->id }}">
+                      @foreach($attribute->values as $value)
+                        <option value="{{ $value->id }}">{{ $value->value }}</option>
+                      @endforeach
+                    </select>
                   </div>
-
-                  <div class="row">
-                    <div class="col-12 col-md-12 mt-3">
-                      <table class="table table-bordered" id="variationsTable">
-                        <thead>
-                          <tr>
-                            <th>Variation</th>
-                            <th>Quantity</th>
-                            <th>Price</th>
-                            <th>SKU <span style="color: red;"><strong>(system generated)</strong></span></th>
-                            <th>Action</th>
-                          </tr>
-                        </thead>
-                        <tbody></tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="col-6">
-                <div id="previewContainer" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;margin-bottom:20px;"></div>
+                @endforeach
               </div>
             </div>
-            <footer class="card-footer text-end">
-              <a class="btn btn-danger" href="{{ route('products.index') }}">Discard</a>
-              <button type="submit" class="btn btn-primary">Create</button>
-            </footer>
           </div>
-        </section>
-      </form>
-    </div>
+
+          {{-- Generate Button and Table --}}
+          <div class="col-md-12 mt-4">
+            <button type="button" class="btn btn-success mb-3" id="generateVariationsBtn">
+              <i class="fa fa-plus"></i> Generate Variations
+            </button>
+
+            <div class="table-responsive">
+              <table class="table table-bordered" id="variationsTable">
+                <thead>
+                  <tr>
+                    <th>Variation</th>
+                    <th>Stock</th>
+                    <th>Price</th>
+                    <th>SKU</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {{-- JS will generate rows here --}}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <footer class="card-footer text-end">
+          <a href="{{ route('products.index') }}" class="btn btn-danger">Cancel</a>
+          <button type="submit" class="btn btn-primary">Create Product</button>
+        </footer>
+      </section>
+    </form>
   </div>
+</div>
 
-  <script>
-    // Toggle variation fields
-    function toggleVariationFields() {
-      const isChecked = document.getElementById('toggleTableSwitch').checked;
-      const variationsDiv = document.getElementById('prodVariationsDiv');
-      const hasVariationsHidden = document.getElementById('hasVariationsHidden'); // Hidden input field
+<script>
+  $(document).ready(function () {
+    $('.select2-js').select2();
 
-      variationsDiv.style.display = isChecked ? 'block' : 'none';
+    $('#categorySelect').on('change', function () {
+      const selected = $(this).find(':selected');
+      const code = selected.data('code');
+      const sku = code + '-' + Math.floor(1000 + Math.random() * 9000);
+      $('#skuDisplay').val(sku);
+      $('#sku').val(sku);
+    });
 
-      // Update the hidden input value
-      hasVariationsHidden.value = isChecked ? "1" : "0";
+    $('#generateVariationsBtn').click(function () {
+      let attributes = {!! $attributes->toJson() !!};
+      let selectedMap = {};
 
-      // Get variation fields
-      const attributeSelect = document.getElementById('attributeSelect');
-      const valueSelect = document.getElementById('valueSelect');
+      attributes.forEach(attr => {
+        let selected = $(`select[name="attributes[${attr.id}][]"]`).val();
+        if (selected && selected.length > 0) {
+          selectedMap[attr.name] = selected.map(valId => {
+            let text = $(`select[name="attributes[${attr.id}][]"] option[value="${valId}"]`).text();
+            return { id: valId, text: text };
+          });
+        }
+      });
 
-      if (isChecked) {
-        attributeSelect.setAttribute("required", "required");
-        
-        // Custom required check for multiple select
-        valueSelect.onchange = function() {
-          if (valueSelect.selectedOptions.length === 0) {
-            valueSelect.setCustomValidity("Please select at least one variation value.");
-          } else {
-            valueSelect.setCustomValidity("");
-          }
-        };
-      } else {
-        attributeSelect.removeAttribute("required");
-        valueSelect.onchange = null;
-        valueSelect.setCustomValidity(""); // Reset custom validity
+      let combos = buildCombinations(Object.entries(selectedMap));
+      let tbody = $('#variationsTable tbody');
+      tbody.empty();
 
-        $("#variationsTable tbody").empty(); // Clear variation table
-      }
+      combos.forEach((combo, index) => {
+        let label = combo.map(c => c.text).join(' - ');
+        let inputs = combo.map((c, i) => `
+          <input type="hidden" name="variations[${index}][attributes][${i}][attribute_value_id]" value="${c.id}">
+        `).join('');
+
+        tbody.append(`
+          <tr>
+            <td>${label}${inputs}</td>
+            <td><input type="number" name="variations[${index}][stock]" class="form-control" value="0" required></td>
+            <td><input type="number" name="variations[${index}][price]" class="form-control" value="0" required></td>
+            <td><input type="text" name="variations[${index}][sku]" class="form-control"></td>
+            <td><button type="button" class="btn btn-sm btn-danger remove-variation">X</button></td>
+          </tr>
+        `);
+      });
+    });
+
+    $(document).on('click', '.remove-variation', function () {
+      $(this).closest('tr').remove();
+    });
+
+    function buildCombinations(arr, index = 0) {
+      if (index === arr.length) return [[]];
+      let [key, values] = arr[index];
+      let rest = buildCombinations(arr, index + 1);
+      return values.flatMap(v => rest.map(r => [v, ...r]));
     }
-
-    $(document).ready(function () {
-      // Initialize Select2
-      $('.select2-js').select2();
-
-      // Define attribute-values from Laravel Blade
-      let attributeValues = "";
-
-      // Populate values dropdown when attribute changes
-      $("#attributeSelect").change(function () {
-        let selectedAttributeId = $(this).val();
-        let valuesDropdown = $("#valueSelect");
-
-        valuesDropdown.empty(); // Clear existing options
-
-        if (selectedAttributeId) {
-          let selectedAttribute = attributeValues.find(attr => attr.id == selectedAttributeId);
-          if (selectedAttribute && selectedAttribute.values.length > 0) {
-            selectedAttribute.values.forEach(function (value) {
-              valuesDropdown.append('<option value="' + value.id + '">' + value.value + '</option>');
-            });
-          }
-        }
-        valuesDropdown.trigger("change"); // Refresh Select2 UI
-      });
-
-      // Add selected variations to the table
-      $("#generate-variations-btn").click(function () {
-
-        let selectedAttributeText = $("#attributeSelect option:selected").text();
-        let selectedAttributeId = $("#attributeSelect option:selected").val();
-        let selectedValues = $("#valueSelect").val(); // Get selected values
-        let tableBody = $("#variationsTable tbody");
-
-        tableBody.empty();
-        
-        if (!selectedAttributeText || selectedValues.length === 0) {
-          alert("Please select an attribute and at least one value.");
-          return;
-        }
-
-        selectedValues.forEach((valueId, index) => { // Added index here
-          let valueText = $("#valueSelect option[value='" + valueId + "']").text();
-          // let sku = $('#base-sku').val();
-          // let value= ${sku}${valueText}; 
-
-          // Prevent duplicate entries
-          if ($("#variationsTable tbody tr[data-value='" + valueId + "']").length === 0) {
-              let row = `
-              <tr data-value="${valueId}"> 
-                <td><strong>${selectedAttributeText}:</strong> ${valueText}
-                  <input type="hidden" class="form-control" name="variations[${index}][attribute_id]" value="1" required>
-                  <input type="hidden" class="form-control" name="variations[${index}][attribute_value_id]" value="${valueId}" required>
-                </td>
-                <td><input type="number" class="form-control" name="variations[${index}][stock]" value="0" required></td>
-                <td><input type="number" class="form-control" name="variations[${index}][price]" value="0" required></td>
-                <td><input type="text" class="form-control" name="variations[${index}][sku]" disabled></td>
-                <td><button class="btn btn-danger remove-btn btn-xs"><i class="fa fa-times"></i></button></td>
-              </tr>`;
-              tableBody.append(row);
-          }
-        });
-      });
-
-      // Remove row from table
-      $(document).on("click", ".remove-btn", function () {
-        $(this).closest("tr").remove();
-      });
-
-      // $('select[name="category_id"]').on('change', function() {
-      //   var selectedOption = $(this).find('option:selected'); 
-      //   var dataDisplay = selectedOption.data('display'); 
-      //   let sku = dataDisplay + "-";
-      //   document.getElementById("base-sku").value = sku;
-      //   document.getElementById("show-sku").value = sku;
-      // });
-
-
-      // Trigger on change
-      $('#item_type').change(toggleDivs);
-
-      // Trigger on page load in case of old value
-      toggleDivs();
-    });
-
-    document.getElementById("imageUpload").addEventListener("change", function(event) {
-        const files = event.target.files;
-        const previewContainer = document.getElementById("previewContainer");
-        previewContainer.innerHTML = ""; // Clear previous previews
-
-        for (let file of files) {
-            if (file && file.type.startsWith("image/")) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const img = document.createElement("img");
-                    img.src = e.target.result;
-                    img.style.maxWidth = "200px"; // Adjust preview size
-                    img.style.maxHeight = "200px";
-                    img.style.border = "1px solid #ddd";
-                    img.style.borderRadius = "5px";
-                    img.style.padding = "5px";
-                    previewContainer.appendChild(img);
-                };
-                reader.readAsDataURL(file);
-            }
-        }
-    });
-
-  </script>
+  });
+</script>
 @endsection
