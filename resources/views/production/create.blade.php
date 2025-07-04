@@ -36,7 +36,9 @@
                   <label>Category<span style="color: red;"><strong>*</strong></span></label>
                   <select data-plugin-selecttwo class="form-control select2-js" name="category_id" required>  <!-- Added name attribute for form submission -->
                     <option value="" selected disabled>Select Category</option>
-                   
+                      @foreach($categories as $item)	
+                        <option value="{{$item->id}}">{{$item->name}}</option>
+                      @endforeach
                   </select>
                 </div>
 
@@ -44,7 +46,9 @@
                   <label>Vendor Name</label>
                   <select data-plugin-selecttwo class="form-control select2-js" name="vendor_id" id="vendor_name" required>  <!-- Added name attribute for form submission -->
                     <option value="" selected disabled>Select Vendor</option>
-                    
+                      @foreach($vendors as $item)	
+                        <option value="{{$item->id}}">{{$item->name}}</option>
+                      @endforeach
                   </select>
                 </div>
                 <div class="col-12 col-md-2 mb-3">

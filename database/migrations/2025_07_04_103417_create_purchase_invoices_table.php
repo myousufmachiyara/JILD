@@ -24,6 +24,8 @@ return new class extends Migration
             $table->decimal('bill_discount', 15, 2)->default(0);
             $table->unsignedBigInteger('created_by');
             $table->timestamps();
+            $table->softDeletes();
+
         });
     }
 

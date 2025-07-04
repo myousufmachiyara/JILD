@@ -20,7 +20,7 @@
                 <h2 class="card-title">All Purchases</h2>
                 <div>
                   <a href="{{ route('production.receiving') }}" class="btn btn-success"><i class="fas fa-download"></i> Receiving </a>
-                 <a href="{{ route('production.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Add Purchases </a>
+                 <a href="{{ route('production.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> New Production </a>
                 </div>
             </div>
         </header>

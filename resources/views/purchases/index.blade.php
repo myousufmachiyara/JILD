@@ -1,127 +1,80 @@
 @extends('layouts.app')
 
-@section('title', 'Purchases | All Purchases')
+@section('title', 'Purchases | All Invoices')
 
 @section('content')
-  <div class="row">
-    <div class="col">
-      <section class="card">
-        @if (session('success'))
-        <div class="alert alert-success">
-            {{ session('success') }}
-        </div>
-        @elseif (session('error'))
-        <div class="alert alert-danger">
-            {{ session('error') }}
-        </div>
-        @endif
-        <header class="card-header">
-            <div style="display: flex;justify-content: space-between;">
-                <h2 class="card-title">All Purchases</h2>
-                <div>
-                  <a href="{{ route('purchase_invoices.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Add Purchases </a>
-                </div>
-            </div>
-        </header>
+<div class="row">
+  <div class="col">
+    <section class="card">
+      @if (session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+      @elseif (session('error'))
+        <div class="alert alert-danger">{{ session('error') }}</div>
+      @endif
 
-        <div class="card-body">
-            <!-- <div class="col-md-12 text-end mb-3">
-                <button class="btn btn-success">Bulk Action</button>
-            </div> -->
-            <!-- <form method="GET" action="" class="mb-3">
-                <div class="row">
-                    <div class="col-md-3">
-                        <label for="date">Filter by Date:</label>
-                        <input type="date" name="date" id="date" class="form-control" value="{{ request('date', date('Y-m-d')) }}">
-                    </div>
+      <header class="card-header d-flex justify-content-between align-items-center">
+        <h2 class="card-title">All Purchase Invoices</h2>
+        <a href="{{ route('purchase_invoices.create') }}" class="btn btn-primary">
+          <i class="fas fa-plus"></i> Add Purchase Invoice
+        </a>
+      </header>
 
-                    <div class="col-md-1 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100">Filter</button>
-                    </div>
-                </div>
-            </form> -->
-            <div class="modal-wrapper table-scroll" style="overflow-x: auto;">
-                <table class="table table-bordered table-striped mb-0" id="cust-datatable-default">
-                    <thead>
-                        <tr>
-                            <th><input type="checkbox" id="select-all-tasks"></th>
-                            <th>Purchase #</th>
-                            <th>Date</th>
-                            <th>Vendor</th>
-                            <th>Gate Pass/Job No.</th>
-                            <th>Bill Amount</th>
-                            <th>Payment Term</th>
-                            <th>Att.</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                      
-                    </tbody>
-                </table>
-            </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-bordered table-striped" id="purchaseInvoiceTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Invoice Date</th>
+                <th>Vendor</th>
+                <th>Bill No</th>
+                <th>Ref No</th>
+                <th>Attachments</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach ($invoices as $index => $invoice)
+              <tr>
+                <td>{{ $index + 1 }}</td>
+                <td>{{ \Carbon\Carbon::parse($invoice->invoice_date)->format('d-M-Y') }}</td>
+                <td>{{ $invoice->vendor->name ?? 'N/A' }}</td>
+                <td>{{ $invoice->bill_no }}</td>
+                <td>{{ $invoice->ref_no }}</td>
+                <td>
+                  @if($invoice->attachments && count($invoice->attachments))
+                    @foreach ($invoice->attachments as $file)
+                      <a href="{{ asset('storage/' . $file->attachment_path) }}" target="_blank">View</a><br>
+                    @endforeach
+                  @else
+                    N/A
+                  @endif
+                </td>
+                <td>
+                  <a href="{{ route('purchase_invoices.edit', $invoice->id) }}" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
+                  <a href="{{ route('purchase_invoices.print', $invoice->id) }}" target="_blank" class="btn btn-sm btn-secondary"><i class="fas fa-print"></i></a>
+                  <form action="{{ route('purchase_invoices.destroy', $invoice->id) }}" method="POST" style="display:inline;">
+                    @csrf
+                    @method('DELETE')
+                    <button class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')"><i class="fas fa-trash"></i></button>
+                  </form>
+                </td>
+              </tr>
+              @endforeach
+            </tbody>
+          </table>
         </div>
-      </section>
-
-    </div>
+      </div>
+    </section>
   </div>
-  <script>
-    $(document).ready(function(){
-        var table = $('#cust-datatable-default').DataTable(
-            {
-                "pageLength": 100,  // Show all rows
-            }
-        );
+</div>
 
-        // $('#bulk-complete').on('click', function () {
-        //     const ids = $('.task-checkbox:checked').map(function () {
-        //         return this.value;
-        //     }).get();
-
-        //     if (!ids.length) {
-        //         alert('Select tasks first.');
-        //         return;
-        //     }
-
-        //     $.ajax({
-        //         url: "",
-        //         type: 'POST',
-        //         data: {
-        //             _token: '{{ csrf_token() }}',
-        //             task_ids: ids
-        //         },
-        //         success: function () {
-        //             location.reload();
-        //         }
-        //     });
-        // });
-
-        // $('#bulk-delete-tasks').on('click', function () {
-        //     const ids = $('.task-checkbox:checked').map(function () {
-        //         return this.value;
-        //     }).get();
-
-        //     if (!ids.length || !confirm('Are you sure you want to delete selected tasks?')) {
-        //         return;
-        //     }
-
-        //     $.ajax({
-        //         url: "",
-        //         type: 'POST',
-        //         data: {
-        //             _token: '{{ csrf_token() }}',
-        //             task_ids: ids
-        //         },
-        //         success: function () {
-        //             location.reload();
-        //         }
-        //     });
-        // });
+<script>
+  $(document).ready(function() {
+    $('#purchaseInvoiceTable').DataTable({
+      pageLength: 50,
+      order: [[0, 'desc']],
     });
-
-    $('#select-all-tasks').on('click', function () {
-        $('.task-checkbox').prop('checked', this.checked);
-    });
-
-  </script>
+  });
+</script>
 @endsection

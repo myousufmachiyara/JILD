@@ -16,7 +16,8 @@ use App\Http\Controllers\{
     UserController,
     RoleController,
     AttributeController,
-    ProductCategoryController
+    ProductCategoryController,
+    ProductionReceivingController
 };
 
 Auth::routes();
@@ -30,7 +31,8 @@ Route::middleware(['auth', RoleMiddleware::class . ':admin|superadmin'])->group(
 Route::middleware(['auth'])->group(function () {
     
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/products/details', [ProductController::class, 'details'])->name('products.details');
+    Route::get('/products/details', [ProductController::class, 'details'])->name('products.receiving');
+    Route::get('/production_receiving', [ProductionReceivingController::class, 'index'])->name('production.receiving');
 
     $modules = [
         'coa' => ['controller' => COAController::class, 'permission' => 'coa'],
@@ -70,7 +72,7 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('attributes')->name('attributes.')->group(function () {
         Route::get('/', [AttributeController::class, 'index'])->name('index');
         Route::post('/', [AttributeController::class, 'store'])->name('store');
-        Route::put('/{attribute}', [AttributeController::class, 'update'])->name('update'); // ✅ Added for Edit
+        Route::put('/{attribute}', [AttributeController::class, 'update'])->name('update');
         Route::delete('/{attribute}', [AttributeController::class, 'destroy'])->name('destroy');
     });
 

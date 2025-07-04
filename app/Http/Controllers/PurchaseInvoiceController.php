@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class PurchaseInvoiceController extends Controller
 {
@@ -31,10 +32,24 @@ class PurchaseInvoiceController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'vendor_id' => 'required|exists:chart_of_accounts,id',
             'invoice_date' => 'required|date',
-            'pur_qty.*' => 'required|numeric|min:0.01',
-            'pur_price.*' => 'required|numeric|min:0',
+            'vendor_id' => 'required|exists:chart_of_accounts,id',
+            'payment_terms' => 'nullable|string',
+            'bill_no' => 'nullable|string|max:100',
+            'ref_no' => 'nullable|string|max:100',
+            'remarks' => 'nullable|string',
+            'attachments.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf,zip|max:2048',
+
+            'item_cod.*' => 'nullable|string',
+            'item_name.*' => 'required|exists:products,id',
+            'bundle.*' => 'nullable|numeric',
+            'quantity.*' => 'required|numeric',
+            'unit.*' => 'nullable|string|max:50',
+            'price.*' => 'required|numeric',
+
+            'convance_charges' => 'nullable|numeric',
+            'labour_charges' => 'nullable|numeric',
+            'bill_discount' => 'nullable|numeric',
         ]);
 
         DB::beginTransaction();
@@ -42,48 +57,50 @@ class PurchaseInvoiceController extends Controller
         try {
             $invoice = PurchaseInvoice::create([
                 'vendor_id' => $request->vendor_id,
-                'invoice_date' => $request->pur_date,
-                'payment_terms' => $request->pur_bill_no,
-                'bill_no' => $request->pur_sale_inv,
+                'invoice_date' => $request->invoice_date,
+                'payment_terms' => $request->payment_terms,
+                'bill_no' => $request->bill_no,
                 'ref_no' => $request->ref_no,
-                'remarks' => $request->pur_remarks,
-                'convance_charges' => $request->pur_convance_char ?? 0,
-                'labour_charges' => $request->pur_labor_char ?? 0,
+                'remarks' => $request->remarks,
+                'convance_charges' => $request->convance_charges ?? 0,
+                'labour_charges' => $request->labour_charges ?? 0,
                 'bill_discount' => $request->bill_discount ?? 0,
-                'created_by' => Auth::id(),
+                'created_by' => auth()->id(),
             ]);
 
-            foreach ($request->item_cod as $index => $code) {
-                PurchaseInvoiceItem::create([
-                    'purchase_invoice_id' => $invoice->id,
-                    'item_id' => $code,
-                    'item_name' => $request->item_name[$index] ?? null,
-                    'bundle' => $request->pur_qty2[$index] ?? 0,
-                    'quantity' => $request->pur_qty[$index],
-                    'unit' => $request->remarks[$index] ?? null,
-                    'price' => $request->pur_price[$index],
-                    'remarks' => $request->remarks[$index] ?? null,
+            // Save item rows
+            foreach ($request->item_name as $index => $product_id) {
+                $invoice->items()->create([
+                    'item_id' => $product_id,
+                    'item_name' => Product::find($product_id)->name,
+                    'item_code' => $request->item_cod[$index] ?? null,
+                    'bundle' => $request->bundle[$index] ?? 0,
+                    'quantity' => $request->quantity[$index] ?? 0,
+                    'unit' => $request->unit[$index] ?? '',
+                    'price' => $request->price[$index] ?? 0,
+                    'amount' => ($request->price[$index] ?? 0) * ($request->quantity[$index] ?? 0),
                 ]);
             }
 
-            if ($request->hasFile('att')) {
-                foreach ($request->file('att') as $file) {
-                    $fileName = time() . '_' . $file->getClientOriginalName();
-                    $path = $file->storeAs('purchase_invoices', $fileName, 'public');
-
+            // Handle attachments
+            if ($request->hasFile('attachments')) {
+                foreach ($request->file('attachments') as $file) {
+                    $path = $file->store('purchase_invoices', 'public');
                     $invoice->attachments()->create([
                         'file_path' => $path,
-                        'file_name' => $file->getClientOriginalName(),
                     ]);
                 }
             }
 
             DB::commit();
             return redirect()->route('purchases.index')->with('success', 'Purchase Invoice created successfully.');
-
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Failed to create invoice. ' . $e->getMessage()]);
+            Log::error('Purchase Invoice Store Error', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return back()->withErrors(['error' => 'Failed to create invoice. Please try again.']);
         }
     }
 
@@ -91,7 +108,9 @@ class PurchaseInvoiceController extends Controller
     {
         $invoice = PurchaseInvoice::with(['items', 'attachments'])->findOrFail($id);
         $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
-        return view('purchases.edit', compact('invoice', 'vendors'));
+        $products = Product::all(); // Needed for the item dropdown
+
+        return view('purchases.edit', compact('invoice', 'vendors', 'products'));
     }
 
     public function update(Request $request, $id)
@@ -110,36 +129,49 @@ class PurchaseInvoiceController extends Controller
 
             $invoice->update([
                 'vendor_id' => $request->vendor_id,
-                'invoice_date' => $request->pur_date,
-                'payment_terms' => $request->pur_bill_no,
-                'bill_no' => $request->pur_sale_inv,
+                'invoice_date' => $request->invoice_date,
+                'payment_terms' => $request->payment_terms,
+                'bill_no' => $request->bill_no,
                 'ref_no' => $request->ref_no,
-                'remarks' => $request->pur_remarks,
-                'convance_charges' => $request->pur_convance_char ?? 0,
-                'labour_charges' => $request->pur_labor_char ?? 0,
+                'remarks' => $request->remarks,
+                'convance_charges' => $request->convance_charges ?? 0,
+                'labour_charges' => $request->labour_charges ?? 0,
                 'bill_discount' => $request->bill_discount ?? 0,
+            ]);
+
+            Log::info('[PurchaseInvoice Update] Invoice updated', [
+                'invoice_id' => $invoice->id,
+                'user_id' => auth()->id(),
             ]);
 
             // Delete old items
             $invoice->items()->delete();
+            Log::info('[PurchaseInvoice Update] Old items deleted', [
+                'invoice_id' => $invoice->id
+            ]);
 
             // Insert updated items
             foreach ($request->item_cod as $index => $code) {
-                PurchaseInvoiceItem::create([
+                $item = PurchaseInvoiceItem::create([
                     'purchase_invoice_id' => $invoice->id,
-                    'item_id' => $code,
-                    'item_name' => $request->item_name[$index] ?? null,
-                    'bundle' => $request->pur_qty2[$index] ?? 0,
-                    'quantity' => $request->pur_qty[$index],
-                    'unit' => $request->remarks[$index] ?? null,
-                    'price' => $request->pur_price[$index],
-                    'remarks' => $request->remarks[$index] ?? null,
+                    'item_id' => $request->item_name[$index], // actual product ID
+                    'item_name' => $code ?? null,              // this could be item code
+                    'bundle' => $request->bundle[$index] ?? 0,
+                    'quantity' => $request->quantity[$index],
+                    'unit' => $request->unit[$index] ?? null,
+                    'price' => $request->price[$index],
+                    'remarks' => $request->unit[$index] ?? null,
+                ]);
+
+                Log::info('[PurchaseInvoice Update] Item added', [
+                    'invoice_id' => $invoice->id,
+                    'item_id' => $item->id,
                 ]);
             }
 
             // Add new attachments if any
-            if ($request->hasFile('att')) {
-                foreach ($request->file('att') as $file) {
+            if ($request->hasFile('attachments')) {
+                foreach ($request->file('attachments') as $file) {
                     $fileName = time() . '_' . $file->getClientOriginalName();
                     $path = $file->storeAs('purchase_invoices', $fileName, 'public');
 
@@ -147,14 +179,27 @@ class PurchaseInvoiceController extends Controller
                         'file_path' => $path,
                         'file_name' => $file->getClientOriginalName(),
                     ]);
+
+                    Log::info('[PurchaseInvoice Update] Attachment uploaded', [
+                        'invoice_id' => $invoice->id,
+                        'file' => $fileName,
+                    ]);
                 }
             }
 
             DB::commit();
-            return redirect()->route('purchases.index')->with('success', 'Purchase Invoice updated successfully.');
+            return redirect()->route('purchase_invoices.index')->with('success', 'Purchase Invoice updated successfully.');
 
         } catch (\Throwable $e) {
             DB::rollBack();
+
+            Log::error('[PurchaseInvoice Update] Update failed', [
+                'invoice_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'user_id' => auth()->id(),
+            ]);
+
             return back()->withErrors(['error' => 'Update failed. ' . $e->getMessage()]);
         }
     }
@@ -170,6 +215,6 @@ class PurchaseInvoiceController extends Controller
 
         $invoice->delete();
 
-        return redirect()->route('purchases.index')->with('success', 'Purchase Invoice deleted successfully.');
+        return redirect()->route('purchase_invoices.index')->with('success', 'Purchase Invoice deleted successfully.');
     }
 }
