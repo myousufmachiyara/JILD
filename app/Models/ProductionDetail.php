@@ -14,7 +14,7 @@ class ProductionDetail extends Model
         'product_id',
         'qty',
         'rate',
-        'total',
+        'unit',
     ];
 
     public function production()

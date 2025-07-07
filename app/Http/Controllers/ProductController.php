@@ -53,7 +53,6 @@ class ProductController extends Controller
                 'sku' => $request->sku,
                 'barcode' => $request->barcode,
                 'description' => $request->description,
-                'status' => $request->status ?? 'active',
                 'measurement_unit' => $request->measurement_unit,
                 'item_type' => $request->item_type,
                 'price' => $request->price,

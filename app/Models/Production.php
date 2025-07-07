@@ -14,10 +14,9 @@ class Production extends Model
         'vendor_id',
         'category_id',
         'order_date',
-        'order_by',
-        'production_type', // 1 = Sale Raw, 2 = Manufacturing Cost
+        'production_type',
         'remarks',
-        'net_amount',
+        'created_by',
     ];
 
     public function vendor()
@@ -27,7 +26,7 @@ class Production extends Model
 
     public function category()
     {
-        return $this->belongsTo(Category::class); // if category table exists
+        return $this->belongsTo(ProductCategory::class); // if category table exists
     }
 
     public function details()

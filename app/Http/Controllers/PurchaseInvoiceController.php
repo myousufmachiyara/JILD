@@ -93,7 +93,7 @@ class PurchaseInvoiceController extends Controller
             }
 
             DB::commit();
-            return redirect()->route('purchases.index')->with('success', 'Purchase Invoice created successfully.');
+            return redirect()->route('purchase_invoices.index')->with('success', 'Purchase Invoice created successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Purchase Invoice Store Error', [

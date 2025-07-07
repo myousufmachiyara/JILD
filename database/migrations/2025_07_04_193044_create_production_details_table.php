@@ -16,8 +16,8 @@ return new class extends Migration
             $table->unsignedBigInteger('production_id');
             $table->unsignedBigInteger('product_id');
             $table->decimal('rate', 15, 2);
-            $table->decimal('quantity_issued', 15, 2);
-            $table->string('unit')->nullable();
+            $table->decimal('qty', 15, 2);
+            $table->string('unit');
             $table->timestamps();
 
             $table->foreign('production_id')->references('id')->on('productions')->onDelete('cascade');
