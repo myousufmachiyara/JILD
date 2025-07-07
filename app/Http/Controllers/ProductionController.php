@@ -80,7 +80,7 @@ class ProductionController extends Controller
 
     public function edit($id)
     {
-        $production = Production::with('items')->findOrFail($id);
+        $production = Production::with('details')->findOrFail($id);
         $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
         $categories = ProductCategory::all();
         $products = Product::all();

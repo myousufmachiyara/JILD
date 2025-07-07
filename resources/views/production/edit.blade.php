@@ -94,7 +94,7 @@
                 </tr>
               </thead>
               <tbody id="PurPOTbleBody">
-                @foreach($production->items as $key => $item)
+                @foreach($production->details as $key => $item)
                 <tr>
                   <td>
                     <select class="form-control select2-js" name="item_details[{{ $key }}][product_id]" id="productSelect{{ $key }}" onchange="getData({{ $key }})" required>
@@ -107,7 +107,7 @@
                   <td><input type="number" name="item_details[{{ $key }}][item_rate]" id="item_rate_{{ $key }}" value="{{ $item->rate }}" step="any" onchange="rowTotal({{ $key }})" class="form-control" required/></td>
                   <td><input type="number" name="item_details[{{ $key }}][qty]" id="item_qty_{{ $key }}" value="{{ $item->qty }}" step="any" onchange="rowTotal({{ $key }})" class="form-control" required/></td>
                   <td>
-                    <select class="form-control select2-js" name="item_details[{{ $key }}][item_unit]" id="item_unit_{{ $key }}" required>
+                    <select class="form-control" name="item_details[{{ $key }}][item_unit]" id="item_unit_{{ $key }}" required>
                       <option value="mtr" {{ $item->unit == 'mtr' ? 'selected' : '' }}>Meter</option>
                       <option value="sq_ft" {{ $item->unit == 'sq_ft' ? 'selected' : '' }}>Sq.ft</option>
                     </select>
@@ -178,11 +178,156 @@
 </div>
 
 <script>
-  var index = {{ count($production->items) }};
-  const allProducts = @json($allProducts);
-
-  // (reuse same JS functions from create view: removeRow, addNewRow, rowTotal, tableTotal, updateNetTotal, formatNumberWithCommas, getData, generateVoucher)
+  const allProducts = @json($allProducts ?? []);
+  let index = {{ count($production->items ?? []) }};
 </script>
+
+<script>
+
+  function removeRow(button) {
+    const tableRows = $("#PurPOTbleBody tr").length;
+    if (tableRows > 1) {
+      const row = button.closest('tr');
+      row.remove();
+      index--;
+      tableTotal();
+    }
+  }
+
+  function addNewRow() {
+    const table = document.getElementById('myTable').getElementsByTagName('tbody')[0];
+
+    const options = allProducts.map(p =>
+      `<option value="${p.id}" data-unit="${p.unit}">${p.name}</option>`
+    ).join('');
+
+    const newRow = table.insertRow();
+    newRow.innerHTML = `
+      <td>
+        <select class="form-control select2-js" name="item_details[${index}][product_id]" id="productSelect${index}" onchange="getData(${index})" required>
+          <option value="" disabled selected>Select Fabric</option>
+          ${options}
+        </select>
+      </td>
+      <td><input type="number" name="item_details[${index}][item_rate]" id="item_rate_${index}" step="any" value="0" onchange="rowTotal(${index})" class="form-control" required/></td>
+      <td><input type="number" name="item_details[${index}][qty]" id="item_qty_${index}" step="any" value="0" onchange="rowTotal(${index})" class="form-control" required/></td>
+      <td>
+        <select class="form-control" name="item_details[${index}][item_unit]" id="item_unit_${index}" required>
+          <option value="" disabled selected>Select Unit</option>
+          <option value="mtr">Meter</option>
+          <option value="sq_ft">Sq.ft</option>
+        </select>
+      </td>
+      <td><input type="number" id="item_total_${index}" class="form-control" placeholder="Total" disabled/></td>
+      <td>
+        <button type="button" onclick="removeRow(this)" class="btn btn-danger btn-xs"><i class="fas fa-times"></i></button>
+        <button type="button" onclick="addNewRow()" class="btn btn-primary btn-xs"><i class="fa fa-plus"></i></button>
+      </td>
+    `;
+
+    // ❗ Destroy existing Select2 instances to prevent duplicate initializations
+      $('.select2-js').each(function () {
+      if ($(this).hasClass("select2-hidden-accessible")) {
+        $(this).select2('destroy');
+      }
+    });
+
+    // Now re-initialize all
+    $('.select2-js').select2();
+    index++;
+  }
+
+  function rowTotal(i) {
+    const rate = parseFloat($(`#item_rate_${i}`).val()) || 0;
+    const qty = parseFloat($(`#item_qty_${i}`).val()) || 0;
+    const total = rate * qty;
+    $(`#item_total_${i}`).val(total.toFixed(2));
+    tableTotal();
+  }
+
+  function tableTotal() {
+    let totalQty = 0;
+    let totalAmt = 0;
+    $('#PurPOTbleBody tr').each(function () {
+      const rate = parseFloat($(this).find('input[id^="item_rate_"]').val()) || 0;
+      const qty = parseFloat($(this).find('input[id^="item_qty_"]').val()) || 0;
+      totalQty += qty;
+      totalAmt += rate * qty;
+    });
+    $('#total_fab').val(totalQty);
+    $('#total_fab_amt').val(totalAmt.toFixed(2));
+    updateNetTotal(totalAmt);
+  }
+
+  function updateNetTotal(total) {
+    $('#netTotal').text(formatNumberWithCommas(total.toFixed(0)));
+    $('#net_amount').val(total.toFixed(2));
+  }
+
+  function formatNumberWithCommas(x) {
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+  function getData(row) {
+    const unit = $(`#productSelect${row} option:selected`).data('unit');
+    $(`#item_unit_${row}`).val(unit ?? '');
+  }
+
+  function generateVoucher() {
+    document.getElementById("voucher-container").innerHTML = "";
+    const vendorName = document.querySelector("#vendor_name option:checked")?.textContent ?? "-";
+    const date = $('#order_date').val();
+    const challanNo = "FGPO-" + Math.floor(100000 + Math.random() * 900000);
+    let items = [];
+
+    let rows = document.querySelectorAll("#PurPOTbleBody tr");
+    rows.forEach((row, i) => {
+      const fabricSelect = row.querySelector(`select[name="item_details[${i}][product_id]"]`);
+      const fabric = fabricSelect?.options[fabricSelect.selectedIndex]?.text ?? '-';
+      const rate = row.querySelector(`#item_rate_${i}`)?.value ?? 0;
+      const qty = row.querySelector(`#item_qty_${i}`)?.value ?? 0;
+      const total = row.querySelector(`#item_total_${i}`)?.value ?? 0;
+      const unit = "PCS";
+      const description = "-";
+      if (fabric && qty && rate) {
+        items.push({ fabric, description, rate, qty, unit, total });
+      }
+    });
+
+    const totalAmount = items.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
+    let html = `
+      <div class="border p-3 mt-3">
+        <h3 class="text-center text-dark">Challan / Delivery Note</h3>
+        <hr>
+        <div class="d-flex justify-content-between text-dark">
+          <p><strong>Vendor:</strong> ${vendorName}</p>
+          <p><strong>Challan #:</strong> ${challanNo}</p>
+          <p><strong>Date:</strong> ${date}</p>
+        </div>
+        <table class="table table-bordered mt-3">
+          <thead>
+            <tr><th>Fabric</th><th>Description</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Total</th></tr>
+          </thead>
+          <tbody>
+            ${items.map(item => `
+              <tr>
+                <td>${item.fabric}</td>
+                <td>${item.description}</td>
+                <td>${item.qty}</td>
+                <td>${item.unit}</td>
+                <td>${item.rate}</td>
+                <td>${item.total}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+        <h4 class="text-end text-dark"><strong>Total Amount:</strong> PKR ${totalAmount.toFixed(0)}</h4>
+        <input type="hidden" name="voucher_amount" value="${totalAmount.toFixed(0)}">
+      </div>
+    `;
+    document.getElementById("voucher-container").innerHTML = html;
+  }
+</script>
+
 
 <script>
   $(document).ready(function () {
