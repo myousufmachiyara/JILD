@@ -13,13 +13,13 @@ class ProductionReceivingController extends Controller
     public function index()
     {
         $receivings = ProductionReceiving::with('production.vendor')->latest()->get();
-        return view('production_receiving.index', compact('receivings'));
+        return view('production.receiving', compact('receivings'));
     }
 
     public function create()
     {
         $productions = Production::with('vendor')->get();
-        return view('production_receiving.create', compact('productions'));
+        return view('production.receiving', compact('productions'));
     }
 
     public function store(Request $request)

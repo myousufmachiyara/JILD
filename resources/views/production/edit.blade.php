@@ -108,6 +108,7 @@
                   <td><input type="number" name="item_details[{{ $key }}][qty]" id="item_qty_{{ $key }}" value="{{ $item->qty }}" step="any" onchange="rowTotal({{ $key }})" class="form-control" required/></td>
                   <td>
                     <select class="form-control" name="item_details[{{ $key }}][item_unit]" id="item_unit_{{ $key }}" required>
+                      <option value="" disabled>Select Unit</option>
                       <option value="mtr" {{ $item->unit == 'mtr' ? 'selected' : '' }}>Meter</option>
                       <option value="sq_ft" {{ $item->unit == 'sq_ft' ? 'selected' : '' }}>Sq.ft</option>
                     </select>
@@ -179,10 +180,7 @@
 
 <script>
   const allProducts = @json($allProducts ?? []);
-  let index = {{ count($production->items ?? []) }};
-</script>
-
-<script>
+  let index = {{ count($production->details ?? []) }};
 
   function removeRow(button) {
     const tableRows = $("#PurPOTbleBody tr").length;
@@ -225,16 +223,25 @@
       </td>
     `;
 
-    // ❗ Destroy existing Select2 instances to prevent duplicate initializations
-      $('.select2-js').each(function () {
+    $('.select2-js').each(function () {
       if ($(this).hasClass("select2-hidden-accessible")) {
         $(this).select2('destroy');
       }
     });
-
-    // Now re-initialize all
     $('.select2-js').select2();
     index++;
+  }
+
+  function getData(row) {
+    const unit = $(`#productSelect${row} option:selected`).data('unit');
+    const unitSelect = $(`#item_unit_${row}`);
+    unitSelect.find('option').prop('selected', false);
+    if (unit) {
+      if (!unitSelect.find(`option[value="${unit}"]`).length) {
+        unitSelect.append(`<option value="${unit}">${unit}</option>`);
+      }
+      unitSelect.val(unit);
+    }
   }
 
   function rowTotal(i) {
@@ -268,68 +275,73 @@
     return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   }
 
-  function getData(row) {
-    const unit = $(`#productSelect${row} option:selected`).data('unit');
-    $(`#item_unit_${row}`).val(unit ?? '');
-  }
-
   function generateVoucher() {
-    document.getElementById("voucher-container").innerHTML = "";
-    const vendorName = document.querySelector("#vendor_name option:checked")?.textContent ?? "-";
-    const date = $('#order_date').val();
-    const challanNo = "FGPO-" + Math.floor(100000 + Math.random() * 900000);
-    let items = [];
+  const container = document.getElementById("voucher-container");
+  container.innerHTML = "";
 
-    let rows = document.querySelectorAll("#PurPOTbleBody tr");
-    rows.forEach((row, i) => {
-      const fabricSelect = row.querySelector(`select[name="item_details[${i}][product_id]"]`);
-      const fabric = fabricSelect?.options[fabricSelect.selectedIndex]?.text ?? '-';
-      const rate = row.querySelector(`#item_rate_${i}`)?.value ?? 0;
-      const qty = row.querySelector(`#item_qty_${i}`)?.value ?? 0;
-      const total = row.querySelector(`#item_total_${i}`)?.value ?? 0;
-      const unit = "PCS";
-      const description = "-";
-      if (fabric && qty && rate) {
-        items.push({ fabric, description, rate, qty, unit, total });
-      }
-    });
+  const vendorName = document.querySelector("#vendor_name option:checked")?.textContent?.trim() || "-";
+  const date = document.getElementById("order_date").value || "-";
+  const challanNo = "{{ $production->challan_no ?? 'FGPO-' . rand(100000, 999999) }}";
 
-    const totalAmount = items.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
-    let html = `
-      <div class="border p-3 mt-3">
-        <h3 class="text-center text-dark">Challan / Delivery Note</h3>
-        <hr>
-        <div class="d-flex justify-content-between text-dark">
-          <p><strong>Vendor:</strong> ${vendorName}</p>
-          <p><strong>Challan #:</strong> ${challanNo}</p>
-          <p><strong>Date:</strong> ${date}</p>
-        </div>
-        <table class="table table-bordered mt-3">
-          <thead>
-            <tr><th>Fabric</th><th>Description</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Total</th></tr>
-          </thead>
-          <tbody>
-            ${items.map(item => `
-              <tr>
-                <td>${item.fabric}</td>
-                <td>${item.description}</td>
-                <td>${item.qty}</td>
-                <td>${item.unit}</td>
-                <td>${item.rate}</td>
-                <td>${item.total}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-        <h4 class="text-end text-dark"><strong>Total Amount:</strong> PKR ${totalAmount.toFixed(0)}</h4>
-        <input type="hidden" name="voucher_amount" value="${totalAmount.toFixed(0)}">
+  const rows = document.querySelectorAll("#PurPOTbleBody tr");
+  const items = [];
+
+  rows.forEach((row) => {
+    const fabric = row.querySelector('select[name*="[product_id]"]')?.selectedOptions[0]?.textContent?.trim() || "-";
+    const rate = parseFloat(row.querySelector('input[name*="[item_rate]"]')?.value) || 0;
+    const qty = parseFloat(row.querySelector('input[name*="[qty]"]')?.value) || 0;
+    const total = parseFloat(row.querySelector('input[id^="item_total_"]')?.value) || 0;
+    const unit = row.querySelector('select[name*="[item_unit]"] option:checked')?.textContent?.trim() || "PCS";
+
+    if (fabric !== "-" && qty > 0 && rate > 0) {
+      items.push({ fabric, description: "-", rate, qty, unit, total });
+    }
+  });
+
+  const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
+
+  let html = `
+    <div class="border p-3 mt-3">
+      <h3 class="text-center text-dark">Challan / Delivery Note</h3>
+      <hr>
+      <div class="d-flex justify-content-between text-dark">
+        <p><strong>Vendor:</strong> ${vendorName}</p>
+        <p><strong>Challan #:</strong> ${challanNo}</p>
+        <p><strong>Date:</strong> ${date}</p>
       </div>
-    `;
-    document.getElementById("voucher-container").innerHTML = html;
-  }
-</script>
 
+      <table class="table table-bordered mt-3">
+        <thead>
+          <tr>
+            <th>Fabric</th>
+            <th>Description</th>
+            <th>Qty</th>
+            <th>Unit</th>
+            <th>Rate</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(item => `
+            <tr>
+              <td>${item.fabric}</td>
+              <td>${item.description}</td>
+              <td>${item.qty}</td>
+              <td>${item.unit}</td>
+              <td>${item.rate}</td>
+              <td>${item.total}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
 
-<script>
+      <h4 class="text-end text-dark"><strong>Total Amount:</strong> PKR ${totalAmount.toFixed(0)}</h4>
+      <input type="hidden" name="voucher_amount" value="${totalAmount.toFixed(0)}">
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
   $(document).ready(function () {
     $('.select2-js').select2();
     tableTotal();

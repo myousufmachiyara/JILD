@@ -32,7 +32,7 @@ Route::middleware(['auth'])->group(function () {
     
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/products/details', [ProductController::class, 'details'])->name('products.receiving');
-    Route::get('/production_receiving', [ProductionReceivingController::class, 'index'])->name('production.receiving');
+    Route::get('/production_receiving', [ProductionReceivingController::class, 'create'])->name('production.receiving');
 
     $modules = [
         'coa' => ['controller' => COAController::class, 'permission' => 'coa'],

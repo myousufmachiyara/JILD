@@ -25,7 +25,8 @@
           <table class="table table-bordered table-striped mb-0" id="cust-datatable-default">
             <thead>
               <tr>
-                <th>Order #</th>
+                <th>S.No</th>
+                <th>PO Code</th>
                 <th>Date</th>
                 <th>Category</th>
                 <th>Vendor</th>
@@ -37,7 +38,8 @@
             <tbody>
               @foreach($productions as $production)
               <tr>
-                <td>{{ $production->code }}</td>
+                <td>{{ $loop->iteration }}</td>
+                <td>PO-{{ $production->id }}</td>
                 <td>{{ \Carbon\Carbon::parse($production->order_date)->format('d-m-Y') }}</td>
                 <td>{{ $production->category->name ?? '-' }}</td>
                 <td>{{ $production->vendor->name ?? '-' }}</td>

@@ -19,7 +19,8 @@ return new class extends Migration
             $table->unsignedBigInteger('received_by');
             $table->text('remarks')->nullable();
             $table->timestamps();
-
+            $table->softDeletes();
+            
             $table->foreign('production_id')->references('id')->on('productions')->onDelete('cascade');
             $table->foreign('received_by')->references('id')->on('users');
         });
