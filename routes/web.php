@@ -17,7 +17,8 @@ use App\Http\Controllers\{
     RoleController,
     AttributeController,
     ProductCategoryController,
-    ProductionReceivingController
+    ProductionReceivingController,
+    PaymentVoucherController
 };
 
 Auth::routes();
