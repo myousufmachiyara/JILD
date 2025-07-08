@@ -20,6 +20,7 @@ return new class extends Migration
             $table->text('remarks')->nullable();
             $table->json('attachments')->nullable(); // Store multiple files as JSON
             $table->timestamps();
+            $table->softdeletes();
 
             $table->foreign('ac_dr_sid')->references('id')->on('chart_of_accounts')->onDelete('cascade');
             $table->foreign('ac_cr_sid')->references('id')->on('chart_of_accounts')->onDelete('cascade');
