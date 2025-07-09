@@ -77,7 +77,7 @@
                                         @foreach($actions as $actionKey => $actionLabel)
                                             <td class="text-center">
                                                 @if(isset($perms[$actionKey]))
-                                                    <input type="checkbox" checked
+                                                    <input type="checkbox"
                                                         name="permissions[]"
                                                         value="{{ $perms[$actionKey] }}"
                                                         {{ isset($role) && $role->hasPermissionTo($perms[$actionKey]) ? 'checked' : '' }}>
