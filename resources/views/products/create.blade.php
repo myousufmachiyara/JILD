@@ -39,6 +39,7 @@
               <label>Unit</label>
               <select name="measurement_unit" class="form-control select2-js" required>
                 <option value="" disabled selected>Select Unit</option>
+                <option value="sq-ft">Sq. ft</option>
                 <option value="mtr">Meter</option>
                 <option value="pcs">Pieces</option>
                 <option value="yrd">Yards</option>
