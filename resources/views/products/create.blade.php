@@ -30,9 +30,8 @@
               @error('category_id')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
             <div class="col-md-4">
-              <label>SKU (Auto-generated)</label>
-              <input type="text" class="form-control" id="skuDisplay" disabled>
-              <input type="hidden" name="sku" id="sku" value="{{ old('sku') }}">
+              <label>SKU *</label>
+              <input type="text" name="sku" id="sku" class="form-control" value="{{ old('sku') }}" required>
               @error('sku')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
 
@@ -144,9 +143,10 @@
     $('#categorySelect').on('change', function () {
       const selected = $(this).find(':selected');
       const code = selected.data('code');
-      const sku = code + '-' + Math.floor(1000 + Math.random() * 9000);
-      $('#skuDisplay').val(sku);
-      $('#sku').val(sku);
+      const autoSku = code + '-' + Math.floor(1000 + Math.random() * 9000);
+      if (!$('#sku').val()) {
+        $('#sku').val(autoSku);
+      }
     });
 
     $('#generateVariationsBtn').click(function () {
@@ -167,6 +167,8 @@
       let tbody = $('#variationsTable tbody');
       tbody.empty();
 
+      let mainSku = $('#sku').val();
+
       combos.forEach((combo, index) => {
         let label = combo.map(c => c.text).join(' - ');
         let inputs = combo.map((c, i) => `
@@ -178,7 +180,7 @@
             <td>${label}${inputs}</td>
             <td><input type="number" name="variations[${index}][stock]" class="form-control" value="0" required></td>
             <td><input type="number" name="variations[${index}][price]" class="form-control" value="0" required></td>
-            <td><input type="text" name="variations[${index}][sku]" class="form-control"></td>
+            <td><input type="text" name="variations[${index}][sku]" class="form-control" value="${mainSku} - ${label}"></td>
             <td><button type="button" class="btn btn-sm btn-danger remove-variation">X</button></td>
           </tr>
         `);
