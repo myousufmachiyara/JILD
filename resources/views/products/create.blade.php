@@ -21,7 +21,7 @@
             </div>
             <div class="col-md-4">
               <label>Category *</label>
-              <select name="category_id" class="form-control select2-js" required id="categorySelect">
+              <select name="category_id" class="form-control select2-js" required>
                 <option value="" disabled selected>Select Category</option>
                 @foreach($categories as $cat)
                   <option value="{{ $cat->id }}" data-code="{{ $cat->shortcode }}">{{ $cat->name }}</option>
@@ -125,7 +125,6 @@
               </table>
             </div>
           </div>
-
         </div>
 
         <footer class="card-footer text-end">
@@ -136,7 +135,6 @@
     </form>
   </div>
 </div>
-
 
 <script>
   $(document).ready(function () {
@@ -192,5 +190,4 @@
     }
   });
 </script>
-
 @endsection
