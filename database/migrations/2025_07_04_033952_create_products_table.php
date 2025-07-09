@@ -16,13 +16,18 @@ return new class extends Migration
             $table->unsignedBigInteger('category_id');
             $table->string('name');
             $table->string('sku')->unique();
-            $table->string('barcode')->nullable();
+            $table->string('barcode')->nullable(); // optional
             $table->text('description')->nullable();
+
+            $table->decimal('manufacturing_cost', 10, 2)->default(0);
+            $table->string('measurement_unit', 20)->nullable();
+            $table->string('item_type', 10)->nullable();
+            $table->integer('opening_stock')->default(0); // or decimal if partial stocks allowed
+
             $table->softDeletes();
             $table->timestamps();
 
             $table->foreign('category_id')->references('id')->on('product_categories')->onDelete('cascade');
-
         });
     }
 
