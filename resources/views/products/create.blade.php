@@ -137,18 +137,10 @@
   </div>
 </div>
 
+
 <script>
   $(document).ready(function () {
     $('.select2-js').select2();
-
-    $('#categorySelect').on('change', function () {
-      const selected = $(this).find(':selected');
-      const code = selected.data('code');
-      const autoSku = code + '-' + Math.floor(1000 + Math.random() * 9000);
-      if (!$('#sku').val()) {
-        $('#sku').val(autoSku);
-      }
-    });
 
     $('#generateVariationsBtn').click(function () {
       let attributes = {!! $attributes->toJson() !!};
@@ -200,4 +192,5 @@
     }
   });
 </script>
+
 @endsection
