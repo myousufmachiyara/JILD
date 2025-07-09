@@ -129,7 +129,7 @@ $(document).ready(function () {
                 <div class="row">
                     <div class="col-md-3">
                         <label>SKU</label>
-                        <input type="text" name="variations[${variationIndex}][sku]" class="form-control" required>
+                        <input type="text" name="variations[${variationIndex}][sku]" class="form-control sku-field" required>
                     </div>
                     <div class="col-md-2">
                         <label>Price</label>
@@ -141,7 +141,7 @@ $(document).ready(function () {
                     </div>
                     <div class="col-md-5">
                         <label>Attributes</label>
-                        <select name="variations[${variationIndex}][attributes][]" multiple class="form-control select2-js" required>
+                        <select name="variations[${variationIndex}][attributes][]" multiple class="form-control select2-js variation-attributes" required>
                             @foreach ($attributes as $attribute)
                                 @foreach ($attribute->values as $value)
                                     <option value="{{ $value->id }}">{{ $attribute->name }} - {{ $value->value }}</option>
@@ -156,6 +156,22 @@ $(document).ready(function () {
         $('#variation-section').append(variationHtml);
         $('.select2-js').select2();
     }
+
+    // Auto-generate SKU on attribute change
+    $(document).on('change', '.variation-attributes', function () {
+        const block = $(this).closest('.variation-block');
+        const selectedOptions = $(this).find('option:selected');
+        const attrTexts = [];
+
+        selectedOptions.each(function () {
+            attrTexts.push($(this).text().split(' - ')[1]); // take only value name
+        });
+
+        const variationName = attrTexts.join(' - ');
+        const mainSku = $('input[name="sku"]').val();
+        block.find('.sku-field').val(mainSku + ' - ' + variationName);
+    });
 });
 </script>
+
 @endsection
