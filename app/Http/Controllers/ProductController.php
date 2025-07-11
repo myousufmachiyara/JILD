@@ -39,7 +39,7 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'measurement_unit' => 'required|exists:measurement_units,id',
             'item_type' => 'required|in:fg,raw',
-            'manufacturing_cost' => '$request->price',
+            'manufacturing_cost' => 'nullable|numeric',
             'opening_stock' => 'required|numeric',
             'prod_att.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);

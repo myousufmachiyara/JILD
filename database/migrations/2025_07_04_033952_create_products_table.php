@@ -20,9 +20,10 @@ return new class extends Migration
             $table->text('description')->nullable();
 
             $table->decimal('manufacturing_cost', 10, 2)->default(0);
+            $table->decimal('opening_stock', 10, 2)->default(0);
+
             $table->unsignedBigInteger('measurement_unit');
             $table->string('item_type', 10)->nullable();
-            $table->integer('opening_stock')->default(0); // or decimal if partial stocks allowed
 
             $table->softDeletes();
             $table->timestamps();
