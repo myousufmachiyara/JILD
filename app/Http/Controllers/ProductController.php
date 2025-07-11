@@ -183,6 +183,7 @@ class ProductController extends Controller
 
         try {
             $product = Product::findOrFail($id);
+
             $product->update($request->only([
                 'name', 'category_id', 'sku', 'measurement_unit', 'item_type',
                 'price', 'opening_stock', 'description'
@@ -192,7 +193,8 @@ class ProductController extends Controller
 
             $existingVariationIds = $product->variations()->pluck('id')->toArray();
 
-            $incomingVariationIds = [];
+            $handledVariationIds = [];
+
             foreach ($request->variations as $variationData) {
                 $variationId = $variationData['id'] ?? null;
 
@@ -206,23 +208,21 @@ class ProductController extends Controller
                     // Update existing variation
                     $variation = ProductVariation::find($variationId);
                     $variation->update($variationPayload);
-                    $incomingVariationIds[] = $variationId;
+                    $handledVariationIds[] = $variationId;
                 } else {
-                    // Check if SKU already exists for this product (to avoid duplicate)
+                    // Check if SKU already exists (even if soft-deleted)
                     $existing = ProductVariation::withTrashed()
                         ->where('product_id', $product->id)
                         ->where('sku', $variationData['sku'])
                         ->first();
 
                     if ($existing) {
-                        // Restore if soft-deleted, and update
                         $existing->restore();
                         $existing->update($variationPayload);
-                        $incomingVariationIds[] = $existing->id;
+                        $handledVariationIds[] = $existing->id;
                     } else {
-                        // New variation
                         $newVariation = $product->variations()->create($variationPayload);
-                        $incomingVariationIds[] = $newVariation->id;
+                        $handledVariationIds[] = $newVariation->id;
                     }
                 }
 
@@ -232,26 +232,24 @@ class ProductController extends Controller
                 }
             }
 
-            // Soft delete removed variations
-            $variationsToDelete = array_diff($existingVariationIds, $incomingVariationIds);
-            ProductVariation::whereIn('id', $variationsToDelete)->delete();
-
-            Log::info('Product variations updated', [
+            // ❌ Do not delete any variations — just skip handling them
+            Log::info('Product variations processed', [
                 'product_id' => $product->id,
-                'updated_ids' => $incomingVariationIds,
-                'deleted_ids' => $variationsToDelete
+                'processed_ids' => $handledVariationIds,
+                'untouched_ids' => array_diff($existingVariationIds, $handledVariationIds)
             ]);
 
             DB::commit();
 
             return redirect()->route('products.index')->with('success', 'Product updated successfully.');
-
         } catch (\Throwable $e) {
             DB::rollBack();
+
             Log::error('Product update failed', [
                 'error_message' => $e->getMessage(),
                 'request_data' => $request->all(),
             ]);
+
             return redirect()->back()->with('error', 'Product update failed. Please try again.');
         }
     }
