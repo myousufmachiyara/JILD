@@ -177,40 +177,53 @@ class ProductController extends Controller
         ));
     }
 
-    public function update(Request $request, $id)
-    {
-        DB::beginTransaction();
+public function update(Request $request, $id)
+{
+    DB::beginTransaction();
 
-        try {
-            $product = Product::findOrFail($id);
+    try {
+        $product = Product::findOrFail($id);
 
-            $product->update($request->only([
-                'name', 'category_id', 'sku', 'measurement_unit', 'item_type',
-                'price', 'opening_stock', 'description'
-            ]));
+        $product->update($request->only([
+            'name', 'category_id', 'sku', 'measurement_unit', 'item_type',
+            'price', 'opening_stock', 'description'
+        ]));
 
-            Log::info('Product updated', ['product_id' => $product->id]);
+        Log::info('[Product Update] Product updated', ['product_id' => $product->id]);
 
-            $existingVariationIds = $product->variations()->pluck('id')->toArray();
+        $existingVariationIds = $product->variations()->pluck('id')->toArray();
+        $handledVariationIds = [];
 
-            $handledVariationIds = [];
+        foreach ($request->variations as $index => $variationData) {
+            if (empty($variationData['sku'])) {
+                Log::error('[Product Update] Missing SKU for variation', [
+                    'product_id' => $product->id,
+                    'variation_data' => $variationData
+                ]);
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', "Variation at row {$index} is missing SKU.");
+            }
 
-            foreach ($request->variations as $variationData) {
-                $variationId = $variationData['id'] ?? null;
+            $variationId = $variationData['id'] ?? null;
 
-                $variationPayload = [
-                    'sku'   => $variationData['sku'],
-                    'price' => $variationData['price'] ?? 0,
-                    'stock' => $variationData['stock'] ?? 0,
-                ];
+            $variationPayload = [
+                'sku'   => $variationData['sku'],
+                'price' => $variationData['price'] ?? 0,
+                'stock' => $variationData['stock'] ?? 0,
+            ];
 
+            try {
                 if ($variationId && in_array($variationId, $existingVariationIds)) {
-                    // Update existing variation
                     $variation = ProductVariation::find($variationId);
                     $variation->update($variationPayload);
                     $handledVariationIds[] = $variationId;
+
+                    Log::info('[Product Update] Variation updated', [
+                        'variation_id' => $variationId,
+                        'product_id' => $product->id
+                    ]);
                 } else {
-                    // Check if SKU already exists (even if soft-deleted)
                     $existing = ProductVariation::withTrashed()
                         ->where('product_id', $product->id)
                         ->where('sku', $variationData['sku'])
@@ -220,39 +233,71 @@ class ProductController extends Controller
                         $existing->restore();
                         $existing->update($variationPayload);
                         $handledVariationIds[] = $existing->id;
+
+                        Log::info('[Product Update] Variation restored and updated', [
+                            'variation_id' => $existing->id,
+                            'product_id' => $product->id
+                        ]);
                     } else {
                         $newVariation = $product->variations()->create($variationPayload);
                         $handledVariationIds[] = $newVariation->id;
+
+                        Log::info('[Product Update] Variation created', [
+                            'variation_id' => $newVariation->id,
+                            'product_id' => $product->id
+                        ]);
                     }
                 }
 
-                // Sync attributes if provided
+                // Sync attribute values
                 if (isset($variationData['attributes'])) {
                     $variation->attributeValues()->sync($variationData['attributes']);
+
+                    Log::info('[Product Update] Variation attributes synced', [
+                        'variation_id' => $variation->id,
+                        'attributes' => $variationData['attributes']
+                    ]);
+                } else {
+                    Log::warning('[Product Update] No attributes provided for variation', [
+                        'variation_id' => $variation->id
+                    ]);
                 }
+            } catch (\Throwable $ve) {
+                Log::error('[Product Update] Error handling variation', [
+                    'product_id' => $product->id,
+                    'variation_data' => $variationData,
+                    'message' => $ve->getMessage()
+                ]);
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'Error updating variation: ' . $ve->getMessage());
             }
-
-            // ❌ Do not delete any variations — just skip handling them
-            Log::info('Product variations processed', [
-                'product_id' => $product->id,
-                'processed_ids' => $handledVariationIds,
-                'untouched_ids' => array_diff($existingVariationIds, $handledVariationIds)
-            ]);
-
-            DB::commit();
-
-            return redirect()->route('products.index')->with('success', 'Product updated successfully.');
-        } catch (\Throwable $e) {
-            DB::rollBack();
-
-            Log::error('Product update failed', [
-                'error_message' => $e->getMessage(),
-                'request_data' => $request->all(),
-            ]);
-
-            return redirect()->back()->with('error', 'Product update failed. Please try again.');
         }
+
+        Log::info('[Product Update] Variations processed', [
+            'product_id' => $product->id,
+            'handled_variation_ids' => $handledVariationIds,
+            'skipped_variations' => array_diff($existingVariationIds, $handledVariationIds)
+        ]);
+
+        DB::commit();
+
+        return redirect()->route('products.index')->with('success', 'Product updated successfully.');
+    } catch (\Throwable $e) {
+        DB::rollBack();
+
+        Log::error('[Product Update] Failed to update product', [
+            'error_message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'request_data' => $request->all()
+        ]);
+
+        return redirect()->back()
+            ->withInput()
+            ->with('error', 'Product update failed. Please try again.');
     }
+}
+
 
     public function destroy(Product $product)
     {
