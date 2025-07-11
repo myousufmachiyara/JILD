@@ -68,7 +68,7 @@
 
             <div class="col-md-4 mt-3">
               <label>Manufacturing Cost</label>
-              <input type="number" step="any" name="price" class="form-control" value="{{ old('price', $product->manufacturing_cost) }}">
+              <input type="number" step="any" name="manufacturing_cost" class="form-control" value="{{ old('manufacturing_cost', $product->manufacturing_cost) }}">
             </div>
 
             <div class="col-md-4 mt-3">

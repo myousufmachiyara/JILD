@@ -56,7 +56,7 @@ class ProductController extends Controller
                 'description' => $request->description,
                 'measurement_unit' => $request->measurement_unit,
                 'item_type' => $request->item_type,
-                'price' => $request->price,
+                'manufacturing_cost' => $request->manufacturing_cost,
                 'opening_stock' => $request->opening_stock,
             ]);
 
@@ -185,7 +185,7 @@ public function update(Request $request, $id)
 
         $product->update($request->only([
             'name', 'category_id', 'sku', 'measurement_unit', 'item_type',
-            'price', 'opening_stock', 'description'
+            'manufacturing_cost', 'opening_stock', 'description'
         ]));
 
         Log::info('[Product Update] Product updated', ['product_id' => $product->id]);

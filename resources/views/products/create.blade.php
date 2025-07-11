@@ -66,7 +66,7 @@
 
             <div class="col-md-3 mt-3">
               <label>Manufacturing Cost</label>
-              <input type="number" step="any" name="price" class="form-control" value="{{ old('price', '0.00') }}">
+              <input type="number" step="any" name="manufacturing_cost" class="form-control" value="{{ old('manufacturing_cost', '0.00') }}">
               @error('price')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
 
