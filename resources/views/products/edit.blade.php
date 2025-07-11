@@ -68,12 +68,12 @@
 
             <div class="col-md-4 mt-3">
               <label>Manufacturing Cost</label>
-              <input type="number" step=".01" name="price" class="form-control" value="{{ old('price', $product->manufacturing_cost) }}">
+              <input type="number" step="any" name="price" class="form-control" value="{{ old('price', $product->manufacturing_cost) }}">
             </div>
 
             <div class="col-md-4 mt-3">
               <label>Opening Stock</label>
-              <input type="number" name="opening_stock" class="form-control" value="{{ old('opening_stock', $product->opening_stock) }}">
+              <input type="number" step="any" name="opening_stock" class="form-control" value="{{ old('opening_stock', $product->opening_stock) }}">
             </div>
 
             <div class="col-md-8 mt-3">
@@ -102,11 +102,11 @@
                       </div>
                       <div class="col-md-2">
                         <label>Price</label>
-                        <input type="number" step=".01" name="variations[{{ $i }}][price]" class="form-control" value="{{ $variation->price }}">
+                        <input type="number" step="any" name="variations[{{ $i }}][price]" class="form-control" value="{{ $variation->price }}">
                       </div>
                       <div class="col-md-2">
                         <label>Stock</label>
-                        <input type="number" name="variations[{{ $i }}][stock]" class="form-control" value="{{ $variation->stock }}">
+                        <input type="number" step="any" name="variations[{{ $i }}][stock]" class="form-control" value="{{ $variation->stock }}">
                       </div>
                       <div class="col-md-5">
                         <label>Attributes</label>
@@ -155,11 +155,11 @@ $(document).ready(function () {
                     </div>
                     <div class="col-md-2">
                         <label>Price</label>
-                        <input type="number" step=".01" name="variations[${variationIndex}][price]" class="form-control" required>
+                        <input type="number" step="any" name="variations[${variationIndex}][price]" class="form-control" required>
                     </div>
                     <div class="col-md-2">
                         <label>Stock</label>
-                        <input type="number" name="variations[${variationIndex}][stock]" class="form-control">
+                        <input type="number" step="any" name="variations[${variationIndex}][stock]" class="form-control">
                     </div>
                     <div class="col-md-5">
                         <label>Attributes</label>
