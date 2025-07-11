@@ -20,14 +20,16 @@ return new class extends Migration
             $table->text('description')->nullable();
 
             $table->decimal('manufacturing_cost', 10, 2)->default(0);
-            $table->string('measurement_unit', 20)->nullable();
+            $table->unsignedBigInteger('measurement_unit');
             $table->string('item_type', 10)->nullable();
             $table->integer('opening_stock')->default(0); // or decimal if partial stocks allowed
 
             $table->softDeletes();
             $table->timestamps();
 
+            $table->foreign('measurement_unit')->references('id')->on('measurement_units')->onDelete('cascade');
             $table->foreign('category_id')->references('id')->on('product_categories')->onDelete('cascade');
+
         });
     }
 

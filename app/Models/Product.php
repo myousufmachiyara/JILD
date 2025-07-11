@@ -18,6 +18,7 @@ class Product extends Model
         'manufacturing_cost',
         'measurement_unit',
         'item_type',
+        'opening_stock', // ← MISSING FIELD ADDED
     ];
 
     public function category()

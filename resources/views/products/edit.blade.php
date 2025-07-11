@@ -10,16 +10,28 @@
       @method('PUT')
       <section class="card">
         <header class="card-header">
-          <div class="d-flex justify-content-between">
-            <h2 class="card-title">Edit Product</h2>
-          </div>
+          <h2 class="card-title">Edit Product</h2>
         </header>
         <div class="card-body">
+          @if(session('error'))
+            <div class="alert alert-danger">{{ session('error') }}</div>
+          @endif
+          @if ($errors->any())
+            <div class="alert alert-danger">
+              <ul class="mb-0">
+                @foreach ($errors->all() as $error)
+                  <li>{{ $error }}</li>
+                @endforeach
+              </ul>
+            </div>
+          @endif
+
           <div class="row pb-3">
             <div class="col-md-4">
               <label>Product Name *</label>
               <input type="text" name="name" class="form-control" required value="{{ old('name', $product->name) }}">
             </div>
+
             <div class="col-md-4">
               <label>Category *</label>
               <select name="category_id" class="form-control select2-js" required>
@@ -28,19 +40,24 @@
                 @endforeach
               </select>
             </div>
+
             <div class="col-md-4">
               <label>SKU</label>
               <input type="text" name="sku" class="form-control" value="{{ old('sku', $product->sku) }}">
             </div>
+
             <div class="col-md-4 mt-3">
-              <label>Unit</label>
-              <select name="measurement_unit" class="form-control select2-js">
-                <option value="mtr" {{ $product->measurement_unit == 'mtr' ? 'selected' : '' }}>Meter</option>
-                <option value="pcs" {{ $product->measurement_unit == 'pcs' ? 'selected' : '' }}>Pieces</option>
-                <option value="yrd" {{ $product->measurement_unit == 'yrd' ? 'selected' : '' }}>Yards</option>
-                <option value="rd" {{ $product->measurement_unit == 'rd' ? 'selected' : '' }}>Round</option>
+              <label>Measurement Unit *</label>
+              <select name="measurement_unit" class="form-control" required>
+                <option value="">-- Select Unit --</option>
+                @foreach($units as $unit)
+                  <option value="{{ $unit->id }}" {{ $product->measurement_unit == $unit->id ? 'selected' : '' }}>
+                    {{ $unit->name }} ({{ $unit->shortcode }})
+                  </option>
+                @endforeach
               </select>
             </div>
+
             <div class="col-md-4 mt-3">
               <label>Item Type</label>
               <select name="item_type" class="form-control select2-js">
@@ -48,21 +65,26 @@
                 <option value="raw" {{ $product->item_type == 'raw' ? 'selected' : '' }}>Raw</option>
               </select>
             </div>
+
             <div class="col-md-4 mt-3">
               <label>Manufacturing Cost</label>
-              <input type="number" step=".01" name="price" class="form-control" value="{{ old('price', $product->price) }}">
+              <input type="number" step=".01" name="price" class="form-control" value="{{ old('price', $product->manufacturing_cost) }}">
             </div>
+
             <div class="col-md-4 mt-3">
               <label>Opening Stock</label>
               <input type="number" name="opening_stock" class="form-control" value="{{ old('opening_stock', $product->opening_stock) }}">
             </div>
+
             <div class="col-md-8 mt-3">
               <label>Description</label>
               <textarea name="description" class="form-control">{{ old('description', $product->description) }}</textarea>
             </div>
+
             <div class="col-md-12 mt-3">
               <label>Product Images</label>
               <input type="file" name="prod_att[]" multiple class="form-control">
+              <small class="text-muted">Leave empty if you don't want to update images.</small>
             </div>
           </div>
 
@@ -164,7 +186,7 @@ $(document).ready(function () {
         const attrTexts = [];
 
         selectedOptions.each(function () {
-            attrTexts.push($(this).text().split(' - ')[1]); // take only value name
+            attrTexts.push($(this).text().split(' - ')[1]); // only value name
         });
 
         const variationName = attrTexts.join(' - ');
@@ -173,5 +195,4 @@ $(document).ready(function () {
     });
 });
 </script>
-
 @endsection

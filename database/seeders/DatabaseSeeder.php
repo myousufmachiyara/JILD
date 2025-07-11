@@ -12,6 +12,7 @@ use App\Models\ChartOfAccounts;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use App\Models\Module;
+use App\Models\MeasurementUnit;
 
 class DatabaseSeeder extends Seeder
 {
@@ -83,6 +84,12 @@ class DatabaseSeeder extends Seeder
             ['id' => 5, 'hoa_id' => 4 , 'name' => "Sales"],
             ['id' => 6, 'hoa_id' => 3 , 'name' => "Expenses"],
             ['id' => 7, 'hoa_id' => 5 , 'name' => "Equity"],
+        ]);
+
+        MeasurementUnit::insert([
+            ['id' => 1, 'name' => 'Piece', 'shortcode' => 'pcs'],
+            ['id' => 2, 'name' => 'Meter', 'shortcode' => 'm'],
+            ['id' => 3, 'name' => 'Square Feet', 'shortcode' => 'sq.ft'],
         ]);
 
         ChartOfAccounts::insert([

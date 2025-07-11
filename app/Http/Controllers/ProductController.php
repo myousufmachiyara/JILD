@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Attribute;
 use App\Models\ProductCategory;
+use App\Models\MeasurementUnit;
 use App\Models\ProductVariation;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -23,8 +24,9 @@ class ProductController extends Controller
     {
         $categories = ProductCategory::all();
         $attributes = Attribute::with('values')->get();
+        $units = MeasurementUnit::all();
 
-        return view('products.create', compact('categories', 'attributes'));
+        return view('products.create', compact('categories', 'attributes', 'units'));
     }
 
     public function store(Request $request)
@@ -35,10 +37,9 @@ class ProductController extends Controller
             'sku' => 'required|string|unique:products,sku',
             'barcode' => 'nullable|string',
             'description' => 'nullable|string',
-            'status' => 'in:active,inactive',
-            'measurement_unit' => 'required|string',
+            'measurement_unit' => 'required|exists:measurement_units,id',
             'item_type' => 'required|in:fg,raw',
-            'price' => 'required|numeric',
+            'manufacturing_cost' => '$request->price',
             'opening_stock' => 'required|numeric',
             'prod_att.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
@@ -126,7 +127,9 @@ class ProductController extends Controller
                 'request_data' => $request->except(['prod_att', '_token'])
             ]);
 
-            return back()->withErrors(['error' => 'Product creation failed. Check logs for details.']);
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Product creation failed. Please try again or contact support.');        
         }
     }
     
@@ -151,24 +154,26 @@ class ProductController extends Controller
 
     public function edit($id)
     {
-        $product = Product::with(['images', 'variations'])->findOrFail($id);
+        $product = Product::with(['images', 'variations.attributeValues'])->findOrFail($id);
         $categories = ProductCategory::all();
         $attributes = Attribute::with('values')->get();
+        $units = MeasurementUnit::all(); // ✅ Add this line
 
-        // Group selected attribute values by attribute
-    $attributeValues = collect();
-    foreach ($attributes as $attribute) {
-        foreach ($attribute->values as $val) {
-            $val->attribute = $attribute; // attach parent attribute
-            $attributeValues->push($val);
+        // Optional: attach parent attribute (if needed for UI or JS)
+        $attributeValues = collect();
+        foreach ($attributes as $attribute) {
+            foreach ($attribute->values as $val) {
+                $val->attribute = $attribute;
+                $attributeValues->push($val);
+            }
         }
-    }
 
         return view('products.edit', compact(
             'product',
             'categories',
             'attributes',
-            'attributeValues'
+            'attributeValues',
+            'units' // ✅ Pass to view
         ));
     }
 

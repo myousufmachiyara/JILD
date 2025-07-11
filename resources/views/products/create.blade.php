@@ -7,6 +7,15 @@
   <div class="col">
     <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data">
       @csrf
+      @if ($errors->any())
+        <div class="alert alert-danger">
+          <ul class="mb-0">
+            @foreach ($errors->all() as $error)
+              <li>{{ $error }}</li>
+            @endforeach
+          </ul>
+        </div>
+      @endif
       <section class="card">
         <header class="card-header">
           <h2 class="card-title">New Product</h2>
@@ -14,12 +23,12 @@
 
         <div class="card-body">
           <div class="row pb-3">
-            <div class="col-md-4">
+            <div class="col-md-3">
               <label>Product Name *</label>
               <input type="text" name="name" class="form-control" required value="{{ old('name') }}">
               @error('name')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
               <label>Category *</label>
               <select name="category_id" class="form-control select2-js" required>
                 <option value="" disabled selected>Select Category</option>
@@ -29,26 +38,23 @@
               </select>
               @error('category_id')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
               <label>SKU *</label>
               <input type="text" name="sku" id="sku" class="form-control" value="{{ old('sku') }}" required>
               @error('sku')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
 
-            <div class="col-md-4 mt-3">
-              <label>Unit</label>
-              <select name="measurement_unit" class="form-control select2-js" required>
-                <option value="" disabled selected>Select Unit</option>
-                <option value="sq-ft">Sq. ft</option>
-                <option value="mtr">Meter</option>
-                <option value="pcs">Pieces</option>
-                <option value="yrd">Yards</option>
-                <option value="rd">Round</option>
+            <div class="col-md-3">
+              <label for="unit_id">Measurement Unit</label>
+              <select name="measurement_unit" id="unit_id" class="form-control" required>
+                <option value="">-- Select Unit --</option>
+                @foreach($units as $unit)
+                  <option value="{{ $unit->id }}">{{ $unit->name }} ({{ $unit->shortcode }})</option>
+                @endforeach
               </select>
-              @error('measurement_unit')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
 
-            <div class="col-md-4 mt-3">
+            <div class="col-md-3 mt-3">
               <label>Item Type</label>
               <select name="item_type" class="form-control select2-js" required>
                 <option value="" disabled selected>Item Type</option>
@@ -58,28 +64,28 @@
               @error('item_type')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
 
-            <div class="col-md-4 mt-3">
+            <div class="col-md-3 mt-3">
               <label>Manufacturing Cost</label>
-              <input type="number" step=".01" name="price" class="form-control" value="{{ old('price', '0.00') }}">
+              <input type="number" step="any" name="price" class="form-control" value="{{ old('price', '0.00') }}">
               @error('price')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
 
-            <div class="col-md-4 mt-3">
+            <div class="col-md-3 mt-3">
               <label>Opening Stock</label>
-              <input type="number" name="opening_stock" class="form-control" value="{{ old('opening_stock', '0') }}">
+              <input type="number" step="any" name="opening_stock" class="form-control" value="{{ old('opening_stock', '0') }}">
               @error('opening_stock')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
 
-            <div class="col-md-8 mt-3">
-              <label>Description</label>
-              <textarea name="description" class="form-control">{{ old('description') }}</textarea>
-              @error('description')<div class="text-danger">{{ $message }}</div>@enderror
-            </div>
-
-            <div class="col-md-12 mt-3">
+            <div class="col-md-3 mt-3">
               <label>Product Images</label>
               <input type="file" name="prod_att[]" multiple class="form-control">
               @error('prod_att')<div class="text-danger">{{ $message }}</div>@enderror
+            </div>
+
+            <div class="col-md-3 mt-3">
+              <label>Description</label>
+              <textarea name="description" class="form-control">{{ old('description') }}</textarea>
+              @error('description')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
           </div>
 
@@ -169,8 +175,8 @@
         tbody.append(`
           <tr>
             <td>${label}${inputs}</td>
-            <td><input type="number" name="variations[${index}][stock]" class="form-control" value="0" required></td>
-            <td><input type="number" name="variations[${index}][price]" class="form-control" value="0" required></td>
+            <td><input type="number" name="variations[${index}][stock]" step="any" class="form-control" value="0" required></td>
+            <td><input type="number" name="variations[${index}][price]" step="any" class="form-control" value="0" required></td>
             <td><input type="text" name="variations[${index}][sku]" class="form-control" value="${mainSku} - ${label}"></td>
             <td><button type="button" class="btn btn-sm btn-danger remove-variation">X</button></td>
           </tr>

@@ -16,10 +16,8 @@ return new class extends Migration
             $table->unsignedBigInteger('product_id');
             $table->string('sku')->unique();
             $table->string('barcode')->nullable();
-            $table->decimal('price', 10, 2);
-            $table->decimal('cost', 10, 2)->default(0);
+            $table->decimal('manufacturing_cost', 10, 2)->default(0);
             $table->integer('stock_quantity')->default(0);
-            $table->enum('status', ['active', 'inactive'])->default('active');
             $table->softDeletes();
             $table->timestamps();
 

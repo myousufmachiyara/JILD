@@ -13,10 +13,8 @@ class ProductVariation extends Model
         'product_id',
         'sku',
         'barcode',
-        'price',
-        'cost',
+        'manufacturing_cost',
         'stock_quantity',
-        'status'
     ];
 
     public function product()
