@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('sku')->unique();
             $table->string('barcode')->nullable();
             $table->decimal('manufacturing_cost', 10, 2)->default(0);
-            $table->integer('stock_quantity')->default(0);
+            $table->decimal('stock_quantity', 10, 2)->default(0);
             $table->softDeletes();
             $table->timestamps();
 
