@@ -5,7 +5,7 @@
 @section('content')
 <div class="row">
   <div class="col">
-    <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data"  onkeydown="return event.key != 'Enter';">
       @csrf
       @if ($errors->any())
         <div class="alert alert-danger">
@@ -30,7 +30,7 @@
             </div>
             <div class="col-md-3">
               <label>Category *</label>
-              <select name="category_id" class="form-control select2-js" required>
+              <select name="category_id" class="form-control" required>
                 <option value="" disabled selected>Select Category</option>
                 @foreach($categories as $cat)
                   <option value="{{ $cat->id }}" data-code="{{ $cat->shortcode }}">{{ $cat->name }}</option>
@@ -47,7 +47,7 @@
             <div class="col-md-3">
               <label for="unit_id">Measurement Unit</label>
               <select name="measurement_unit" id="unit_id" class="form-control" required>
-                <option value="">-- Select Unit --</option>
+                <option value="" disabled selected>-- Select Unit --</option>
                 @foreach($units as $unit)
                   <option value="{{ $unit->id }}">{{ $unit->name }} ({{ $unit->shortcode }})</option>
                 @endforeach
@@ -56,7 +56,7 @@
 
             <div class="col-md-3 mt-3">
               <label>Item Type</label>
-              <select name="item_type" class="form-control select2-js" required>
+              <select name="item_type" class="form-control" required>
                 <option value="" disabled selected>Item Type</option>
                 <option value="fg">F.G</option>
                 <option value="raw">Raw</option>
@@ -175,8 +175,8 @@
         tbody.append(`
           <tr>
             <td>${label}${inputs}</td>
-            <td><input type="number" name="variations[${index}][stock]" step="any" class="form-control" value="0" required></td>
-            <td><input type="number" name="variations[${index}][price]" step="any" class="form-control" value="0" required></td>
+            <td><input type="number" name="variations[${index}][stock_quantity]" step="any" class="form-control" value="0" required></td>
+            <td><input type="number" name="variations[${index}][manufacturing_cost]" step="any" class="form-control" value="0" required></td>
             <td><input type="text" name="variations[${index}][sku]" class="form-control" value="${mainSku} - ${label}"></td>
             <td><button type="button" class="btn btn-sm btn-danger remove-variation">X</button></td>
           </tr>

@@ -101,12 +101,12 @@
                         <input type="text" name="variations[{{ $i }}][sku]" class="form-control" value="{{ $variation->sku }}">
                       </div>
                       <div class="col-md-2">
-                        <label>Price</label>
-                        <input type="number" step="any" name="variations[{{ $i }}][price]" class="form-control" value="{{ $variation->price }}">
+                        <label>M.Cost</label>
+                        <input type="number" step="any" name="variations[{{ $i }}][manufacturing_cost]" class="form-control" value="{{ $variation->manufacturing_cost }}">
                       </div>
                       <div class="col-md-2">
                         <label>Stock</label>
-                        <input type="number" step="any" name="variations[{{ $i }}][stock]" class="form-control" value="{{ $variation->stock }}">
+                        <input type="number" step="any" name="variations[{{ $i }}][stock_quantity]" class="form-control" value="{{ $variation->stock_quantity }}">
                       </div>
                       <div class="col-md-5">
                         <label>Attributes</label>
@@ -154,12 +154,12 @@ $(document).ready(function () {
                         <input type="text" name="variations[${variationIndex}][sku]" class="form-control sku-field" required>
                     </div>
                     <div class="col-md-2">
-                        <label>Price</label>
-                        <input type="number" step="any" name="variations[${variationIndex}][price]" class="form-control" required>
+                        <label>M.Cost</label>
+                        <input type="number" step="any" name="variations[${variationIndex}][manufacturing_cost]" class="form-control" required>
                     </div>
                     <div class="col-md-2">
                         <label>Stock</label>
-                        <input type="number" step="any" name="variations[${variationIndex}][stock]" class="form-control">
+                        <input type="number" step="any" name="variations[${variationIndex}][stock_quantity]" class="form-control">
                     </div>
                     <div class="col-md-5">
                         <label>Attributes</label>

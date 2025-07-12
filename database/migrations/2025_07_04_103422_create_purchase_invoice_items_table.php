@@ -18,11 +18,13 @@ return new class extends Migration
             $table->string('item_name')->nullable();
             $table->decimal('bundle', 15, 2)->default(0);
             $table->decimal('quantity', 15, 2);
-            $table->string('unit')->nullable();
+            $table->unsignedBigInteger('unit');
+
             $table->decimal('price', 15, 2);
             $table->string('remarks')->nullable();
             $table->timestamps();
 
+            $table->foreign('unit')->references('id')->on('measurement_units')->onDelete('cascade');
             $table->foreign('purchase_invoice_id')->references('id')->on('purchase_invoices')->onDelete('cascade');
             $table->foreign('item_id')->references('id')->on('products')->onDelete('cascade');
         });

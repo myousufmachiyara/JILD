@@ -6,6 +6,7 @@ use App\Models\PurchaseInvoice;
 use App\Models\PurchaseInvoiceItem;
 use App\Models\PurchaseInvoiceAttachment;
 use App\Models\Product;
+use App\Models\MeasurementUnit;
 use App\Models\ChartOfAccounts; // assuming vendors are COA entries
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,8 +26,9 @@ class PurchaseInvoiceController extends Controller
     {
         $products = Product::select('id', 'name')->get();
         $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
+        $units = MeasurementUnit::all();
 
-        return view('purchases.create', compact('products', 'vendors'));
+        return view('purchases.create', compact('products', 'vendors','units'));
     }
 
     public function store(Request $request)

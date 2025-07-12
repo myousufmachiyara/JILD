@@ -73,28 +73,32 @@
               </thead>
               <tbody id="Purchase1Table">
                 <tr>
-                    <td><input type="text" name="item_cod[]" id="item_cod1" class="form-control"></td>
-                    <td>
-                        <select name="item_name[]" id="item_name1" class="form-control select2-js">
-                        <option value="">Select Item</option>
-                        @foreach ($products as $product)
-                            <option value="{{ $product->id }}">{{ $product->name }}</option>
-                        @endforeach
-                        </select>
-                    </td>
-                    <td><input type="text" name="bundle[]" id="pur_qty2_1" class="form-control" value="0" onchange="rowTotal(1)"></td>
-                    <td><input type="number" name="quantity[]" id="pur_qty1" class="form-control" value="0" step="any" onchange="rowTotal(1)"></td>
-                    <td><input type="text" name="unit[]" id="remarks1" class="form-control"></td>
-                    <td><input type="number" name="price[]" id="pur_price1" class="form-control" value="0" step="any" onchange="rowTotal(1)"></td>
-                    <td><input type="number" id="amount1" class="form-control" value="0" step="any" disabled></td>
-                    <td>
-                        <button type="button" class="btn btn-danger" onclick="removeRow(this)">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                        <button type="button" class="btn btn-primary mt-1" onclick="addNewRow_btn()">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                    </td>                
+                  <td><input type="text" name="item_cod[]" id="item_cod1" class="form-control"></td>
+                  <td>
+                    <select name="item_name[]" id="item_name1" class="form-control select2-js" onchange="onItemChange(1)">
+                      <option value="">Select Item</option>
+                      @foreach ($products as $product)
+                        <option value="{{ $product->id }}" data-barcode="{{ $product->barcode }}" data-unit-id="{{ $product->measurement_unit }}">{{ $product->name }}</option>
+                      @endforeach
+                    </select>
+                  </td>
+                  <td><input type="text" name="bundle[]" id="pur_qty2_1" class="form-control" value="0" onchange="rowTotal(1)"></td>
+                  <td><input type="number" name="quantity[]" id="pur_qty1" class="form-control" value="0" step="any" onchange="rowTotal(1)"></td>
+                  <td>
+                    <select name="unit[]" id="unit1" class="form-control select2-js" required>
+                      <option value="">-- Select --</option>
+                      @foreach ($units as $unit)
+                        <option value="{{ $unit->id }}">{{ $unit->name }} ({{ $unit->shortcode }})</option>
+                      @endforeach
+                    </select>
+                  </td>
+                  <td><input type="number" name="price[]" id="pur_price1" class="form-control" value="0" step="any" onchange="rowTotal(1)"></td>
+                  <td><input type="number" id="amount1" class="form-control" value="0" step="any" disabled></td>
+                  <td>
+                    <button type="button" class="btn btn-danger" onclick="removeRow(this)"><i class="fas fa-trash"></i></button>
+                    <button type="button" class="btn btn-primary mt-1" onclick="addNewRow_btn()"><i class="fas fa-plus"></i></button>
+                    <input type="hidden" name="barcode[]" id="barcode1">
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -145,109 +149,114 @@
     </form>
   </div>
 </div>
+
 <script>
-    var index = 2;
-
-    $(document).ready(function () {
-        $(window).keydown(function (event) {
-            if (event.keyCode == 13) {
-                event.preventDefault();
-                return false;
-            }
-        });
-
-        $('.select2-js').select2();
+  var index = 2;
+  $(document).ready(function () {
+    $(window).keydown(function (event) {
+      if (event.keyCode == 13) {
+        event.preventDefault();
+        return false;
+      }
     });
+    $('.select2-js').select2();
+  });
 
-    function removeRow(button) {
-        let tableRows = $("#Purchase1Table tr").length;
-        if (tableRows > 1) {
-            $(button).closest('tr').remove();
-            $('#itemCount').val(--tableRows);
-            tableTotal();
-        }
+  function onItemChange(row) {
+    const selected = $('#item_name' + row + ' option:selected');
+    const barcode = selected.data('barcode');
+    const unitId = selected.data('unit-id');
+    $('#barcode' + row).val(barcode);
+    $('#unit' + row).val(unitId).trigger('change');
+  }
+
+  function removeRow(button) {
+    let rows = $('#Purchase1Table tr').length;
+    if (rows > 1) {
+      $(button).closest('tr').remove();
+      $('#itemCount').val(--rows);
+      tableTotal();
     }
+  }
 
-    function addNewRow_btn() {
-        addNewRow();
-        $('#item_cod' + (index - 1)).focus();
-    }
+  function addNewRow_btn() {
+    addNewRow();
+    $('#item_cod' + (index - 1)).focus();
+  }
 
-    function addNewRow() {
-        let table = $("#Purchase1Table");
-        let newRow = `
-            <tr>
-                <td><input type="text" name="item_cod[]" id="item_cod${index}" class="form-control" ></td>
-                <td>
-                    <select name="item_name[]" id="item_name${index}" class="form-control select2-js">
-                        <option value="">Select Item</option>
-                        @foreach ($products as $product)
-                            <option value="{{ $product->id }}">{{ $product->name }}</option>
-                        @endforeach
-                    </select>
-                </td>
-                <td><input type="text" name="bundle[]" id="pur_qty2_${index}" class="form-control" value="0" onchange="rowTotal(${index})"></td>
-                <td><input type="number" name="quantity[]" id="pur_qty${index}" class="form-control" value="0" step="any" onchange="rowTotal(${index})"></td>
-                <td><input type="text" name="unit[]" id="remarks${index}" class="form-control"></td>
-                <td><input type="number" name="price[]" id="pur_price${index}" class="form-control" value="0" step="any" onchange="rowTotal(${index})"></td>
-                <td><input type="number" id="amount${index}" class="form-control" value="0" step="any" disabled></td>
-                <td>
-                    <button type="button" class="btn btn-danger" onclick="removeRow(this)">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                    <button type="button" class="btn btn-primary mt-1" onclick="addNewRow_btn()">
-                        <i class="fas fa-plus"></i>
-                    </button>
-                </td>            
-            </tr>
-        `;
-        table.append(newRow);
-        $('#itemCount').val(index);
-        $('#item_name' + index).select2();
-        index++;
-    }
+  function addNewRow() {
+    let table = $('#Purchase1Table');
+    let newRow = `
+      <tr>
+        <td><input type="text" name="item_cod[]" id="item_cod${index}" class="form-control"></td>
+        <td>
+          <select name="item_name[]" id="item_name${index}" class="form-control select2-js" onchange="onItemChange(${index})">
+            <option value="">Select Item</option>
+            @foreach ($products as $product)
+              <option value="{{ $product->id }}" data-barcode="{{ $product->barcode }}" data-unit-id="{{ $product->measurement_unit }}">{{ $product->name }}</option>
+            @endforeach
+          </select>
+        </td>
+        <td><input type="text" name="bundle[]" id="pur_qty2_${index}" class="form-control" value="0" onchange="rowTotal(${index})"></td>
+        <td><input type="number" name="quantity[]" id="pur_qty${index}" class="form-control" value="0" step="any" onchange="rowTotal(${index})"></td>
+        <td>
+          <select name="unit[]" id="unit${index}" class="form-control select2-js" required>
+            <option value="">-- Select --</option>
+            @foreach ($units as $unit)
+              <option value="{{ $unit->id }}">{{ $unit->name }} ({{ $unit->shortcode }})</option>
+            @endforeach
+          </select>
+        </td>
+        <td><input type="number" name="price[]" id="pur_price${index}" class="form-control" value="0" step="any" onchange="rowTotal(${index})"></td>
+        <td><input type="number" id="amount${index}" class="form-control" value="0" step="any" disabled></td>
+        <td>
+          <button type="button" class="btn btn-danger" onclick="removeRow(this)"><i class="fas fa-trash"></i></button>
+          <button type="button" class="btn btn-primary mt-1" onclick="addNewRow_btn()"><i class="fas fa-plus"></i></button>
+          <input type="hidden" name="barcode[]" id="barcode${index}">
+        </td>
+      </tr>`;
+    table.append(newRow);
+    $('#itemCount').val(index);
+    $('#item_name' + index).select2();
+    $('#unit' + index).select2();
+    index++;
+  }
 
-    function rowTotal(row_no) {
-        let quantity = parseFloat($('#pur_qty' + row_no).val()) || 0;
-        let price = parseFloat($('#pur_price' + row_no).val()) || 0;
-        let amount = (quantity * price).toFixed(2);
-        $('#amount' + row_no).val(amount);
-        tableTotal();
-    }
+  function rowTotal(row) {
+    let quantity = parseFloat($('#pur_qty' + row).val()) || 0;
+    let price = parseFloat($('#pur_price' + row).val()) || 0;
+    $('#amount' + row).val((quantity * price).toFixed(2));
+    tableTotal();
+  }
 
-    function tableTotal() {
-        let totalAmount = 0, totalWeight = 0, totalQuantity = 0;
-        $("#Purchase1Table tr").each(function () {
-            totalAmount += parseFloat($(this).find('input[id^="amount"]').val()) || 0;
-            totalWeight += parseFloat($(this).find('input[name="bundle[]"]').val()) || 0;
-            totalQuantity += parseFloat($(this).find('input[name="quantity[]"]').val()) || 0;
-        });
+  function tableTotal() {
+    let total = 0, bundle = 0, qty = 0;
+    $('#Purchase1Table tr').each(function () {
+      total += parseFloat($(this).find('input[id^="amount"]').val()) || 0;
+      bundle += parseFloat($(this).find('input[name="bundle[]"]').val()) || 0;
+      qty += parseFloat($(this).find('input[name="quantity[]"]').val()) || 0;
+    });
+    $('#totalAmount').val(total.toFixed(2));
+    $('#total_amount_show').val(total.toFixed(2));
+    $('#total_weight').val(bundle.toFixed(2));
+    $('#total_weight_show').val(bundle.toFixed(2));
+    $('#total_quantity').val(qty.toFixed(2));
+    $('#total_quantity_show').val(qty.toFixed(2));
+    netTotal();
+  }
 
-        $('#totalAmount').val(totalAmount.toFixed(2));
-        $('#total_amount_show').val(totalAmount.toFixed(2));
-        $('#total_weight').val(totalWeight.toFixed(2));
-        $('#total_weight_show').val(totalWeight.toFixed(2));
-        $('#total_quantity').val(totalQuantity.toFixed(2));
-        $('#total_quantity_show').val(totalQuantity.toFixed(2));
+  function netTotal() {
+    let total = parseFloat($('#totalAmount').val()) || 0;
+    let conv = parseFloat($('#convance_charges').val()) || 0;
+    let labour = parseFloat($('#labour_charges').val()) || 0;
+    let discount = parseFloat($('#bill_discount').val()) || 0;
+    let net = (total + conv + labour - discount).toFixed(2);
+    $('#netTotal').text(formatNumberWithCommas(net));
+    $('#net_amount').val(net);
+  }
 
-        netTotal();
-    }
-
-    function netTotal() {
-        let total = parseFloat($('#totalAmount').val()) || 0;
-        let conv = parseFloat($('#convance_charges').val()) || 0;
-        let labour = parseFloat($('#labour_charges').val()) || 0;
-        let discount = parseFloat($('#bill_discount').val()) || 0;
-
-        let net = (total + conv + labour - discount).toFixed(2);
-        $('#netTotal').text(formatNumberWithCommas(net));
-        $('#net_amount').val(net);
-    }
-
-    function formatNumberWithCommas(x) {
-        return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    }
+  function formatNumberWithCommas(x) {
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
 </script>
-
-
 @endsection
