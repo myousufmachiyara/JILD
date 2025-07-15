@@ -110,9 +110,10 @@ class PurchaseInvoiceController extends Controller
     {
         $invoice = PurchaseInvoice::with(['items', 'attachments'])->findOrFail($id);
         $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
-        $products = Product::all(); // Needed for the item dropdown
+        $products = Product::select('id', 'name', 'barcode', 'measurement_unit')->get();
+        $units = MeasurementUnit::all(); // <-- add this line
 
-        return view('purchases.edit', compact('invoice', 'vendors', 'products'));
+        return view('purchases.edit', compact('invoice', 'vendors', 'products', 'units'));
     }
 
     public function update(Request $request, $id)
