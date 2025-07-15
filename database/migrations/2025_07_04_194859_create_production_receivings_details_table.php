@@ -13,15 +13,16 @@ return new class extends Migration
     {
         Schema::create('production_receivings_details', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('receiving_id');
+            $table->unsignedBigInteger('production_receiving_id');
             $table->unsignedBigInteger('product_id');
-            $table->decimal('used_qty', 15, 2)->default(0);
-            $table->decimal('waste_qty', 15, 2)->default(0);
-            $table->decimal('missed_qty', 15, 2)->default(0);
+            $table->string('variation')->nullable(); // could be SKU or attribute name
+            $table->decimal('manufacturing_cost', 10, 4)->default(0);
+            $table->decimal('received_qty', 10, 4);
             $table->text('remarks')->nullable();
+            $table->decimal('total', 10, 2);
             $table->timestamps();
 
-            $table->foreign('receiving_id')->references('id')->on('production_receivings')->onDelete('cascade');
+            $table->foreign('production_receiving_id')->references('id')->on('production_receivings')->onDelete('cascade');
             $table->foreign('product_id')->references('id')->on('products');
         });
     }

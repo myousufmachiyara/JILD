@@ -15,7 +15,6 @@
       <header class="card-header d-flex justify-content-between">
         <h2 class="card-title">All Productions</h2>
         <div>
-          <a href="{{ route('production.receiving') }}" class="btn btn-success"><i class="fas fa-download"></i> Receiving</a>
           <a href="{{ route('production.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> New Production</a>
         </div>
       </header>
@@ -55,8 +54,10 @@
                 </td>
                 <td>
                   <a href="{{ route('production.print', $production->id) }}" class="text-success" title="Print"><i class="fa fa-print"></i></a>
-                  <a href="{{ route('production.receiving', ['id' => $production->id]) }}" class="text-primary" title="Receive"><i class="fa fa-download"></i></a>
                   <a href="{{ route('production.edit', $production->id) }}" class="text-warning" title="Edit"><i class="fa fa-edit"></i></a>
+                  <a href="{{ route('production.receiving.create', $production->id) }}" class="text-primary" title="Receive">
+                    <i class="fa fa-download"></i>
+                  </a>
                   <form action="{{ route('production.destroy', $production->id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this production order?');">
                     @csrf
                     @method('DELETE')

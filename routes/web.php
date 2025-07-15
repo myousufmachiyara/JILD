@@ -33,7 +33,16 @@ Route::middleware(['auth'])->group(function () {
     
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/products/details', [ProductController::class, 'details'])->name('products.receiving');
-    Route::get('/production_receiving', [ProductionReceivingController::class, 'create'])->name('production.receiving');
+    Route::get('/product/{id}/variations', [ProductController::class, 'getVariations']);
+    Route::get('/api/product/{id}/variations', [ProductionReceivingController::class, 'getVariations']);
+
+    Route::prefix('production_receiving')->name('production.receiving.')->group(function () {
+        Route::get('/', [ProductionReceivingController::class, 'index'])->name('index');
+        Route::get('/create', [ProductionReceivingController::class, 'create'])->name('create');
+        Route::post('/store', [ProductionReceivingController::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [ProductionReceivingController::class, 'edit'])->name('edit');
+        Route::put('/{id}/update', [ProductionReceivingController::class, 'update'])->name('update');
+    });
 
     $modules = [
         'coa' => ['controller' => COAController::class, 'permission' => 'coa'],

@@ -23,12 +23,12 @@
 
         <div class="card-body">
           <div class="row pb-3">
-            <div class="col-md-3">
+            <div class="col-md-2">
               <label>Product Name *</label>
               <input type="text" name="name" class="form-control" required value="{{ old('name') }}">
               @error('name')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
               <label>Category *</label>
               <select name="category_id" class="form-control" required>
                 <option value="" disabled selected>Select Category</option>
@@ -38,13 +38,13 @@
               </select>
               @error('category_id')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
               <label>SKU *</label>
               <input type="text" name="sku" id="sku" class="form-control" value="{{ old('sku') }}" required>
               @error('sku')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-2">
               <label for="unit_id">Measurement Unit</label>
               <select name="measurement_unit" id="unit_id" class="form-control" required>
                 <option value="" disabled selected>-- Select Unit --</option>
@@ -54,7 +54,7 @@
               </select>
             </div>
 
-            <div class="col-md-3 mt-3">
+            <div class="col-md-2">
               <label>Item Type</label>
               <select name="item_type" class="form-control" required>
                 <option value="" disabled selected>Item Type</option>
@@ -64,28 +64,28 @@
               @error('item_type')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
 
-            <div class="col-md-3 mt-3">
-              <label>Manufacturing Cost</label>
+            <div class="col-md-2">
+              <label>M.Cost</label>
               <input type="number" step="any" name="manufacturing_cost" class="form-control" value="{{ old('manufacturing_cost', '0.00') }}">
               @error('price')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
 
-            <div class="col-md-3 mt-3">
+            <div class="col-md-2 mt-3">
               <label>Opening Stock</label>
               <input type="number" step="any" name="opening_stock" class="form-control" value="{{ old('opening_stock', '0') }}">
               @error('opening_stock')<div class="text-danger">{{ $message }}</div>@enderror
+            </div>
+
+            <div class="col-md-4 mt-3">
+              <label>Description</label>
+              <textarea name="description" class="form-control">{{ old('description') }}</textarea>
+              @error('description')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
 
             <div class="col-md-3 mt-3">
               <label>Product Images</label>
               <input type="file" name="prod_att[]" multiple class="form-control">
               @error('prod_att')<div class="text-danger">{{ $message }}</div>@enderror
-            </div>
-
-            <div class="col-md-3 mt-3">
-              <label>Description</label>
-              <textarea name="description" class="form-control">{{ old('description') }}</textarea>
-              @error('description')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
           </div>
 
@@ -95,7 +95,7 @@
               <h5>Product Variations</h5>
               <div class="row">
                 @foreach($attributes as $attribute)
-                  <div class="col-md-4">
+                  <div class="col-md-6">
                     <label>{{ $attribute->name }}</label>
                     <select name="attributes[{{ $attribute->id }}][]" multiple class="form-control select2-js variation-select" data-attribute="{{ $attribute->id }}">
                       @foreach($attribute->values as $value)
@@ -120,7 +120,7 @@
                   <tr>
                     <th>Variation</th>
                     <th>Stock</th>
-                    <th>Price</th>
+                    <th>M.Cost</th>
                     <th>SKU</th>
                     <th>Action</th>
                   </tr>

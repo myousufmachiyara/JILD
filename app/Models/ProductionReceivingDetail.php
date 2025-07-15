@@ -7,20 +7,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class ProductionReceivingDetail extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
-        'receiving_id',
-        'product_id',
-        'used_qty',
-        'waste_qty',
-        'missed_qty',
-        'remarks',
+        'production_receiving_id', 'product_id', 'variation',
+        'manufacturing_cost', 'received_qty', 'remarks', 'total'
     ];
 
     public function receiving()
     {
-        return $this->belongsTo(ProductionReceiving::class, 'receiving_id');
+        return $this->belongsTo(ProductionReceiving::class, 'production_receiving_id');
     }
 
     public function product()

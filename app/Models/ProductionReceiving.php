@@ -11,25 +11,22 @@ class ProductionReceiving extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'production_id',
-        'challan_no',
-        'receive_date',
-        'received_by',
-        'remarks',
+        'production_id', 'vendor_id', 'rec_date', 'grn_no',
+        'convance_charges', 'bill_discount', 'net_amount'
     ];
+
+    public function details()
+    {
+        return $this->hasMany(ProductionReceivingDetail::class);
+    }
+
+    public function vendor()
+    {
+        return $this->belongsTo(ChartOfAccounts::class, 'vendor_id');
+    }
 
     public function production()
     {
         return $this->belongsTo(Production::class);
-    }
-
-    public function items()
-    {
-        return $this->hasMany(ProductionReceivingDetail::class, 'receiving_id');
-    }
-
-    public function receivedBy()
-    {
-        return $this->belongsTo(User::class, 'received_by');
     }
 }

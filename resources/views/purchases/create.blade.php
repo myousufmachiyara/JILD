@@ -21,7 +21,7 @@
               <input type="date" name="invoice_date" class="form-control" value="{{ date('Y-m-d') }}" required>
             </div>
 
-            <div class="col-md-3 mb-3">
+            <div class="col-md-2 mb-3">
               <label>Vendor</label>
               <select name="vendor_id" class="form-control select2-js" required>
                 <option value="">Select Vendor</option>
@@ -36,7 +36,7 @@
               <input type="text" name="payment_terms" class="form-control">
             </div>
 
-            <div class="col-md-2 mb-3">
+            <div class="col-md-1 mb-3">
               <label>Bill #</label>
               <input type="text" name="bill_no" class="form-control">
             </div>
@@ -46,12 +46,12 @@
               <input type="text" name="ref_no" class="form-control">
             </div>
 
-            <div class="col-md-6 mb-3">
+            <div class="col-md-3 mb-3">
               <label>Attachments</label>
               <input type="file" name="attachments[]" class="form-control" multiple accept=".pdf,.jpg,.jpeg,.png,.zip">
             </div>
 
-            <div class="col-md-12 mb-3">
+            <div class="col-md-4 mb-3">
               <label>Remarks</label>
               <textarea name="remarks" class="form-control" rows="3"></textarea>
             </div>
@@ -73,9 +73,9 @@
               </thead>
               <tbody id="Purchase1Table">
                 <tr>
-                  <td><input type="text" name="item_cod[]" id="item_cod1" class="form-control"></td>
+                  <td><input type="text" name="item_cod[]" id="item_cod1" class="form-control" onblur="fetchByCode(1)"></td>
                   <td>
-                    <select name="item_name[]" id="item_name1" class="form-control select2-js" onchange="onItemChange(1)">
+                    <select name="item_name[]" id="item_name1" class="form-control select2-js" onchange="onItemNameChange(this)">
                       <option value="">Select Item</option>
                       @foreach ($products as $product)
                         <option value="{{ $product->id }}" data-barcode="{{ $product->barcode }}" data-unit-id="{{ $product->measurement_unit }}">{{ $product->name }}</option>
@@ -85,7 +85,7 @@
                   <td><input type="text" name="bundle[]" id="pur_qty2_1" class="form-control" value="0" onchange="rowTotal(1)"></td>
                   <td><input type="number" name="quantity[]" id="pur_qty1" class="form-control" value="0" step="any" onchange="rowTotal(1)"></td>
                   <td>
-                    <select name="unit[]" id="unit1" class="form-control select2-js" required>
+                    <select name="unit[]" id="unit1" class="form-control" required>
                       <option value="">-- Select --</option>
                       @foreach ($units as $unit)
                         <option value="{{ $unit->id }}">{{ $unit->name }} ({{ $unit->shortcode }})</option>
@@ -151,24 +151,74 @@
 </div>
 
 <script>
+  var products = @json($products);
   var index = 2;
+
   $(document).ready(function () {
+    $('.select2-js').select2();
     $(window).keydown(function (event) {
       if (event.keyCode == 13) {
         event.preventDefault();
         return false;
       }
     });
-    $('.select2-js').select2();
   });
 
-  function onItemChange(row) {
-    const selected = $('#item_name' + row + ' option:selected');
-    const barcode = selected.data('barcode');
-    const unitId = selected.data('unit-id');
-    $('#barcode' + row).val(barcode);
-    $('#unit' + row).val(unitId).trigger('change');
+  function fetchByCode(index) {
+    const codeInput = document.getElementById(`item_cod${index}`);
+    const itemSelect = document.getElementById(`item_name${index}`);
+    const unitSelect = document.getElementById(`unit${index}`);
+    const barcodeInput = document.getElementById(`barcode${index}`);
+    const enteredCode = codeInput.value.trim();
+
+    if (!enteredCode) return;
+
+    // Find option by product ID (enteredCode)
+    let matched = false;
+    for (let option of itemSelect.options) {
+      if (option.value === enteredCode) {
+        option.selected = true;
+        const unitId = option.getAttribute('data-unit-id');
+        const barcode = option.getAttribute('data-barcode');
+        unitSelect.value = unitId;
+        barcodeInput.value = barcode;
+        $(itemSelect).trigger('change');
+        $(unitSelect).trigger('change');
+
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) {
+      alert('No matching product found for this Item Code.');
+    }
   }
+
+  function onItemNameChange(selectElement) {
+    const row = selectElement.closest('tr');
+    const selectedOption = selectElement.options[selectElement.selectedIndex];
+
+    const itemId = selectedOption.value;
+    const unitId = selectedOption.getAttribute('data-unit-id');
+
+    const barcode = selectedOption.getAttribute('data-barcode');
+
+    // Extract index from the select element ID
+    const idMatch = selectElement.id.match(/\d+$/);
+    if (!idMatch) return;
+
+    const index = idMatch[0];
+
+    // Update item code and barcode
+    document.getElementById(`item_cod${index}`).value = itemId;
+    document.getElementById(`barcode${index}`).value = barcode;
+
+    // ⚠️ Convert unitId to string before setting it to dropdown
+    const unitSelector = $(`#unit${index}`);
+    unitSelector.val(String(unitId)).trigger('change.select2');
+  }
+
 
   function removeRow(button) {
     let rows = $('#Purchase1Table tr').length;
@@ -188,19 +238,20 @@
     let table = $('#Purchase1Table');
     let newRow = `
       <tr>
-        <td><input type="text" name="item_cod[]" id="item_cod${index}" class="form-control"></td>
+        <td><input type="text" name="item_cod[]" id="item_cod${index}" class="form-control" onblur="fetchByCode(${index})"></td>
         <td>
-          <select name="item_name[]" id="item_name${index}" class="form-control select2-js" onchange="onItemChange(${index})">
+          <select name="item_name[]" id="item_name${index}" class="form-control select2-js" onchange="onItemNameChange(this)">
             <option value="">Select Item</option>
-            @foreach ($products as $product)
-              <option value="{{ $product->id }}" data-barcode="{{ $product->barcode }}" data-unit-id="{{ $product->measurement_unit }}">{{ $product->name }}</option>
-            @endforeach
+            ${products.map(product => 
+              `<option value="${product.id}" data-barcode="${product.barcode}" data-unit-id="${product.measurement_unit}">
+                ${product.name}
+              </option>`).join('')}
           </select>
         </td>
         <td><input type="text" name="bundle[]" id="pur_qty2_${index}" class="form-control" value="0" onchange="rowTotal(${index})"></td>
         <td><input type="number" name="quantity[]" id="pur_qty${index}" class="form-control" value="0" step="any" onchange="rowTotal(${index})"></td>
         <td>
-          <select name="unit[]" id="unit${index}" class="form-control select2-js" required>
+          <select name="unit[]" id="unit${index}" class="form-control" required>
             <option value="">-- Select --</option>
             @foreach ($units as $unit)
               <option value="{{ $unit->id }}">{{ $unit->name }} ({{ $unit->shortcode }})</option>
@@ -214,11 +265,12 @@
           <button type="button" class="btn btn-primary mt-1" onclick="addNewRow_btn()"><i class="fas fa-plus"></i></button>
           <input type="hidden" name="barcode[]" id="barcode${index}">
         </td>
-      </tr>`;
+      </tr>
+    `;
     table.append(newRow);
     $('#itemCount').val(index);
-    $('#item_name' + index).select2();
-    $('#unit' + index).select2();
+    $(`#item_name${index}`).select2();
+    $(`#unit${index}`).select2();
     index++;
   }
 

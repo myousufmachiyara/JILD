@@ -14,13 +14,17 @@ return new class extends Migration
         Schema::create('production_receivings', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('production_id');
-            $table->string('challan_no');
-            $table->date('receive_date');
+            $table->unsignedBigInteger('vendor_id');
+            $table->date('rec_date');
+            $table->string('grn_no')->unique();
+            $table->decimal('convance_charges', 10, 2)->default(0);
+            $table->decimal('bill_discount', 10, 2)->default(0);
+            $table->decimal('net_amount', 10, 2)->default(0);
             $table->unsignedBigInteger('received_by');
-            $table->text('remarks')->nullable();
             $table->timestamps();
             $table->softDeletes();
             
+            $table->foreign('vendor_id')->references('id')->on('chart_of_accounts')->onDelete('cascade');
             $table->foreign('production_id')->references('id')->on('productions')->onDelete('cascade');
             $table->foreign('received_by')->references('id')->on('users');
         });

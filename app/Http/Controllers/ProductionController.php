@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Production;
 use App\Models\ProductionDetail;
 use App\Models\ProductCategory;
-use \App\Models\ChartOfAccounts;
-use \App\Models\Product;
+use App\Models\ChartOfAccounts;
+use App\Models\ProductionReceiving;
+use App\Models\ProductionReceivingDetail;
+use App\Models\Production;
+use App\Models\Product;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;

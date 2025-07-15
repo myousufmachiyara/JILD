@@ -24,7 +24,7 @@ class PurchaseInvoiceController extends Controller
 
     public function create()
     {
-        $products = Product::select('id', 'name')->get();
+        $products = Product::select('id', 'name', 'barcode', 'measurement_unit')->get();
         $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
         $units = MeasurementUnit::all();
 
