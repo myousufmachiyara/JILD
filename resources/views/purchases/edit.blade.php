@@ -23,7 +23,7 @@
               <input type="date" name="invoice_date" class="form-control" value="{{ $invoice->invoice_date }}" required>
             </div>
 
-            <div class="col-md-3 mb-3">
+            <div class="col-md-2 mb-3">
               <label>Vendor</label>
               <select name="vendor_id" class="form-control select2-js" required>
                 <option value="">Select Vendor</option>
@@ -50,7 +50,7 @@
               <input type="text" name="ref_no" class="form-control" value="{{ $invoice->ref_no }}">
             </div>
 
-            <div class="col-md-6 mb-3">
+            <div class="col-md-2 mb-3">
               <label>Attachments (Upload New)</label>
               <input type="file" name="attachments[]" class="form-control" multiple accept=".pdf,.jpg,.jpeg,.png,.zip">
               @if ($invoice->attachments && count($invoice->attachments))
@@ -65,7 +65,7 @@
               @endif
             </div>
 
-            <div class="col-md-12 mb-3">
+            <div class="col-md-4 mb-3">
               <label>Remarks</label>
               <textarea name="remarks" class="form-control" rows="3">{{ $invoice->remarks }}</textarea>
             </div>
@@ -116,17 +116,17 @@
                   <td><input type="number" name="price[]" id="pur_price{{ $i + 1 }}" value="{{ $item->price }}" class="form-control" onchange="rowTotal({{ $i + 1 }})"></td>
                   <td><input type="number" id="amount{{ $i + 1 }}" class="form-control" value="{{ $item->quantity * $item->price }}" step="any" disabled></td>
                   <td>
-                    <button type="button" class="btn btn-danger" onclick="removeRow(this)">
-                      <i class="fas fa-trash"></i>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">
+                      <i class="fas fa-times"></i>
                     </button>
-                    <button type="button" class="btn btn-primary mt-1" onclick="addNewRow_btn()">
-                      <i class="fas fa-plus"></i>
-                    </button>
+                    
                   </td>
                 </tr>
                 @endforeach
               </tbody>
             </table>
+            <button type="button" class="btn btn-outline-primary" onclick="addNewRow_btn()"><i class="fas fa-plus"></i> Add Item</button>
+
           </div>
 
           <div class="row mb-3">
@@ -219,11 +219,8 @@
         <td><input type="number" name="price[]" id="pur_price${rowIndex}" class="form-control" value="0" step="any" onchange="rowTotal(${rowIndex})"></td>
         <td><input type="number" id="amount${rowIndex}" class="form-control" value="0" step="any" disabled></td>
         <td>
-          <button type="button" class="btn btn-danger" onclick="removeRow(this)">
-            <i class="fas fa-trash"></i>
-          </button>
-          <button type="button" class="btn btn-primary mt-1" onclick="addNewRow_btn()">
-            <i class="fas fa-plus"></i>
+          <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">
+            <i class="fas fa-times"></i>
           </button>
         </td>
       </tr>

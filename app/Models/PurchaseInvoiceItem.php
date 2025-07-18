@@ -25,4 +25,9 @@ class PurchaseInvoiceItem extends Model
     {
         return $this->belongsTo(Product::class, 'item_id');
     }
+    
+    public function unit()
+    {
+        return $this->belongsTo(MeasurementUnit::class, 'unit');
+    }
 }

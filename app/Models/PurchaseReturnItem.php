@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class PurchaseReturnItem extends Model
 {
-    protected $fillable = ['purchase_return_id', 'item_id', 'quantity', 'unit_id', 'price', 'amount'];
+    protected $fillable = ['purchase_return_id', 'item_id', 'purchase_invoice_id', 'quantity', 'unit_id', 'price', 'amount'];
 
     public function item()
     {

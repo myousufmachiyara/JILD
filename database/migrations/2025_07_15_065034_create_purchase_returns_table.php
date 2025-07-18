@@ -20,6 +20,7 @@ return new class extends Migration
             $table->decimal('total_amount', 15, 2);
             $table->decimal('net_amount', 15, 2);
             $table->timestamps();
+            $table->softdeletes();
 
             $table->foreign('vendor_id')->references('id')->on('chart_of_accounts')->onDelete('cascade');
         });

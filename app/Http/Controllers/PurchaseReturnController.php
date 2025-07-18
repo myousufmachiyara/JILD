@@ -3,6 +3,14 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use App\Models\PurchaseReturn;
+use App\Models\PurchaseReturnItem;
+use App\Models\PurchaseInvoice;
+use App\Models\Product;
+use App\Models\ChartOfAccounts; // assuming vendors are COA entries
+use App\Models\ChartOfAccount;
+use App\Models\MeasurementUnit;
 
 class PurchaseReturnController extends Controller
 {
@@ -14,116 +22,104 @@ class PurchaseReturnController extends Controller
 
     public function create()
     {
-        $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
+        $invoices = PurchaseInvoice::with('vendor')->get();
         $products = Product::all();
+        $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
         $units = MeasurementUnit::all();
-        return view('purchase-returns.create', compact('vendors', 'products', 'units'));
+        return view('purchase-returns.create', compact('invoices', 'products', 'units','vendors'));
     }
 
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'vendor_id' => 'required',
+        $request->validate([
+            'vendor_id' => 'required|exists:chart_of_accounts,id',
             'return_date' => 'required|date',
-            'reference_no' => 'nullable|string',
-            'remarks' => 'nullable|string',
-            'items' => 'required|array',
-            'items.*.item_id' => 'required',
-            'items.*.quantity' => 'required|numeric',
-            'items.*.unit_id' => 'required',
-            'items.*.price' => 'required|numeric',
+            'reference_no' => 'nullable|string|max:255',
+            'remarks' => 'nullable|string|max:1000',
+            'total_amount' => 'required|numeric|min:0',
+            'net_amount' => 'required|numeric|min:0',
+
+            // Validate each item row
+            'item_id.*' => 'required|exists:products,id',
+            'purchase_invoice_id.*' => 'required|exists:purchase_invoices,id',
+            'quantity.*' => 'required|numeric|min:0',
+            'unit_id.*' => 'required|exists:measurement_units,id',
+            'price.*' => 'required|numeric|min:0',
+            'amount.*' => 'required|numeric|min:0',
         ]);
 
-        DB::transaction(function () use ($data, $request) {
-            $total = 0;
-            foreach ($request->items as $item) {
-                $total += $item['quantity'] * $item['price'];
-            }
+        try {
+            DB::beginTransaction();
 
-            $return = PurchaseReturn::create([
+            // Create Purchase Return
+            $purchaseReturn = PurchaseReturn::create([
                 'vendor_id' => $request->vendor_id,
                 'return_date' => $request->return_date,
                 'reference_no' => $request->reference_no,
                 'remarks' => $request->remarks,
-                'total_amount' => $total,
-                'net_amount' => $total
+                'total_amount' => $request->total_amount,
+                'net_amount' => $request->net_amount,
             ]);
 
-            foreach ($request->items as $item) {
-                $return->items()->create([
-                    'item_id' => $item['item_id'],
-                    'quantity' => $item['quantity'],
-                    'unit_id' => $item['unit_id'],
-                    'price' => $item['price'],
-                    'amount' => $item['quantity'] * $item['price']
+            // Store Purchase Return Items
+            foreach ($request->item_id as $index => $itemId) {
+                PurchaseReturnItem::create([
+                    'purchase_return_id' => $purchaseReturn->id,
+                    'item_id' => $itemId,
+                    'purchase_invoice_id' => $request->purchase_invoice_id[$index],
+                    'quantity' => $request->quantity[$index],
+                    'unit_id' => $request->unit_id[$index],
+                    'price' => $request->price[$index],
+                    'amount' => $request->amount[$index],
                 ]);
             }
-        });
 
-        return redirect()->route('purchase_returns.index')->with('success', 'Purchase return created.');
+            DB::commit();
+            return redirect()->route('purchase_return.index')->with('success', 'Purchase Return saved successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withInput()->withErrors(['error' => 'Failed to save: ' . $e->getMessage()]);
+        }
     }
 
     public function edit($id)
     {
         $return = PurchaseReturn::with('items')->findOrFail($id);
-        $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
+        $invoices = PurchaseInvoice::all();
         $products = Product::all();
         $units = MeasurementUnit::all();
-        return view('purchase-returns.edit', compact('return', 'vendors', 'products', 'units'));
+        return view('purchase-returns.edit', compact('return', 'invoices', 'products', 'units'));
     }
 
     public function update(Request $request, $id)
     {
-        $return = PurchaseReturn::with('items')->findOrFail($id);
-
-        $data = $request->validate([
+        $request->validate([
+            'purchase_invoice_id' => 'required',
             'vendor_id' => 'required',
             'return_date' => 'required|date',
-            'reference_no' => 'nullable|string',
-            'remarks' => 'nullable|string',
-            'items' => 'required|array',
-            'items.*.item_id' => 'required',
-            'items.*.quantity' => 'required|numeric',
-            'items.*.unit_id' => 'required',
-            'items.*.price' => 'required|numeric',
         ]);
 
-        DB::transaction(function () use ($request, $return) {
-            $total = 0;
-            foreach ($request->items as $item) {
-                $total += $item['quantity'] * $item['price'];
-            }
-
-            $return->update([
-                'vendor_id' => $request->vendor_id,
-                'return_date' => $request->return_date,
-                'reference_no' => $request->reference_no,
-                'remarks' => $request->remarks,
-                'total_amount' => $total,
-                'net_amount' => $total
-            ]);
+        DB::transaction(function () use ($request, $id) {
+            $return = PurchaseReturn::findOrFail($id);
+            $return->update($request->only([
+                'purchase_invoice_id', 'vendor_id', 'return_date', 'ref_no', 'remarks', 'total_amount', 'net_amount'
+            ]));
 
             $return->items()->delete();
 
-            foreach ($request->items as $item) {
+            foreach ($request->item_id as $index => $itemId) {
                 $return->items()->create([
-                    'item_id' => $item['item_id'],
-                    'quantity' => $item['quantity'],
-                    'unit_id' => $item['unit_id'],
-                    'price' => $item['price'],
-                    'amount' => $item['quantity'] * $item['price']
+                    'item_id' => $itemId,
+                    'item_name' => $request->item_name[$index],
+                    'quantity' => $request->quantity[$index],
+                    'price' => $request->price[$index],
+                    'unit' => $request->unit[$index],
+                    'amount' => $request->quantity[$index] * $request->price[$index],
+                    'remarks' => $request->remarks[$index] ?? null,
                 ]);
             }
         });
 
-        return redirect()->route('purchase_returns.index')->with('success', 'Purchase return updated.');
-    }
-
-    public function destroy($id)
-    {
-        $return = PurchaseReturn::findOrFail($id);
-        $return->items()->delete();
-        $return->delete();
-        return redirect()->route('purchase_returns.index')->with('success', 'Purchase return deleted.');
+        return redirect()->route('purchase_return.index')->with('success', 'Purchase return updated successfully.');
     }
 }

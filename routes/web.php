@@ -12,6 +12,7 @@ use App\Http\Controllers\{
     SaleController,
     ProductionController,
     PurchaseInvoiceController,
+    PurchaseReturnController,
     ProductController,
     UserController,
     RoleController,
@@ -43,6 +44,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{id}/edit', [ProductionReceivingController::class, 'edit'])->name('edit');
         Route::put('/{id}/update', [ProductionReceivingController::class, 'update'])->name('update');
     });
+    Route::get('/api/item/{item}/invoices', [PurchaseInvoiceController::class, 'getInvoicesByItem']);
 
     $modules = [
         'coa' => ['controller' => COAController::class, 'permission' => 'coa'],

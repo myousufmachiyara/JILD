@@ -15,7 +15,7 @@
       <header class="card-header d-flex justify-content-between align-items-center">
         <h2 class="card-title">All Purchase Invoices</h2>
         <a href="{{ route('purchase_invoices.create') }}" class="btn btn-primary">
-          <i class="fas fa-plus"></i> Add Purchase Invoice
+          <i class="fas fa-plus"></i> Purchase Invoice
         </a>
       </header>
 
@@ -51,12 +51,12 @@
                   @endif
                 </td>
                 <td>
-                  <a href="{{ route('purchase_invoices.edit', $invoice->id) }}" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
-                  <a href="{{ route('purchase_invoices.print', $invoice->id) }}" target="_blank" class="btn btn-sm btn-secondary"><i class="fas fa-print"></i></a>
+                  <a href="{{ route('purchase_invoices.edit', $invoice->id) }}" class="text-primary"><i class="fas fa-edit"></i></a>
+                  <a href="{{ route('purchase_invoices.print', $invoice->id) }}" target="_blank" class="text-success"><i class="fas fa-print"></i></a>
                   <form action="{{ route('purchase_invoices.destroy', $invoice->id) }}" method="POST" style="display:inline;">
                     @csrf
                     @method('DELETE')
-                    <button class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')"><i class="fas fa-trash"></i></button>
+                    <button class="text-danger" style="border:none" onclick="return confirm('Are you sure?')"><i class="fas fa-trash"></i></button>
                   </form>
                 </td>
               </tr>

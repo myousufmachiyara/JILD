@@ -46,7 +46,7 @@
               <input type="text" name="ref_no" class="form-control">
             </div>
 
-            <div class="col-md-3 mb-3">
+            <div class="col-md-2 mb-3">
               <label>Attachments</label>
               <input type="file" name="attachments[]" class="form-control" multiple accept=".pdf,.jpg,.jpeg,.png,.zip">
             </div>
@@ -95,13 +95,13 @@
                   <td><input type="number" name="price[]" id="pur_price1" class="form-control" value="0" step="any" onchange="rowTotal(1)"></td>
                   <td><input type="number" id="amount1" class="form-control" value="0" step="any" disabled></td>
                   <td>
-                    <button type="button" class="btn btn-danger" onclick="removeRow(this)"><i class="fas fa-trash"></i></button>
-                    <button type="button" class="btn btn-primary mt-1" onclick="addNewRow_btn()"><i class="fas fa-plus"></i></button>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button>
                     <input type="hidden" name="barcode[]" id="barcode1">
                   </td>
                 </tr>
               </tbody>
             </table>
+            <button type="button" class="btn btn-outline-primary" onclick="addNewRow_btn()"><i class="fas fa-plus"></i> Add Item</button>
           </div>
 
           <div class="row mb-3">
@@ -261,8 +261,7 @@
         <td><input type="number" name="price[]" id="pur_price${index}" class="form-control" value="0" step="any" onchange="rowTotal(${index})"></td>
         <td><input type="number" id="amount${index}" class="form-control" value="0" step="any" disabled></td>
         <td>
-          <button type="button" class="btn btn-danger" onclick="removeRow(this)"><i class="fas fa-trash"></i></button>
-          <button type="button" class="btn btn-primary mt-1" onclick="addNewRow_btn()"><i class="fas fa-plus"></i></button>
+          <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button>
           <input type="hidden" name="barcode[]" id="barcode${index}">
         </td>
       </tr>

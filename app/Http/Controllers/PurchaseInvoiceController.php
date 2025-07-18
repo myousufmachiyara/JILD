@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use App\Services\myPDF;
+use Carbon\Carbon;
 
 class PurchaseInvoiceController extends Controller
 {
@@ -220,4 +222,109 @@ class PurchaseInvoiceController extends Controller
 
         return redirect()->route('purchase_invoices.index')->with('success', 'Purchase Invoice deleted successfully.');
     }
+
+    public function getInvoicesByItem($itemId)
+    {
+        $invoices = PurchaseInvoice::whereHas('items', function ($q) use ($itemId) {
+            $q->where('item_id', $itemId);
+        })
+        ->with('vendor')
+        ->get(['id', 'vendor_id']);
+
+        return response()->json(
+            $invoices->map(function ($inv) {
+                return [
+                    'id' => $inv->id,
+                    'vendor' => $inv->vendor->name ?? '',
+                ];
+            })
+        );
+    }
+
+
+    public function print($id)
+    {
+        $invoice = PurchaseInvoice::with(['vendor', 'items.product', 'items.unit'])->findOrFail($id);
+
+        $pdf = new \TCPDF();
+        $pdf->SetCreator('Your App');
+        $pdf->SetAuthor('Your Company');
+        $pdf->SetTitle('Purchase Invoice #' . $invoice->id);
+        $pdf->SetMargins(10, 10, 10);
+        $pdf->AddPage();
+
+        $html = '
+        <style>
+            table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+            th, td { border: 1px solid #000; padding: 5px; font-size: 11px; }
+            .header { font-size: 16px; font-weight: bold; text-align: center; margin-bottom: 10px; }
+            .info-table td { border: none; font-size: 12px; }
+        </style>
+
+        <div class="header">Purchase Invoice</div>
+
+        <table class="info-table">
+            <tr>
+                <td><strong>Invoice No:</strong> ' . $invoice->id . '</td>
+                <td><strong>Date:</strong> ' . $invoice->date . '</td>
+            </tr>
+            <tr>
+                <td><strong>Vendor:</strong> ' . ($invoice->vendor->name ?? '') . '</td>
+                <td><strong>Bill No:</strong> ' . ($invoice->bill_no ?? '-') . '</td>
+            </tr>
+            <tr>
+                <td><strong>Ref No:</strong> ' . ($invoice->ref_no ?? '-') . '</td>
+                <td><strong>Payment Terms:</strong> ' . ($invoice->payment_terms ?? '-') . '</td>
+            </tr>
+        </table>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Item Code</th>
+                    <th>Item Name</th>
+                    <th>Bundle</th>
+                    <th>Quantity</th>
+                    <th>Unit</th>
+                    <th>Rate</th>
+                    <th>Remarks</th>
+                </tr>
+            </thead>
+            <tbody>';
+
+        foreach ($invoice->items as $i => $item) {
+            $html .= '
+                <tr>
+                    <td>' . ($i + 1) . '</td>
+                    <td>' . ($item->item->item_code ?? '-') . '</td>
+                    <td>' . ($item->item->name ?? '-') . '</td>
+                    <td>' . $item->bundle . '</td>
+                    <td>' . $item->quantity . '</td>
+                    <td>' . ($item->unit->name ?? '-') . '</td>
+                    <td>' . number_format($item->price, 2) . '</td>
+                    <td>' . $item->remarks . '</td>
+                </tr>';
+        }
+
+        $html .= '</tbody></table>';
+
+        $html .= '<br><br><strong>Total Items:</strong> ' . $invoice->items->count();
+
+        if (!empty($invoice->charges) || !empty($invoice->discount)) {
+            $html .= '<br><strong>Additional Charges:</strong> ' . number_format($invoice->charges, 2);
+            $html .= '<br><strong>Discount:</strong> ' . number_format($invoice->discount, 2);
+        }
+
+        if (!empty($invoice->remarks)) {
+            $html .= '<br><br><strong>Remarks:</strong><br>' . nl2br($invoice->remarks);
+        }
+
+        $html .= '<br><br><br><strong>Authorized Signature: ____________________</strong>';
+
+        $pdf->writeHTML($html, true, false, true, false, '');
+        $pdf->Output('purchase_invoice_' . $invoice->id . '.pdf', 'I');
+
+    }
+
 }

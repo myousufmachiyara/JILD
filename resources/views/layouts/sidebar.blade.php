@@ -77,6 +77,16 @@
           </li>
           @endcan
 
+          {{-- Purchases Return --}}
+          @can('purchase_return.index')
+          <li>
+            <a class="nav-link" href="{{ route('purchase_return.index') }}">
+              <i class="fa fa-undo"></i>
+              <span>Purchase Return</span>
+            </a>
+          </li>
+          @endcan
+
           {{-- Production --}}
           @can('production.index')
           <li>
@@ -93,6 +103,16 @@
             <a class="nav-link" href="{{ route('sale_vouchers.index') }}">
               <i class="fa fa-cash-register"></i>
               <span>Sales</span>
+            </a>
+          </li>
+          @endcan
+
+          {{-- Sales --}}
+          @can('sale_return.index')
+          <li>
+            <a class="nav-link" href="{{ route('sale_return.index') }}">
+              <i class="fa fa-undo"></i>
+              <span>Sale Return</span>
             </a>
           </li>
           @endcan
