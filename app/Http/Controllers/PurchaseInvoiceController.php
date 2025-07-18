@@ -241,6 +241,26 @@ class PurchaseInvoiceController extends Controller
         );
     }
 
+    public function getItemDetails($invoiceId, $itemId)
+    {
+        $item = PurchaseInvoiceItem::with(['product', 'unit'])
+            ->where('purchase_invoice_id', $invoiceId)
+            ->where('item_id', $itemId)
+            ->first();
+
+        if (!$item) {
+            return response()->json(['error' => 'Item not found in this invoice.'], 404);
+        }
+
+        return response()->json([
+            'item_id'   => $item->item_id,
+            'item_name' => $item->product->name ?? '',
+            'quantity'  => $item->quantity,
+            'unit_id'   => $item->unit_id,
+            'unit_name' => $item->unit->name ?? '',
+            'price'     => $item->price,
+        ]);
+    }
 
     public function print($id)
     {

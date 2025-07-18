@@ -34,7 +34,7 @@
 
                 <div class="col-12 col-md-2">
                   <label>Category<span style="color: red;"><strong>*</strong></span></label>
-                  <select data-plugin-selecttwo class="form-control select2-js" name="category_id" required>
+                  <select class="form-control" name="category_id" required>
                     <option value="" selected disabled>Select Category</option>
                       @foreach($categories as $item)  
                         <option value="{{$item->id}}">{{$item->name}}</option>
@@ -54,8 +54,8 @@
 
                 <div class="col-12 col-md-2 mb-3">
                   <label>Production Type</label>
-                  <select data-plugin-selecttwo class="form-control select2-js" name="production_type" id="production_type" required>
-                    <option value="" selected disabled>Select Produection Type</option>
+                  <select class="form-control" name="production_type" id="production_type" required>
+                    <option value="" selected disabled>Select Type</option>
                     <option value="cmt">CMT</option>
                     <option value="sale_raw">Sale Leather</option>
 
@@ -86,6 +86,7 @@
                 <thead>
                   <tr>
                     <th>Raw</th>
+                    <th>Purchase #</th>
                     <th>Rate</th>
                     <th>Qty</th>
                     <th>Unit</th>
@@ -96,21 +97,26 @@
                 <tbody id="PurPOTbleBody">
                   <tr>
                     <td>
-                      <select data-plugin-selecttwo class="form-control select2-js" name="item_details[0][product_id]" id="productSelect0" onchange="getData(0)" required>
-                        <option value="" selected disabled>Select Fabric</option>
-                        @foreach($products as $product)
+                      <select name="item_details[0][product_id]" id="productSelect0" class="form-control select2-js" onchange="onItemChange(this)" required>
+                        <option value="" selected disabled>Select Leather</option>
+                        @foreach($allProducts as $product)
                           <option value="{{ $product->id }}" data-unit="{{ $product->unit }}">{{ $product->name }}</option>
                         @endforeach
                       </select>
                     </td>
-                   
+                    <td>
+                      <select name="item_details[0][invoice_id]" id="invoiceSelect0" class="form-control" required onchange="onInvoiceChange(this)">
+                        <option value="" disabled selected>Select Invoice</option>
+                      </select>
+                    </td>
                     <td><input type="number" name="item_details[0][item_rate]" id="item_rate_0" onchange="rowTotal(0)" step="any" value="0" class="form-control" placeholder="Rate" required/></td>
                     <td><input type="number" name="item_details[0][qty]" id="item_qty_0" onchange="rowTotal(0)" step="any" value="0" class="form-control" placeholder="Quantity" required/></td>
                     <td>
-                      <select data-plugin-selecttwo id="item_unit_0" class="form-control select2-js" name="item_details[0][item_unit]" required>
+                      <select id="item_unit_0" class="form-control" name="item_details[0][item_unit]" required>
                         <option value="" disabled selected>Select Unit</option>
-                        <option value="mtr">Meter</option>
-                        <option value="sq_ft"> Sq.ft</option>              
+                         @foreach ($units as $unit)
+                            <option value="{{ $unit->id }}">{{ $unit->name }}</option>
+                         @endforeach          
                       </select>
                     </td>
                     <td><input type="number" id="item_total_0" class="form-control" placeholder="Total" disabled/></td>
@@ -203,23 +209,31 @@
         const newRow = table.insertRow();
 
         const options = allProducts.map(p =>
-          `<option value="${p.id}" data-unit="${p.unit}">${p.name}</option>`
+          `<option value="${p.id}" data-unit="${p.unit ?? ''}">${p.name}</option>`
         ).join('');
+
+        console.log(options);
 
         newRow.innerHTML = `
           <td>
-            <select data-plugin-selecttwo id="productSelect${index}" class="form-control select2-js" onchange="getData(${index})" name="item_details[${index}][product_id]" required>
-              <option value="" disabled selected>Select Fabric</option>
+            <select data-plugin-selecttwo name="item_details[${index}][product_id]" required id="productSelect${index}" class="form-control select2-js" onchange="onItemChange(this)">
+              <option value="" disabled selected>Select Leather</option>
               ${options}
+            </select>
+          </td>
+          <td>
+            <select name="item_details[${index}][invoice_id]" id="invoiceSelect${index}" class="form-control" onchange="onInvoiceChange(this)" required>
+              <option value="" disabled selected>Select Invoice</option>
             </select>
           </td>
           <td><input type="number" name="item_details[${index}][item_rate]" id="item_rate_${index}" step="any" value="0" onchange="rowTotal(${index})" class="form-control" required/></td>
           <td><input type="number" name="item_details[${index}][qty]" id="item_qty_${index}" step="any" value="0" onchange="rowTotal(${index})" class="form-control" required/></td>
           <td>
-            <select data-plugin-selecttwo id="item_unit_${index}" class="form-control select2-js" name="item_details[${index}][item_unit]" required>
+            <select id="item_unit_${index}" class="form-control" name="item_details[${index}][item_unit]" required>
               <option value="" disabled selected>Select Unit</option>
-              <option value="mtr">Meter</option>
-              <option value="sq_ft"> Sq.ft</option>              
+              @foreach($units as $unit)
+                <option value="{{ $unit->id }}">{{ $unit->name }}</option>
+              @endforeach              
             </select>
           </td>
           <td><input type="number" id="item_total_${index}" class="form-control" placeholder="Total" disabled/></td>
@@ -267,11 +281,69 @@
     function formatNumberWithCommas(x) {
       return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
+    
+    function onItemChange(select) {
+      const row = select.closest('tr');
+      const itemId = select.value;
+      const option = select.selectedOptions?.[0];
 
-    function getData(row) {
-      const unit = $(`#productSelect${row} option:selected`).data('unit');
-      $(`#item_unit_${row}`).val(unit ?? '');
+      if (!row || !itemId || !option) return;
+
+      const unit = option.getAttribute('data-unit');
+
+      // Set the unit field
+      const unitSelect = row.querySelector('select[name^="item_details"][name$="[item_unit]"]');
+      if (unitSelect && unit) unitSelect.value = unit;
+
+      const invoiceSelect = row.querySelector('select[name^="item_details"][name$="[invoice_id]"]');
+      if (!invoiceSelect) return;
+
+      invoiceSelect.innerHTML = '<option value="">Loading...</option>';
+
+      // Clear other fields
+      row.querySelector(`input[name^="item_details"][name$="[qty]"]`).value = '';
+      row.querySelector(`input[name^="item_details"][name$="[item_rate]"]`).value = '';
+      row.querySelector(`input[id^="item_total_"]`).value = '';
+
+      // Load invoice data
+      fetch(`/api/item/${itemId}/invoices`)
+        .then(res => res.json())
+        .then(data => {
+          invoiceSelect.innerHTML = '<option value="">Select Invoice</option>';
+          data.forEach(inv => {
+            invoiceSelect.innerHTML += `<option value="${inv.id}">#${inv.id} - ${inv.vendor}</option>`;
+          });
+        })
+        .catch(() => {
+          invoiceSelect.innerHTML = '<option value="">Error loading invoices</option>';
+        });
     }
+
+    function onInvoiceChange(select) {
+      const row = select.closest('tr');
+      const invoiceId = select.value;
+      const itemSelect = row.querySelector('select[name^="item_details"][name$="[product_id]"]');
+      const itemId = itemSelect?.value;
+
+      if (!invoiceId || !itemId) return;
+
+      fetch(`/invoice-item/${invoiceId}/item/${itemId}`)
+        .then(res => res.json())
+          .then(data => {
+            if (!data.error) {
+              row.querySelector(`input[name^="item_details"][name$="[qty]"]`).value = data.quantity || 0;
+              row.querySelector(`input[name^="item_details"][name$="[item_rate]"]`).value = data.price || 0;
+
+              // Trigger row total
+              const rowIndex = row.rowIndex - 1; // Adjust index if header row exists
+              rowTotal(rowIndex);
+            }
+          })
+          .catch(() => {
+            console.warn("Failed to fetch invoice-item data.");
+          });
+    }
+
 
     function generateVoucher() {
       document.getElementById("voucher-container").innerHTML = "";

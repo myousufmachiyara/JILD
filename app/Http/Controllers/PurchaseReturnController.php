@@ -4,12 +4,13 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
 use App\Models\PurchaseReturn;
 use App\Models\PurchaseReturnItem;
 use App\Models\PurchaseInvoice;
 use App\Models\Product;
-use App\Models\ChartOfAccounts; // assuming vendors are COA entries
-use App\Models\ChartOfAccount;
+use App\Models\ChartOfAccounts;
 use App\Models\MeasurementUnit;
 
 class PurchaseReturnController extends Controller
@@ -31,19 +32,21 @@ class PurchaseReturnController extends Controller
 
     public function store(Request $request)
     {
+        // Log request input
+        Log::info('Storing Purchase Return', ['request' => $request->all()]);
+
         $request->validate([
             'vendor_id' => 'required|exists:chart_of_accounts,id',
             'return_date' => 'required|date',
-            'reference_no' => 'nullable|string|max:255',
             'remarks' => 'nullable|string|max:1000',
             'total_amount' => 'required|numeric|min:0',
             'net_amount' => 'required|numeric|min:0',
 
             // Validate each item row
             'item_id.*' => 'required|exists:products,id',
-            'purchase_invoice_id.*' => 'required|exists:purchase_invoices,id',
+            'invoice_id.*' => 'required|exists:purchase_invoices,id',
             'quantity.*' => 'required|numeric|min:0',
-            'unit_id.*' => 'required|exists:measurement_units,id',
+            'unit.*' => 'required|exists:measurement_units,id',
             'price.*' => 'required|numeric|min:0',
             'amount.*' => 'required|numeric|min:0',
         ]);
@@ -51,75 +54,119 @@ class PurchaseReturnController extends Controller
         try {
             DB::beginTransaction();
 
-            // Create Purchase Return
             $purchaseReturn = PurchaseReturn::create([
-                'vendor_id' => $request->vendor_id,
-                'return_date' => $request->return_date,
-                'reference_no' => $request->reference_no,
-                'remarks' => $request->remarks,
-                'total_amount' => $request->total_amount,
-                'net_amount' => $request->net_amount,
+                'vendor_id'     => $request->vendor_id,
+                'return_date'   => $request->return_date,
+                'remarks'       => $request->remarks,
+                'total_amount'  => $request->total_amount,
+                'net_amount'    => $request->net_amount,
             ]);
 
-            // Store Purchase Return Items
+            Log::info('Purchase Return created', ['id' => $purchaseReturn->id]);
+
             foreach ($request->item_id as $index => $itemId) {
-                PurchaseReturnItem::create([
-                    'purchase_return_id' => $purchaseReturn->id,
-                    'item_id' => $itemId,
-                    'purchase_invoice_id' => $request->purchase_invoice_id[$index],
-                    'quantity' => $request->quantity[$index],
-                    'unit_id' => $request->unit_id[$index],
-                    'price' => $request->price[$index],
-                    'amount' => $request->amount[$index],
-                ]);
+                $itemData = [
+                    'purchase_return_id'   => $purchaseReturn->id,
+                    'item_id'              => $itemId,
+                    'purchase_invoice_id'  => $request->invoice_id[$index],
+                    'quantity'             => $request->quantity[$index],
+                    'unit_id'              => $request->unit[$index],
+                    'price'                => $request->price[$index],
+                    'amount'               => $request->amount[$index],
+                    'remarks'              => $request->remarks[$index] ?? null,
+                ];
+
+                PurchaseReturnItem::create($itemData);
+
+                Log::info('Purchase Return Item created', ['data' => $itemData]);
             }
 
             DB::commit();
+            Log::info('Purchase Return transaction committed successfully.');
+
             return redirect()->route('purchase_return.index')->with('success', 'Purchase Return saved successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Purchase Return store failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return back()->withInput()->withErrors(['error' => 'Failed to save: ' . $e->getMessage()]);
         }
     }
 
     public function edit($id)
     {
-        $return = PurchaseReturn::with('items')->findOrFail($id);
-        $invoices = PurchaseInvoice::all();
-        $products = Product::all();
+        $return = PurchaseReturn::with(['items', 'vendor'])->findOrFail($id);
+        $vendors = ChartOfAccounts::where('account_type', 'Vendor')->get();
         $units = MeasurementUnit::all();
-        return view('purchase-returns.edit', compact('return', 'invoices', 'products', 'units'));
+        $items = Product::all();
+        $invoices = PurchaseInvoice::with('vendor')->get(); // 🔥 Add this line
+
+        return view('purchase-returns.edit', compact('return', 'vendors', 'units', 'items', 'invoices'));
     }
 
     public function update(Request $request, $id)
     {
+        Log::info("Updating Purchase Return", ['id' => $id, 'request' => $request->all()]);
+
         $request->validate([
-            'purchase_invoice_id' => 'required',
-            'vendor_id' => 'required',
+            'vendor_id' => 'required|exists:chart_of_accounts,id',
             'return_date' => 'required|date',
+            'remarks' => 'nullable|string|max:1000',
+            'total_amount' => 'required|numeric|min:0',
+            'net_amount' => 'required|numeric|min:0',
+            'item_id.*' => 'required|exists:products,id',
+            'invoice_id.*' => 'required|exists:purchase_invoices,id',
+            'quantity.*' => 'required|numeric|min:0',
+            'unit.*' => 'required|exists:measurement_units,id',
+            'price.*' => 'required|numeric|min:0',
+            'amount.*' => 'required|numeric|min:0',
         ]);
 
-        DB::transaction(function () use ($request, $id) {
-            $return = PurchaseReturn::findOrFail($id);
-            $return->update($request->only([
-                'purchase_invoice_id', 'vendor_id', 'return_date', 'ref_no', 'remarks', 'total_amount', 'net_amount'
-            ]));
+        try {
+            DB::beginTransaction();
 
-            $return->items()->delete();
+            $purchaseReturn = PurchaseReturn::findOrFail($id);
+            $purchaseReturn->update([
+                'vendor_id'    => $request->vendor_id,
+                'return_date'  => $request->return_date,
+                'remarks'      => $request->remarks,
+                'total_amount' => $request->total_amount,
+                'net_amount'   => $request->net_amount,
+            ]);
+
+            // Delete existing items and re-add
+            PurchaseReturnItem::where('purchase_return_id', $purchaseReturn->id)->delete();
 
             foreach ($request->item_id as $index => $itemId) {
-                $return->items()->create([
-                    'item_id' => $itemId,
-                    'item_name' => $request->item_name[$index],
-                    'quantity' => $request->quantity[$index],
-                    'price' => $request->price[$index],
-                    'unit' => $request->unit[$index],
-                    'amount' => $request->quantity[$index] * $request->price[$index],
-                    'remarks' => $request->remarks[$index] ?? null,
-                ]);
-            }
-        });
+                $itemData = [
+                    'purchase_return_id'   => $purchaseReturn->id,
+                    'item_id'              => $itemId,
+                    'purchase_invoice_id'  => $request->invoice_id[$index],
+                    'quantity'             => $request->quantity[$index],
+                    'unit_id'              => $request->unit[$index],
+                    'price'                => $request->price[$index],
+                    'amount'               => $request->amount[$index],
+                    'remarks'              => $request->remarks[$index] ?? null,
+                ];
 
-        return redirect()->route('purchase_return.index')->with('success', 'Purchase return updated successfully.');
+                PurchaseReturnItem::create($itemData);
+                Log::info("Updated Item", ['data' => $itemData]);
+            }
+
+            DB::commit();
+            Log::info("Purchase Return updated successfully", ['id' => $id]);
+
+            return redirect()->route('purchase_return.index')->with('success', 'Purchase Return updated successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Purchase Return update failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return back()->withInput()->withErrors(['error' => 'Failed to update: ' . $e->getMessage()]);
+        }
     }
 }

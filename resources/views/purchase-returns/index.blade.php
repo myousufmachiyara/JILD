@@ -30,7 +30,7 @@
                 <td>{{ number_format($ret->total_amount, 2) }}</td>
                 <td>{{ number_format($ret->net_amount, 2) }}</td>
                 <td>
-                  <a href="{{ route('purchase_returns.edit', $ret->id) }}" class="btn btn-sm btn-info"><i class="fas fa-edit"></i></a>
+                  <a href="{{ route('purchase_return.edit', $ret->id) }}" class="text-primary"><i class="fas fa-edit"></i></a>
                 </td>
               </tr>
             @endforeach

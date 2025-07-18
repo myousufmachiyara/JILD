@@ -9,6 +9,7 @@ use App\Models\ProductionReceiving;
 use App\Models\ProductionReceivingDetail;
 use App\Models\Production;
 use App\Models\Product;
+use App\Models\MeasurementUnit;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -26,17 +27,18 @@ class ProductionController extends Controller
     {
         $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
         $categories = ProductCategory::all();
-        $products = Product::all();
+        $products = Product::select('id', 'name', 'barcode', 'measurement_unit')->get();
+        $units = MeasurementUnit::all();
 
-        $allProducts = $products->map(function ($product) {
-        return [
+        $allProducts = collect($products)->map(function ($product) {
+            return (object)[
                 'id' => $product->id,
                 'name' => $product->name,
-                'unit' => $product->unit,
+                'unit' => $product->measurement_unit,
             ];
-        })->values();
+        });
         
-        return view('production.create', compact('vendors', 'categories', 'products', 'allProducts'));
+        return view('production.create', compact('vendors', 'categories', 'allProducts', 'units'));
     }
 
     public function store(Request $request)
