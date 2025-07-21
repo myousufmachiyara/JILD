@@ -11,8 +11,13 @@ class ProductionReceiving extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'production_id', 'vendor_id', 'rec_date', 'grn_no',
-        'convance_charges', 'bill_discount', 'net_amount'
+        'production_id',
+        'vendor_id',
+        'rec_date',
+        'grn_no',
+        'convance_charges',
+        'bill_discount',
+        'net_amount'
     ];
 
     public function details()

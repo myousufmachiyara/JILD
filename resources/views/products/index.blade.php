@@ -22,7 +22,7 @@
       </header>
 
       <div class="card-body">
-        <div class="modal-wrapper table-scroll" style="overflow-x: auto;">
+        <div class="modal-wrapper table-scroll">
           <table class="table table-bordered table-striped mb-0" id="cust-datatable-default">
             <thead>
               <tr>
@@ -53,11 +53,11 @@
                 <td>{{ $product->category->name ?? '-' }}</td>
                 <td>{{ number_format($product->manufacturing_cost, 2) }}</td>
                 <td>
-                  <a href="{{ route('products.edit', $product->id) }}" class="btn btn-sm btn-warning">Edit</a>
+                  <a href="{{ route('products.edit', $product->id) }}" class="text-primary"><i class="fa fa-pen"></i></a>
                   <form method="POST" action="{{ route('products.destroy', $product->id) }}" style="display:inline-block">
                     @csrf
                     @method('DELETE')
-                    <button class="btn btn-sm btn-danger" onclick="return confirm('Delete this product?')">Delete</button>
+                    <button class="text-danger" style="border:none" onclick="return confirm('Delete this product?')"><i class="fa fa-times"></i></button>
                   </form>
                 </td>
               </tr>

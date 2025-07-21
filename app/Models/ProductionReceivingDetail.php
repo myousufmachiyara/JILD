@@ -7,9 +7,16 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class ProductionReceivingDetail extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
-        'production_receiving_id', 'product_id', 'variation',
-        'manufacturing_cost', 'received_qty', 'remarks', 'total'
+        'production_receiving_id',
+        'product_id',
+        'variation',
+        'manufacturing_cost',
+        'received_qty',
+        'remarks',
+        'total'
     ];
 
     public function receiving()

@@ -27,6 +27,7 @@ return new class extends Migration
             $table->foreign('vendor_id')->references('id')->on('chart_of_accounts')->onDelete('cascade');
             $table->foreign('production_id')->references('id')->on('productions')->onDelete('cascade');
             $table->foreign('received_by')->references('id')->on('users');
+        
         });
     }
 

@@ -284,19 +284,20 @@ class ProductController extends Controller
 
             return redirect()->route('products.index')->with('success', 'Product updated successfully.');
         } catch (\Throwable $e) {
-            DB::rollBack();
+        DB::rollBack();
 
-            Log::error('[Product Update] Failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
+        Log::error('[Product Update] Failed', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
 
-            return redirect()->back()->withInput()->with('error', 'Product update failed. Please try again.');
+        return redirect()->back()->withInput()->with('error', 'Product update failed. Please try again.');
         }
     }
 
-    public function destroy(Product $product)
+    public function destroy($id)
     {
+        $product = Product::findOrFail($id);
         $product->delete();
 
         return redirect()->route('products.index')->with('success', 'Product deleted successfully.');

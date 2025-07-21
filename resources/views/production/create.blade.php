@@ -4,7 +4,7 @@
 
 @section('content')
   <div class="row">
-    <form action="{{ route('production.store') }}" method="POST" enctype="multipart/form-data">
+    <form id="productionForm" action="{{ route('production.store') }}" method="POST" enctype="multipart/form-data">
       @csrf
 
       @if ($errors->any())
@@ -22,13 +22,13 @@
           <section class="card">
             <header class="card-header">
               <div style="display: flex;justify-content: space-between;">
-                <h2 class="card-title">New Order</h2>
+                <h2 class="card-title">New Production</h2>
               </div>
             </header>
             <div class="card-body">
               <div class="row">
                 <div class="col-12 col-md-2 mb-3">
-                  <label>Order #</label>
+                  <label>Production #</label>
                   <input type="text" class="form-control" value="{{ $nextProductionCode ?? '' }}" disabled/>
                 </div>
 
@@ -57,9 +57,9 @@
                   <select class="form-control" name="production_type" id="production_type" required>
                     <option value="" selected disabled>Select Type</option>
                     <option value="cmt">CMT</option>
-                    <option value="sale_raw">Sale Leather</option>
-
+                    <option value="sale_leather">Sale Leather</option>
                   </select>
+                  <input type="hidden" name="challan_generated" value="0">
                 </div>
 
                 <div class="col-12 col-md-2 mb-3">
@@ -69,7 +69,7 @@
 
                 <div class="col-12 col-md-2 mb-3">
                   <label>Challan #</label>
-                  <input type="text" name="challan_no" class="form-control" value="{{ $nextChallanNo ?? '' }}" readonly required/>
+                  <input type="text" name="challan_no" class="form-control" value="{{ $nextChallanNo ?? '' }}" required/>
                 </div>
               </div>
             </div>
@@ -95,7 +95,7 @@
                   </tr>
                 </thead>
                 <tbody id="PurPOTbleBody">
-                  <tr>
+                  <tr class="item-row">
                     <td>
                       <select name="item_details[0][product_id]" id="productSelect0" class="form-control select2-js" onchange="onItemChange(this)" required>
                         <option value="" selected disabled>Select Leather</option>
@@ -190,6 +190,21 @@
     var index = 1;
     const allProducts = @json($allProducts);
 
+    document.addEventListener("DOMContentLoaded", function () {
+      const form = document.getElementById('productionForm');
+
+      form.addEventListener('submit', function (e) {
+        const productionType = document.getElementById('production_type')?.value;
+        const challanGenerated = document.querySelector('input[name="challan_generated"]')?.value;
+
+        if (productionType === 'sale_leather' && challanGenerated !== '1') {
+          e.preventDefault();
+          alert("Please generate the challan before submitting the form.");
+          return false;
+        }
+      });
+    });
+
     function removeRow(button) {
       const tableRows = $("#PurPOTbleBody tr").length;
       if (tableRows > 1) {
@@ -207,12 +222,12 @@
       if (latestValue !== "") {
         const table = document.getElementById('myTable').getElementsByTagName('tbody')[0];
         const newRow = table.insertRow();
+        newRow.classList.add('item-row');
 
         const options = allProducts.map(p =>
           `<option value="${p.id}" data-unit="${p.unit ?? ''}">${p.name}</option>`
         ).join('');
 
-        console.log(options);
 
         newRow.innerHTML = `
           <td>
@@ -344,76 +359,98 @@
           });
     }
 
-
     function generateVoucher() {
-      document.getElementById("voucher-container").innerHTML = "";
+      const voucherContainer = document.getElementById("voucher-container");
+      voucherContainer.innerHTML = "";
 
       const vendorName = document.querySelector("#vendor_name option:checked")?.textContent ?? "-";
-      const date = $('#order_date').val();
-      const challanNo = "FGPO-" + Math.floor(100000 + Math.random() * 900000);
+      const orderDate = $('#order_date').val();
+      const challanNo = "PROD-" + Math.floor(100000 + Math.random() * 900000);
 
-      let items = [];
-      let rows = document.querySelectorAll("#PurPOTbleBody tr");
+      let itemsHTML = "";
+      let grandTotal = 0;
 
-      rows.forEach((row, i) => {
-        const fabricSelect = row.querySelector(`select[name="item_details[${i}][product_id]"]`);
-        const fabric = fabricSelect?.options[fabricSelect.selectedIndex]?.text ?? '-';
+      document.querySelectorAll(".item-row").forEach((row) => {
+        const productName = row.querySelector('select[name*="[product_id]"] option:checked')?.textContent ?? "-";
+        const qty = parseFloat(row.querySelector('input[name*="[qty]"]')?.value || 0);
+        const unit = row.querySelector('select[name*="[item_unit]"] option:checked')?.textContent ?? "-";
+        const rate = parseFloat(row.querySelector('input[name*="[item_rate]"]')?.value || 0);
+        const total = qty * rate;
+        grandTotal += total;
 
-        const rate = row.querySelector(`#item_rate_${i}`)?.value ?? 0;
-        const qty = row.querySelector(`#item_qty_${i}`)?.value ?? 0;
-        const total = row.querySelector(`#item_total_${i}`)?.value ?? 0;
-
-        const unit = "PCS"; // or replace with logic for unit
-        const description = "-";
-
-        if (fabric && qty && rate) {
-          items.push({ fabric, description, rate, qty, unit, total });
-        }
+        itemsHTML += `
+          <tr>
+            <td>${productName}</td>
+            <td>${qty} ${unit}</td>
+            <td>${rate.toFixed(2)}</td>
+            <td>${total.toFixed(2)}</td>
+          </tr>
+        `;
       });
 
-      const totalAmount = items.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
-
-      let html = `
+      const html = `
         <div class="border p-3 mt-3">
-          <h3 class="text-center text-dark">Challan / Delivery Note</h3>
+          <h3 class="text-center text-dark">Production Challan</h3>
           <hr>
+
           <div class="d-flex justify-content-between text-dark">
             <p><strong>Vendor:</strong> ${vendorName}</p>
-            <p><strong>Challan #:</strong> ${challanNo}</p>
-            <p><strong>Date:</strong> ${date}</p>
+            <p><strong>Challan No:</strong> ${challanNo}</p>
+            <p><strong>Date:</strong> ${orderDate}</p>
           </div>
 
           <table class="table table-bordered mt-3">
-            <thead>
-                <tr>
-                    <th>Fabric</th>
-                    <th>Description</th>
-                    <th>Qty</th>
-                    <th>Unit</th>
-                    <th>Rate</th>
-                    <th>Total</th>
-                </tr>
+            <thead class="bg-light">
+              <tr>
+                <th>Product</th>
+                <th>Qty</th>
+                <th>Rate</th>
+                <th>Total</th>
+              </tr>
             </thead>
             <tbody>
-                ${items.map(item => `
-                  <tr>
-                    <td>${item.fabric}</td>
-                    <td>${item.description}</td>
-                    <td>${item.qty}</td>
-                    <td>${item.unit}</td>
-                    <td>${item.rate}</td>
-                    <td>${item.total}</td>
-                  </tr>
-                `).join('')}
+              ${itemsHTML}
             </tbody>
+            <tfoot>
+              <tr>
+                <th colspan="3" class="text-end">Grand Total</th>
+                <th>${grandTotal.toFixed(2)}</th>
+              </tr>
+            </tfoot>
           </table>
 
-          <h4 class="text-end text-dark"><strong>Total Amount:</strong> PKR ${totalAmount.toFixed(0)}</h4>
-          <input type="hidden" name="voucher_amount" value="${totalAmount.toFixed(0)}">
+          <input type="hidden" name="voucher_amount" value="${grandTotal}">
+          <input type="hidden" name="challan_no" value="${challanNo}">
+          <input type="hidden" name="challan_generated" value="1">
+
+          <div class="d-flex justify-content-between mt-4">
+            <div>
+              <p class="text-dark"><strong>Authorized By:</strong></p>
+              <p>________________________</p>
+            </div>
+          </div>
         </div>
       `;
 
-      document.getElementById("voucher-container").innerHTML = html;
+      voucherContainer.innerHTML = html;
+
+      // Also ensure challan_no and challan_generated are attached to form (in case form is submitted separately)
+      const form = document.querySelector('form');
+
+      const ensureHiddenInput = (name, value) => {
+        let input = form.querySelector(`input[name="${name}"]`);
+        if (!input) {
+          input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = name;
+          form.appendChild(input);
+        }
+        input.value = value;
+      };
+
+      ensureHiddenInput("challan_no", challanNo);
+      ensureHiddenInput("challan_generated", "1");
+      ensureHiddenInput("voucher_amount", grandTotal.toFixed(2));
     }
 
     $(document).on("click", ".delete-row", function () {

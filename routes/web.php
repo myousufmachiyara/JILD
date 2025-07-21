@@ -35,7 +35,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/products/details', [ProductController::class, 'details'])->name('products.receiving');
     Route::get('/product/{id}/variations', [ProductController::class, 'getVariations']);
-    Route::get('/api/product/{id}/variations', [ProductionReceivingController::class, 'getVariations']);
+    Route::get('/product/{id}/variations', [ProductionReceivingController::class, 'getVariations'])->name('production.receiving.getVariations');
 
     Route::prefix('production_receiving')->name('production.receiving.')->group(function () {
         Route::get('/', [ProductionReceivingController::class, 'index'])->name('index');
@@ -44,6 +44,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{id}/edit', [ProductionReceivingController::class, 'edit'])->name('edit');
         Route::put('/{id}/update', [ProductionReceivingController::class, 'update'])->name('update');
     });
+    
     Route::get('/api/item/{item}/invoices', [PurchaseInvoiceController::class, 'getInvoicesByItem']);
     Route::get('/invoice-item/{invoiceId}/item/{itemId}', [PurchaseInvoiceController::class, 'getItemDetails']);
 

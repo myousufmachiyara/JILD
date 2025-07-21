@@ -16,7 +16,7 @@ return new class extends Migration
             $table->unsignedBigInteger('vendor_id');
             $table->unsignedBigInteger('category_id')->nullable();
             $table->date('order_date');
-            $table->enum('production_type', ['sale_raw', 'cmt']);
+            $table->string('production_type');
             $table->text('remarks')->nullable();
             $table->unsignedBigInteger('created_by');
             $table->timestamps();
