@@ -248,55 +248,80 @@
       });
   }
 
-function addRow() {
-    const table = $('#itemTable tbody');
-    const newIndex = table.find('tr').length;
-    
-    // Create row from HTML template (not cloning)
-    const newRow = $(`
-    <tr>
-        <td>
-            <input type="text" class="form-control product-code" 
-                   placeholder="Enter Product Code">
-        </td>
-        <td>
-            <select name="item_details[${newIndex}][product_id]" 
-                    class="form-control select2-js product-select" required>
-                <option value="">Select Item</option>
-                ${$('#itemTable').data('product-options')}
-            </select>
-        </td>
-        <td>
-            <select name="item_details[${newIndex}][variation]" 
-                    class="form-control select2-js variation-select">
-                <option value="">Select Variation</option>
-            </select>
-        </td>
-        <td>
-            <input type="number" class="form-control manufacturing_cost" 
-                   name="item_details[${newIndex}][manufacturing_cost]" 
-                   step="any" value="0" readonly>
-        </td>
-        <!-- Add other columns as needed -->
-        <td>
-            <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">
-                <i class="fas fa-times"></i>
-            </button>
-        </td>
-    </tr>`);
-    
-    // Add to table
-    table.append(newRow);
-    
-    // Initialize Select2
-    newRow.find('.select2-js').select2({
-        width: '100%',
-        dropdownAutoWidth: true
-    });
-    
-    // Focus on product code field
-    newRow.find('.product-code').focus();
-}
+  function addRow() {
+      const table = $('#itemTable tbody');
+      const newIndex = table.find('tr').length;
+      
+      // Create row from HTML template with all columns
+      const newRow = $(`
+      <tr>
+          <td>
+              <input type="text" class="form-control product-code" 
+                    placeholder="Enter Product Code"
+                    onblur="fetchByCode($(this).closest('tr').index())">
+          </td>
+          <td>
+              <select name="item_details[${newIndex}][product_id]" 
+                      class="form-control select2-js product-select" required>
+                  <option value="">Select Item</option>
+                  ${$('#itemTable').data('product-options')}
+              </select>
+          </td>
+          <td>
+              <select name="item_details[${newIndex}][variation]" 
+                      class="form-control select2-js variation-select">
+                  <option value="">Select Variation</option>
+              </select>
+          </td>
+          <td>
+              <input type="number" class="form-control manufacturing_cost" 
+                    name="item_details[${newIndex}][manufacturing_cost]" 
+                    step="any" value="0" readonly>
+          </td>
+          <td>
+              <input type="number" class="form-control received-qty" 
+                    name="item_details[${newIndex}][received_qty]" 
+                    step="any" value="0" required>
+          </td>
+          <td>
+              <input type="text" class="form-control" 
+                    name="item_details[${newIndex}][remarks]">
+          </td>
+          <td>
+              <input type="number" class="form-control row-total" 
+                    name="item_details[${newIndex}][total]" 
+                    step="any" value="0" readonly>
+          </td>
+          <td>
+              <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">
+                  <i class="fas fa-times"></i>
+              </button>
+          </td>
+      </tr>`);
+      
+      // Add to table
+      table.append(newRow);
+      
+      // Initialize Select2 on both select elements
+      newRow.find('.select2-js').select2({
+          width: '100%',
+          dropdownAutoWidth: true
+      });
+          
+      // Re-bind any necessary events
+      bindRowEvents(newRow);
+  }
+
+  // Optional: Function to bind events to new row
+  function bindRowEvents(row) {
+      row.find('.received-qty').on('input', calculateTotals);
+      row.find('.product-select').on('change', function() {
+          const selected = $(this).find(':selected');
+          const mfgCost = selected.data('mfg-cost') || 0;
+          $(this).closest('tr').find('.manufacturing_cost').val(mfgCost);
+          calculateTotals();
+      });
+  }
 
   function removeRow(button) {
     const table = document.querySelector("#itemTable tbody");
