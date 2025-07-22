@@ -110,7 +110,7 @@
           {{-- Sales --}}
           @can('sale_vouchers.index')
           <li>
-            <a class="nav-link" href="{{ route('sale_vouchers.index') }}">
+            <a class="nav-link" href="#">
               <i class="fa fa-cash-register"></i>
               <span>Sales</span>
             </a>
@@ -120,7 +120,7 @@
           {{-- Sales --}}
           @can('sale_return.index')
           <li>
-            <a class="nav-link" href="{{ route('sale_return.index') }}">
+            <a class="nav-link" href="#">
               <i class="fa fa-undo"></i>
               <span>Sale Return</span>
             </a>
