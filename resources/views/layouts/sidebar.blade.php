@@ -97,6 +97,16 @@
           </li>
           @endcan
 
+          {{-- Production Receiving--}}
+          @can('production.index')
+          <li>
+            <a class="nav-link" href="{{ route('production.receiving.index') }}">
+              <i class="fa fa-industry"></i>
+              <span>Production Receiving</span>
+            </a>
+          </li>
+          @endcan
+
           {{-- Sales --}}
           @can('sale_vouchers.index')
           <li>

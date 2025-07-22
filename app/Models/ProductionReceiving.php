@@ -17,7 +17,8 @@ class ProductionReceiving extends Model
         'grn_no',
         'convance_charges',
         'bill_discount',
-        'net_amount'
+        'net_amount',
+        'received_by',
     ];
 
     public function details()

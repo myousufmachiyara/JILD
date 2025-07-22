@@ -25,7 +25,7 @@
                 <th>#</th>
                 <th>GRN No</th>
                 <th>Receiving Date</th>
-                <th>Production</th>
+                <th>Production #</th>
                 <th>Total Qty</th>
                 <th>Amount</th>
                 <th>Action</th>
@@ -37,10 +37,11 @@
                 <td>{{ $loop->iteration }}</td>
                 <td>{{ $rec->grn_no }}</td>
                 <td>{{ \Carbon\Carbon::parse($rec->rec_date)->format('d-m-Y') }}</td>
-                <td>PO-{{ $rec->production_id }}</td>
-                <td>{{ $rec->total_pcs }}</td>
+                <td>PRDD-{{ $rec->production_id }}</td>
+                <td>{{ $rec->details->sum('received_qty') }}</td>
                 <td>{{ number_format($rec->net_amount, 2) }}</td>
                 <td>
+                  <a href="{{ route('production.receiving.print', $rec->id) }}" target="_blank" class="text-success"><i class="fas fa-print"></i></a>
                   <a href="{{ route('production.receiving.edit', $rec->id) }}" class="text-warning"><i class="fa fa-edit"></i></a>
                 </td>
               </tr>

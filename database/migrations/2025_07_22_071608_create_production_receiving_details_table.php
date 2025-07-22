@@ -11,11 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('production_receivings_details', function (Blueprint $table) {
+        Schema::create('production_receiving_details', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('production_receiving_id');
             $table->unsignedBigInteger('product_id');
-            $table->string('variation')->nullable();
+            $table->unsignedBigInteger('variation_id');
             $table->decimal('manufacturing_cost', 10, 4)->default(0);
             $table->decimal('received_qty', 10, 4);
             $table->text('remarks')->nullable();
@@ -24,6 +24,7 @@ return new class extends Migration
 
             $table->foreign('production_receiving_id')->references('id')->on('production_receivings')->onDelete('cascade'); 
             $table->foreign('product_id')->references('id')->on('products');
+            $table->foreign('variation_id')->references('id')->on('product_variations');
         });
     }
 
@@ -32,6 +33,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('production_receivings_details');
+        Schema::dropIfExists('production_receiving_details');
     }
 };

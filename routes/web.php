@@ -43,6 +43,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/store', [ProductionReceivingController::class, 'store'])->name('store');
         Route::get('/{id}/edit', [ProductionReceivingController::class, 'edit'])->name('edit');
         Route::put('/{id}/update', [ProductionReceivingController::class, 'update'])->name('update');
+        Route::get('/{id}/print', [ProductionReceivingController::class, 'print'])->name('print');
     });
     
     Route::get('/api/item/{item}/invoices', [PurchaseInvoiceController::class, 'getInvoicesByItem']);

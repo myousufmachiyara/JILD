@@ -88,7 +88,7 @@
                     </select>
                 </td>
                 <td>
-                    <select name="item_details[0][variation]" class="form-control select2-js variation-select">
+                    <select name="item_details[0][variation_id]" class="form-control select2-js variation-select">
                         <option value="">Select Variation</option>
                     </select>
                 </td>
@@ -194,8 +194,7 @@
       const enteredCode = codeInput.val().trim();
 
       if (!enteredCode) {
-          codeInput.focus();
-          return;
+        return;
       }
 
       // Find matching product
@@ -252,23 +251,29 @@
       const table = $('#itemTable tbody');
       const newIndex = table.find('tr').length;
       
-      // Create row from HTML template with all columns
+      // Create fresh row HTML (don't clone)
       const newRow = $(`
       <tr>
           <td>
               <input type="text" class="form-control product-code" 
-                    placeholder="Enter Product Code"
-                    onblur="fetchByCode($(this).closest('tr').index())">
+                    placeholder="Enter Product Code">
           </td>
           <td>
               <select name="item_details[${newIndex}][product_id]" 
                       class="form-control select2-js product-select" required>
                   <option value="">Select Item</option>
-                  ${$('#itemTable').data('product-options')}
+                  @foreach($products as $item)
+                      <option value="{{ $item->id }}" 
+                              data-mfg-cost="{{ $item->manufacturing_cost }}"
+                              data-unit-id="{{ $item->unit_id }}"
+                              data-barcode="{{ $item->barcode }}">
+                          {{ $item->name }}
+                      </option>
+                  @endforeach
               </select>
           </td>
           <td>
-              <select name="item_details[${newIndex}][variation]" 
+              <select name="item_details[${newIndex}][variation_id]" 
                       class="form-control select2-js variation-select">
                   <option value="">Select Variation</option>
               </select>
@@ -276,12 +281,12 @@
           <td>
               <input type="number" class="form-control manufacturing_cost" 
                     name="item_details[${newIndex}][manufacturing_cost]" 
-                    step="any" value="0" readonly>
+                    step="0.0001" value="0" readonly>
           </td>
           <td>
               <input type="number" class="form-control received-qty" 
                     name="item_details[${newIndex}][received_qty]" 
-                    step="any" value="0" required>
+                    step="0.01" value="0" required>
           </td>
           <td>
               <input type="text" class="form-control" 
@@ -290,38 +295,73 @@
           <td>
               <input type="number" class="form-control row-total" 
                     name="item_details[${newIndex}][total]" 
-                    step="any" value="0" readonly>
+                    step="0.01" value="0" readonly>
           </td>
           <td>
-              <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">
+              <button type="button" class="btn btn-danger btn-sm remove-row-btn">
                   <i class="fas fa-times"></i>
               </button>
           </td>
       </tr>`);
-      
+
       // Add to table
       table.append(newRow);
       
-      // Initialize Select2 on both select elements
+      // Initialize Select2 on new selects
       newRow.find('.select2-js').select2({
           width: '100%',
           dropdownAutoWidth: true
       });
-          
-      // Re-bind any necessary events
+      
+      // Focus on product code field
+      newRow.find('.product-code').focus();
+      
+      // Bind events to new row
       bindRowEvents(newRow);
   }
 
-  // Optional: Function to bind events to new row
+  // Bind events to new row
   function bindRowEvents(row) {
-      row.find('.received-qty').on('input', calculateTotals);
+      row.find('.product-code').on('blur', function() {
+          const rowIndex = $(this).closest('tr').index();
+          fetchByCode(rowIndex);
+      });
+      
       row.find('.product-select').on('change', function() {
-          const selected = $(this).find(':selected');
-          const mfgCost = selected.data('mfg-cost') || 0;
-          $(this).closest('tr').find('.manufacturing_cost').val(mfgCost);
+          const row = $(this).closest('tr');
+          const selectedOption = $(this).find('option:selected');
+          const mfgCost = selectedOption.data('mfg-cost') || 0;
+          row.find('.manufacturing_cost').val(mfgCost);
+          
+          if ($(this).val()) {
+              loadVariations(row, $(this).val());
+          } else {
+              row.find('.variation-select').html('<option value="">Select Variation</option>');
+          }
+          
           calculateTotals();
       });
+      
+      row.find('.received-qty').on('input', calculateTotals);
+      row.find('.remove-row-btn').on('click', function() {
+          if ($('#itemTable tbody tr').length > 1) {
+              $(this).closest('tr').remove();
+              calculateTotals();
+          }
+      });
   }
+
+// Initialize on page load
+  $(document).ready(function() {
+    // Initialize Select2 on existing elements
+    $('.select2-js').select2({
+        width: '100%',
+        dropdownAutoWidth: true
+    });
+    
+    // Bind events to first row
+    bindRowEvents($('#itemTable tbody tr:first'));
+  });
 
   function removeRow(button) {
     const table = document.querySelector("#itemTable tbody");

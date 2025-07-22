@@ -12,11 +12,11 @@ class ProductionReceivingDetail extends Model
     protected $fillable = [
         'production_receiving_id',
         'product_id',
-        'variation',
+        'variation_id',
         'manufacturing_cost',
         'received_qty',
         'remarks',
-        'total'
+        'total',
     ];
 
     public function receiving()
@@ -27,5 +27,10 @@ class ProductionReceivingDetail extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function variation()
+    {
+        return $this->belongsTo(ProductVariation::class);
     }
 }
