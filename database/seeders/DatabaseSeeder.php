@@ -45,7 +45,7 @@ class DatabaseSeeder extends Seeder
             ['name' => 'Purchase Invoices', 'shortcode' => 'purchase_invoices'],
             ['name' => 'Purchase Return', 'shortcode' => 'purchase_return'],
             ['name' => 'Production', 'shortcode' => 'production'],
-            ['name' => 'Sale Invoices', 'shortcode' => 'sale_vouchers'],
+            ['name' => 'Sale Invoices', 'shortcode' => 'sale_invoices'],
             ['name' => 'Sale Return', 'shortcode' => 'sale_return'],
             ['name' => 'Payment Vouchers', 'shortcode' => 'payment_vouchers'],
             ['name' => 'POS System', 'shortcode' => 'pos_system'],

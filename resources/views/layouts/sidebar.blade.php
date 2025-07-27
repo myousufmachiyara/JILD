@@ -108,9 +108,9 @@
           @endcan
 
           {{-- Sales --}}
-          @can('sale_vouchers.index')
+          @can('sale_invoices.index')
           <li>
-            <a class="nav-link" href="#">
+            <a class="nav-link" href="{{ route('sale_invoices.index') }}">
               <i class="fa fa-cash-register"></i>
               <span>Sales</span>
             </a>
@@ -120,7 +120,7 @@
           {{-- Sales --}}
           @can('sale_return.index')
           <li>
-            <a class="nav-link" href="#">
+            <a class="nav-link" href="{{ route('sale_return.index') }}">
               <i class="fa fa-undo"></i>
               <span>Sale Return</span>
             </a>

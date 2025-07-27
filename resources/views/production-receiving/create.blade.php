@@ -146,10 +146,15 @@
   let rowIndex = 1;
 
   $(document).ready(function () {
+
+    // Initialize Select2 on existing elements
     $('.select2-js').select2({
-      width: '100%',
-      dropdownAutoWidth: true
+        width: '100%',
+        dropdownAutoWidth: true
     });
+    
+    // Bind events to first row
+    bindRowEvents($('#itemTable tbody tr:first'));
 
     $(document).on('blur', '.product-code', function() {
       const rowIndex = $(this).closest('tr').index();
@@ -351,18 +356,6 @@
       });
   }
 
-// Initialize on page load
-  $(document).ready(function() {
-    // Initialize Select2 on existing elements
-    $('.select2-js').select2({
-        width: '100%',
-        dropdownAutoWidth: true
-    });
-    
-    // Bind events to first row
-    bindRowEvents($('#itemTable tbody tr:first'));
-  });
-
   function removeRow(button) {
     const table = document.querySelector("#itemTable tbody");
     if (table.rows.length > 1) {
@@ -399,8 +392,6 @@
     $('#netAmountText').text(net.toFixed(2));
     $('#net_amount').val(net.toFixed(2));
   }
-
-  // Initialize Select2 on load
   
 </script>
 
