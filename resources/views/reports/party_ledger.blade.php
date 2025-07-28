@@ -8,7 +8,7 @@
         <h3>Party Ledger</h3>
     </div>
     <div class="card-body">
-        <form method="GET" action="{{ route('reports.party-ledger') }}" class="mb-4 row g-3">
+        <form method="GET" action="{{ route('reports.party_ledger') }}" class="mb-4 row g-3">
             <div class="col-md-4">
                 <label>Vendor</label>
                 <select name="vendor_id" class="form-control" required>
