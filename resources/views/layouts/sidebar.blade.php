@@ -137,13 +137,45 @@
           </li>
           @endcan
 
-          <li>
+          <li class="nav-parent">
             <a class="nav-link" href="#">
               <i class="fa fa-chart-bar"></i>
               <span>Reports</span>
             </a>
+            <ul class="nav nav-children">
+              <li><a class="nav-link" href="{{ route('reports.item_ledger') }}">Item Ledger</a></li>
+              <li><a class="nav-link" href="{{ route('reports.party_ledger') }}">Party Ledger</a></li>
+
+              <!-- @can('purchase_invoices.index')
+              <li><a class="nav-link" href="{{ route('reports.purchase') }}">Purchase</a></li>
+              @endcan
+
+              @can('purchase_return.index')
+              <li><a class="nav-link" href="{{ route('reports.purchase_return') }}">Purchase Return</a></li>
+              @endcan
+
+              @can('production.index')
+              <li><a class="nav-link" href="{{ route('reports.production') }}">Production</a></li>
+              @endcan
+
+              @can('production.index')
+              <li><a class="nav-link" href="{{ route('reports.production_receiving') }}">Production Receiving</a></li>
+              @endcan
+
+              @can('sale_invoices.index')
+              <li><a class="nav-link" href="{{ route('reports.sales') }}">Sales</a></li>
+              @endcan
+
+              @can('sale_return.index')
+              <li><a class="nav-link" href="{{ route('reports.sale_return') }}">Sale Return</a></li>
+              @endcan
+
+              @can('payment_vouchers.index')
+              <li><a class="nav-link" href="{{ route('reports.payments') }}">Payment</a></li>
+              @endcan -->
+
+            </ul>
           </li>
-          
 
         </ul>
       </nav>

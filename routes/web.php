@@ -19,7 +19,8 @@ use App\Http\Controllers\{
     AttributeController,
     ProductCategoryController,
     ProductionReceivingController,
-    PaymentVoucherController
+    PaymentVoucherController,
+    ReportController
 };
 
 Auth::routes();
@@ -28,6 +29,8 @@ Route::middleware(['auth', RoleMiddleware::class . ':admin|superadmin'])->group(
     Route::resource('users', UserController::class);
     Route::resource('roles', RoleController::class);
     Route::resource('permissions', PermissionController::class);
+    Route::get('/item-ledger', [ReportController::class, 'itemLedger'])->name('reports.item_ledger');
+    Route::get('/reports/party-ledger', [ReportController::class, 'partyLedger'])->name('reports.party-ledger');
 });
 
 Route::middleware(['auth'])->group(function () {
@@ -76,6 +79,16 @@ Route::middleware(['auth'])->group(function () {
         Route::put("$uri/{id}", [$controller, 'update'])->middleware("check.permission:$permission.update")->name("$uri.update");
         Route::delete("$uri/{id}", [$controller, 'destroy'])->middleware("check.permission:$permission.delete")->name("$uri.destroy");
     }
+
+    Route::prefix('reports')->name('reports.')->group(function () {
+        Route::get('/purchase', [ReportController::class, 'purchase'])->middleware('check.permission:purchase_invoices.index')->name('purchase');
+        Route::get('/purchase-return', [ReportController::class, 'purchaseReturn'])->middleware('check.permission:purchase_return.index')->name('purchase_return');
+        Route::get('/production', [ReportController::class, 'production'])->middleware('check.permission:production.index')->name('production');
+        Route::get('/production-receiving', [ReportController::class, 'productionReceiving'])->middleware('check.permission:production.index')->name('production_receiving');
+        Route::get('/sales', [ReportController::class, 'sales'])->middleware('check.permission:sale_invoices.index')->name('sales');
+        Route::get('/sale-return', [ReportController::class, 'saleReturn'])->middleware('check.permission:sale_return.index')->name('sale_return');
+        Route::get('/payments', [ReportController::class, 'payments'])->middleware('check.permission:payment_vouchers.index')->name('payments');
+    });
 
     Route::prefix('product-categories')->name('product-categories.')->group(function () {
         Route::get('/', [ProductCategoryController::class, 'index'])->name('index');
