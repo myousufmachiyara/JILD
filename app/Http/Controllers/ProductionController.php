@@ -130,68 +130,89 @@ class ProductionController extends Controller
         }
     }
 
-    public function edit($id)
-    {
-        $production = Production::with('details')->findOrFail($id);
-        $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
-        $categories = ProductCategory::all();
-        $products = Product::all();
+public function edit($id)
+{
+    $production = Production::with('details')->findOrFail($id);
+    $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
+    $categories = ProductCategory::all();
+    $products = Product::select('id', 'name', 'barcode', 'measurement_unit')->get();
+    $units = MeasurementUnit::all();
 
-        $allProducts = $products->map(function ($product) {
-            return [
-                'id' => $product->id,
-                'name' => $product->name,
-                'unit' => $product->unit,
-            ];
-        })->values();
+    $allProducts = collect($products)->map(function ($product) {
+        return (object)[
+            'id' => $product->id,
+            'name' => $product->name,
+            'unit' => $product->measurement_unit,
+        ];
+    });
 
-        return view('production.edit', compact('production', 'vendors', 'categories', 'products', 'allProducts'));
-    }
+    return view('production.edit', compact('production', 'vendors', 'categories', 'allProducts', 'units'));
+}
 
-    public function update(Request $request, $id)
-    {
-        $request->validate([
-            'vendor_id' => 'required|exists:chart_of_accounts,id',
-            'order_date' => 'required|date',
-            'production_type' => 'required|in:cmt,sale_raw',
-            'item_details.*.product_id' => 'required|exists:products,id',
-            'item_details.*.qty' => 'required|numeric|min:0.01',
-            'item_details.*.item_rate' => 'required|numeric|min:0',
-            'item_details.*.item_unit' => 'required',
+public function update(Request $request, $id)
+{
+    $request->validate([
+        'vendor_id' => 'required|exists:chart_of_accounts,id',
+        'order_date' => 'required|date',
+        'production_type' => 'required|string',
+        'challan_no' => 'nullable|string',
+        'attachments.*' => 'nullable|file|max:2048',
+        'item_details' => 'required|array|min:1',
+        'item_details.*.product_id' => 'required|exists:products,id',
+        'item_details.*.qty' => 'required|numeric|min:0.01',
+        'item_details.*.item_unit' => 'required|exists:measurement_units,id',
+        'item_details.*.item_rate' => 'required|numeric|min:0',
+    ]);
+
+    DB::beginTransaction();
+
+    try {
+        $production = Production::findOrFail($id);
+
+        // Handle attachments
+        $attachments = $production->attachments ?? [];
+        if ($request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                $attachments[] = $file->store('attachments/productions', 'public');
+            }
+        }
+
+        // Calculate total amount
+        $totalAmount = collect($request->item_details)->sum(fn($item) => $item['qty'] * $item['item_rate']);
+
+        $production->update([
+            'vendor_id' => $request->vendor_id,
+            'order_date' => $request->order_date,
+            'production_type' => $request->production_type,
+            'challan_no' => $request->challan_no,
+            'total_amount' => $totalAmount,
+            'remarks' => $request->remarks,
+            'attachments' => $attachments,
+            'updated_by' => auth()->id(),
         ]);
 
-        DB::beginTransaction();
+        // Delete old details and re-insert
+        $production->details()->delete();
 
-        try {
-            $production = Production::findOrFail($id);
-            $production->update([
-                'vendor_id' => $request->vendor_id,
-                'category_id' => $request->category_id,
-                'order_date' => $request->order_date,
-                'production_type' => $request->production_type,
-                'remarks' => $request->remarks,
+        foreach ($request->item_details as $item) {
+            $production->details()->create([
+                'product_id' => $item['product_id'],
+                'qty' => $item['qty'],
+                'unit' => $item['item_unit'],
+                'rate' => $item['item_rate'],
+                'remarks' => $item['remarks'] ?? null,
             ]);
-
-            // Delete old items
-            ProductionDetail::where('production_id', $production->id)->delete();
-
-            foreach ($request->item_details as $detail) {
-                ProductionDetail::create([
-                    'production_id' => $production->id,
-                    'product_id' => $detail['product_id'],
-                    'qty' => $detail['qty'],
-                    'rate' => $detail['item_rate'],
-                    'unit' => $detail['item_unit'],
-                ]);
-            }
-
-            DB::commit();
-            return redirect()->route('production.index')->with('success', 'Production order updated successfully.');
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return back()->withErrors(['error' => 'Failed to update production. ' . $e->getMessage()]);
         }
+
+        DB::commit();
+        return redirect()->route('production.index')->with('success', 'Production updated successfully.');
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error("Production Update Error: " . $e->getMessage());
+        return back()->withInput()->with('error', 'Failed to update production.');
     }
+}
+
 
     public function show($id)
     {

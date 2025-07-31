@@ -98,25 +98,24 @@ class PurchaseReturnController extends Controller
 
     public function edit($id)
     {
-        $return = PurchaseReturn::with(['items', 'vendor'])->findOrFail($id);
-        $vendors = ChartOfAccounts::where('account_type', 'Vendor')->get();
+        $purchaseReturn = PurchaseReturn::with('items')->findOrFail($id);
+        $products = Product::all();
+        $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
         $units = MeasurementUnit::all();
-        $items = Product::all();
-        $invoices = PurchaseInvoice::with('vendor')->get(); // 🔥 Add this line
+        $invoices = PurchaseInvoice::with('vendor')->get();
 
-        return view('purchase-returns.edit', compact('return', 'vendors', 'units', 'items', 'invoices'));
+        return view('purchase-returns.edit', compact('purchaseReturn', 'products', 'vendors', 'units', 'invoices'));
     }
 
     public function update(Request $request, $id)
     {
-        Log::info("Updating Purchase Return", ['id' => $id, 'request' => $request->all()]);
-
         $request->validate([
             'vendor_id' => 'required|exists:chart_of_accounts,id',
             'return_date' => 'required|date',
             'remarks' => 'nullable|string|max:1000',
             'total_amount' => 'required|numeric|min:0',
             'net_amount' => 'required|numeric|min:0',
+
             'item_id.*' => 'required|exists:products,id',
             'invoice_id.*' => 'required|exists:purchase_invoices,id',
             'quantity.*' => 'required|numeric|min:0',
@@ -130,43 +129,37 @@ class PurchaseReturnController extends Controller
 
             $purchaseReturn = PurchaseReturn::findOrFail($id);
             $purchaseReturn->update([
-                'vendor_id'    => $request->vendor_id,
-                'return_date'  => $request->return_date,
-                'remarks'      => $request->remarks,
+                'vendor_id' => $request->vendor_id,
+                'return_date' => $request->return_date,
+                'remarks' => $request->remarks,
                 'total_amount' => $request->total_amount,
-                'net_amount'   => $request->net_amount,
+                'net_amount' => $request->net_amount,
             ]);
 
-            // Delete existing items and re-add
+            // Remove existing items
             PurchaseReturnItem::where('purchase_return_id', $purchaseReturn->id)->delete();
 
+            // Add updated items
             foreach ($request->item_id as $index => $itemId) {
-                $itemData = [
-                    'purchase_return_id'   => $purchaseReturn->id,
-                    'item_id'              => $itemId,
-                    'purchase_invoice_id'  => $request->invoice_id[$index],
-                    'quantity'             => $request->quantity[$index],
-                    'unit_id'              => $request->unit[$index],
-                    'price'                => $request->price[$index],
-                    'amount'               => $request->amount[$index],
-                    'remarks'              => $request->remarks[$index] ?? null,
-                ];
-
-                PurchaseReturnItem::create($itemData);
-                Log::info("Updated Item", ['data' => $itemData]);
+                PurchaseReturnItem::create([
+                    'purchase_return_id' => $purchaseReturn->id,
+                    'item_id' => $itemId,
+                    'purchase_invoice_id' => $request->invoice_id[$index],
+                    'quantity' => $request->quantity[$index],
+                    'unit_id' => $request->unit[$index],
+                    'price' => $request->price[$index],
+                    'amount' => $request->amount[$index],
+                    'remarks' => $request->remarks[$index] ?? null,
+                ]);
             }
 
             DB::commit();
-            Log::info("Purchase Return updated successfully", ['id' => $id]);
 
             return redirect()->route('purchase_return.index')->with('success', 'Purchase Return updated successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Purchase Return update failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
             return back()->withInput()->withErrors(['error' => 'Failed to update: ' . $e->getMessage()]);
         }
     }
+
 }
