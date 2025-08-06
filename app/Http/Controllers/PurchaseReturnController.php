@@ -162,4 +162,108 @@ class PurchaseReturnController extends Controller
         }
     }
 
+    public function print($id)
+    {
+        $return = PurchaseReturn::with(['vendor', 'items.item', 'items.unit', 'items.invoice'])->findOrFail($id);
+
+        $pdf = new \TCPDF();
+        $pdf->SetCreator('Your App');
+        $pdf->SetAuthor('Your Company');
+        $pdf->SetTitle('Purchase Return #' . $return->id);
+        $pdf->SetMargins(10, 10, 10);
+        $pdf->AddPage();
+
+        $html = '
+        <style>
+            table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+            th, td { border: 1px solid #000; padding: 5px; font-size: 11px; }
+            .header { font-size: 16px; font-weight: bold; text-align: center; margin-bottom: 10px; }
+            .info-table td { border: none; font-size: 12px; }
+            .summary-table td { font-size: 12px; }
+        </style>
+
+        <div class="header">Purchase Return</div>
+        <br><br>';
+
+        $html .= '
+        <table class="info-table">
+            <tr>
+                <td><strong>Return No:</strong> ' . $return->id . '</td>
+                <td><strong>Date:</strong> ' . $return->return_date . '</td>
+            </tr>
+            <tr>
+                <td><strong>Vendor:</strong> ' . ($return->vendor->name ?? '-') . '</td>
+                <td></td>
+            </tr>
+        </table>
+        <br><br>';
+
+        $html .= '
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Item Code</th>
+                    <th>Item Name</th>
+                    <th>Invoice #</th>
+                    <th>Quantity</th>
+                    <th>Unit</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
+                    <th>Remarks</th>
+                </tr>
+            </thead>
+            <tbody>';
+
+        $totalQty = 0;
+        $totalAmount = 0;
+
+        foreach ($return->items as $i => $item) {
+            $totalQty += $item->quantity;
+            $totalAmount += $item->amount;
+
+            $html .= '
+                <tr>
+                    <td>' . ($i + 1) . '</td>
+                    <td>' . ($item->item->item_code ?? '-') . '</td>
+                    <td>' . ($item->item->name ?? '-') . '</td>
+                    <td>' . ($item->invoice->id ?? '-') . '</td>
+                    <td>' . $item->quantity . '</td>
+                    <td>' . ($item->unit->name ?? '-') . '</td>
+                    <td>' . number_format($item->price, 2) . '</td>
+                    <td>' . number_format($item->amount, 2) . '</td>
+                    <td>' . ($item->remarks ?? '-') . '</td>
+                </tr>';
+        }
+
+        $html .= '</tbody></table><br><br>';
+
+        // Totals and Summary Section
+        $html .= '
+        <table class="summary-table">
+            <tr>
+                <td><strong>Total Quantity:</strong></td>
+                <td>' . number_format($totalQty, 2) . '</td>
+            </tr>
+            <tr>
+                <td><strong>Total Amount:</strong></td>
+                <td>' . number_format($totalAmount, 2) . '</td>
+            </tr>
+            <tr>
+                <td><strong>Net Amount:</strong></td>
+                <td>' . number_format($return->net_amount, 2) . '</td>
+            </tr>
+        </table>
+        <br><br>';
+
+        if (!empty($return->remarks)) {
+            $html .= '<strong>Remarks:</strong><br>' . nl2br($return->remarks) . '<br><br>';
+        }
+
+        $html .= '<br><br><strong>Authorized Signature: ____________________</strong>';
+
+        $pdf->writeHTML($html, true, false, true, false, '');
+        $pdf->Output('purchase_return_' . $return->id . '.pdf', 'I');
+    }
+
 }

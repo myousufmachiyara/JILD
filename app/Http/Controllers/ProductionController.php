@@ -14,6 +14,7 @@ use App\Models\PaymentVoucher;
  
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
@@ -29,7 +30,7 @@ class ProductionController extends Controller
     {
         $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
         $categories = ProductCategory::all();
-        $products = Product::select('id', 'name', 'barcode', 'measurement_unit')->get();
+        $products = Product::select('id', 'name', 'barcode', 'measurement_unit')->where('item_type', 'raw')->get();
         $units = MeasurementUnit::all();
 
         $allProducts = collect($products)->map(function ($product) {
@@ -47,12 +48,13 @@ class ProductionController extends Controller
     {
         $request->validate([
             'vendor_id' => 'required|exists:chart_of_accounts,id',
+            'category_id' => 'required|exists:product_categories,id',
             'order_date' => 'required|date',
             'production_type' => 'required|string',
-            'challan_no' => 'nullable|string',
             'att.*' => 'nullable|file|max:2048',
             'item_details' => 'required|array|min:1',
             'item_details.*.product_id' => 'required|exists:products,id',
+            'item_details.*.invoice_id' => 'required|exists:purchase_invoices,id',
             'item_details.*.qty' => 'required|numeric|min:0.01',
             'item_details.*unit' => 'required|exists:measurement_units,id',
             'item_details.*.item_rate' => 'required|numeric|min:0',
@@ -80,9 +82,9 @@ class ProductionController extends Controller
             // Create production
             $production = Production::create([
                 'vendor_id' => $request->vendor_id,
+                'category_id' => $request->category_id,
                 'order_date' => $request->order_date,
                 'production_type' => $request->production_type,
-                'challan_no' => $request->challan_no,
                 'total_amount' => $totalAmount,
                 'remarks' => $request->remarks,
                 'attachments' => $attachments,
@@ -94,6 +96,7 @@ class ProductionController extends Controller
                 foreach ($request->item_details as $item) {
                     $production->details()->create([
                         'production_id' => $production->id,
+                        'invoice_id' => $item['invoice_id'],
                         'product_id' => $item['product_id'],
                         'qty' => $item['qty'],
                         'unit' => $item['item_unit'],
@@ -130,38 +133,41 @@ class ProductionController extends Controller
         }
     }
 
-public function edit($id)
-{
-    $production = Production::with('details')->findOrFail($id);
-    $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
-    $categories = ProductCategory::all();
-    $products = Product::select('id', 'name', 'barcode', 'measurement_unit')->get();
-    $units = MeasurementUnit::all();
+    public function edit($id)
+    {
+        $production = Production::with('details')->findOrFail($id);
+        $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
+        $categories = ProductCategory::all();
+        $products = Product::select('id', 'name', 'barcode', 'measurement_unit')->where('item_type', 'raw')->get();
+        $units = MeasurementUnit::all();
 
-    $allProducts = collect($products)->map(function ($product) {
-        return (object)[
-            'id' => $product->id,
-            'name' => $product->name,
-            'unit' => $product->measurement_unit,
-        ];
-    });
+        $allProducts = collect($products)->map(function ($product) {
+            return (object)[
+                'id' => $product->id,
+                'name' => $product->name,
+                'unit' => $product->measurement_unit,
+            ];
+        });
 
-    return view('production.edit', compact('production', 'vendors', 'categories', 'allProducts', 'units'));
-}
+        return view('production.edit', compact('production', 'vendors', 'categories', 'allProducts', 'units'));
+    }
+
 
 public function update(Request $request, $id)
 {
     $request->validate([
         'vendor_id' => 'required|exists:chart_of_accounts,id',
+        'category_id' => 'required|exists:product_categories,id',
         'order_date' => 'required|date',
         'production_type' => 'required|string',
-        'challan_no' => 'nullable|string',
-        'attachments.*' => 'nullable|file|max:2048',
-        'item_details' => 'required|array|min:1',
-        'item_details.*.product_id' => 'required|exists:products,id',
-        'item_details.*.qty' => 'required|numeric|min:0.01',
-        'item_details.*.item_unit' => 'required|exists:measurement_units,id',
-        'item_details.*.item_rate' => 'required|numeric|min:0',
+        'att.*' => 'nullable|file|max:2048',
+        'items' => 'required|array|min:1',
+        'items.*.item_id' => 'required|exists:products,id',
+        'items.*.invoice' => 'required|exists:purchase_invoices,id',
+        'items.*.qty' => 'required|numeric|min:0.01',
+        'items.*.item_unit' => 'required|string|max:50', // Use string if it's unit name, or change accordingly
+        'items.*.rate' => 'required|numeric|min:0',
+        'items.*.remarks' => 'nullable|string',
     ]);
 
     DB::beginTransaction();
@@ -171,45 +177,61 @@ public function update(Request $request, $id)
 
         // Handle attachments
         $attachments = $production->attachments ?? [];
-        if ($request->hasFile('attachments')) {
-            foreach ($request->file('attachments') as $file) {
+        if ($request->hasFile('att')) {
+            foreach ($request->file('att') as $file) {
                 $attachments[] = $file->store('attachments/productions', 'public');
             }
         }
 
         // Calculate total amount
-        $totalAmount = collect($request->item_details)->sum(fn($item) => $item['qty'] * $item['item_rate']);
+        $totalAmount = collect($request->items)->sum(function ($item) {
+            return $item['qty'] * $item['rate'];
+        });
 
+        // Update production
         $production->update([
             'vendor_id' => $request->vendor_id,
+            'category_id' => $request->category_id,
             'order_date' => $request->order_date,
             'production_type' => $request->production_type,
-            'challan_no' => $request->challan_no,
             'total_amount' => $totalAmount,
             'remarks' => $request->remarks,
-            'attachments' => $attachments,
             'updated_by' => auth()->id(),
         ]);
 
-        // Delete old details and re-insert
+        // Delete and reinsert details
         $production->details()->delete();
 
-        foreach ($request->item_details as $item) {
+        foreach ($request->items as $item) {
             $production->details()->create([
-                'product_id' => $item['product_id'],
+                'production_id' => $production->id,
+                'invoice_id' => $item['invoice'],
+                'product_id' => $item['item_id'],
                 'qty' => $item['qty'],
                 'unit' => $item['item_unit'],
-                'rate' => $item['item_rate'],
+                'rate' => $item['rate'],
                 'remarks' => $item['remarks'] ?? null,
             ]);
         }
 
         DB::commit();
+
         return redirect()->route('production.index')->with('success', 'Production updated successfully.');
     } catch (\Exception $e) {
         DB::rollBack();
-        Log::error("Production Update Error: " . $e->getMessage());
-        return back()->withInput()->with('error', 'Failed to update production.');
+
+        // Log full context for debugging
+        Log::error('Production Update Error', [
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString(),
+            'request_data' => $request->all(),
+            'production_id' => $id,
+            'user_id' => auth()->id(),
+        ]);
+
+        return back()->withInput()->with('error', 'Failed to update production. Check logs.');
     }
 }
 

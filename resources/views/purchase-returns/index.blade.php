@@ -31,6 +31,7 @@
                 <td>{{ number_format($ret->net_amount, 2) }}</td>
                 <td>
                   <a href="{{ route('purchase_return.edit', $ret->id) }}" class="text-primary"><i class="fas fa-edit"></i></a>
+                  <a href="{{ route('purchase_return.print', $ret->id) }}" target="_blank" class="text-success"><i class="fas fa-print"></i></a>
                 </td>
               </tr>
             @endforeach

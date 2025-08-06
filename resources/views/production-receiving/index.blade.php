@@ -14,7 +14,9 @@
 
       <header class="card-header d-flex justify-content-between">
         <h2 class="card-title">All Receivings</h2>
-        <a href="{{ route('production.receiving.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> New Receiving</a>
+        <div>
+          <a href="{{ route('production.receiving.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> New Receiving</a>
+        </div>
       </header>
 
       <div class="card-body">

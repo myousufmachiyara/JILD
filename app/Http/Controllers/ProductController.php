@@ -41,7 +41,7 @@ class ProductController extends Controller
             'item_type' => 'required|in:fg,raw',
             'manufacturing_cost' => 'nullable|numeric',
             'opening_stock' => 'required|numeric',
-            'prod_att.*' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'prod_att.*' => 'nullable|image|mimes:jpeg,png,jpg,webp',
         ]);
 
         DB::beginTransaction();

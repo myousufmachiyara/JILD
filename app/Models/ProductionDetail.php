@@ -15,6 +15,7 @@ class ProductionDetail extends Model
         'qty',
         'rate',
         'unit',
+        'invoice_id',
     ];
 
     public function production()
@@ -25,5 +26,10 @@ class ProductionDetail extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function invoice()
+    {
+        return $this->belongsTo(PurchaseInvoice::class, 'invoice_id');
     }
 }

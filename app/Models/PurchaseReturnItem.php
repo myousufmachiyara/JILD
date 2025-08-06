@@ -22,4 +22,9 @@ class PurchaseReturnItem extends Model
     {
         return $this->belongsTo(PurchaseReturn::class, 'purchase_return_id');
     }
+    
+    public function invoice()
+    {
+        return $this->belongsTo(PurchaseInvoice::class, 'purchase_invoice_id');
+    }
 }

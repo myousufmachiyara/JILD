@@ -26,7 +26,6 @@
           <table class="table table-bordered table-striped mb-0" id="cust-datatable-default">
             <thead>
               <tr>
-                <th><input type="checkbox" id="select-all-tasks"></th>
                 <th>S.No</th>
                 <th>Image</th>
                 <th>Item Name</th>
@@ -39,7 +38,6 @@
             <tbody>
               @foreach($products as $index => $product)
               <tr>
-                <td><input type="checkbox" class="task-checkbox" value="{{ $product->id }}"></td>
                 <td>{{ $index + 1 }}</td>
                 <td>
                   @if($product->images->first())
@@ -74,10 +72,6 @@
   $(document).ready(function () {
     $('#cust-datatable-default').DataTable({
       "pageLength": 100
-    });
-
-    $('#select-all-tasks').on('click', function () {
-      $('.task-checkbox').prop('checked', this.checked);
     });
   });
 </script>

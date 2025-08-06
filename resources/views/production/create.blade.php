@@ -66,11 +66,6 @@
                   <label>Order Date</label>
                   <input type="date" name="order_date" class="form-control" id="order_date" value="{{ date('Y-m-d') }}" required/>
                 </div>
-
-                <div class="col-12 col-md-2 mb-3">
-                  <label>Challan #</label>
-                  <input type="text" name="challan_no" class="form-control" value="{{ $nextChallanNo ?? '' }}" required/>
-                </div>
               </div>
             </div>
           </section>
@@ -321,7 +316,7 @@
       row.querySelector(`input[id^="item_total_"]`).value = '';
 
       // Load invoice data
-      fetch(`/api/item/${itemId}/invoices`)
+      fetch(`/item/${itemId}/invoices`)
         .then(res => res.json())
         .then(data => {
           invoiceSelect.innerHTML = '<option value="">Select Invoice</option>';

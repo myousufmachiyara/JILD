@@ -37,7 +37,7 @@
                 <thead>
                   <tr>
                     <th>Item</th>
-                    <th>Purchase Invoice</th> 
+                    <th>Invoice #</th> 
                     <th>Qty</th>
                     <th>Unit</th>
                     <th>Price</th>
@@ -184,7 +184,7 @@
     row.querySelector('input[name="price[]"]').value = '';
     row.querySelector('input[name="amount[]"]').value = '';
 
-    fetch(`/api/item/${itemId}/invoices`)
+    fetch(`/item/${itemId}/invoices`)
       .then(res => res.json())
       .then(data => {
         invoiceSelect.innerHTML = '<option value="">Select Invoice</option>';

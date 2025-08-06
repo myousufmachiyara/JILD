@@ -20,7 +20,7 @@
       </header>
 
       <div class="card-body">
-        <div class="modal-wrapper table-scroll" style="overflow-x: auto;">
+        <div class="modal-wrapper table-scroll">
           <table class="table table-bordered table-striped mb-0" id="cust-datatable-default">
             <thead>
               <tr>

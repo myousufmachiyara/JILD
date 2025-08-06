@@ -49,7 +49,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{id}/print', [ProductionReceivingController::class, 'print'])->name('print');
     });
     
-    Route::get('/api/item/{item}/invoices', [PurchaseInvoiceController::class, 'getInvoicesByItem']);
+    Route::get('/item/{item}/invoices', [PurchaseInvoiceController::class, 'getInvoicesByItem']);
     Route::get('/invoice-item/{invoiceId}/item/{itemId}', [PurchaseInvoiceController::class, 'getItemDetails']);
 
     $modules = [
