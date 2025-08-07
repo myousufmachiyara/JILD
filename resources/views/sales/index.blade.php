@@ -7,7 +7,7 @@
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h4>Sale Invoices</h4>
     <a href="{{ route('sale_invoices.create') }}" class="btn btn-primary">
-      <i class="fa fa-plus"></i> Add New Invoice
+      <i class="fa fa-plus"></i> Sale Invoice
     </a>
   </div>
 

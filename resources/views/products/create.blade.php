@@ -45,16 +45,6 @@
             </div>
 
             <div class="col-md-2">
-              <label for="unit_id">Measurement Unit</label>
-              <select name="measurement_unit" id="unit_id" class="form-control" required>
-                <option value="" disabled selected>-- Select Unit --</option>
-                @foreach($units as $unit)
-                  <option value="{{ $unit->id }}">{{ $unit->name }} ({{ $unit->shortcode }})</option>
-                @endforeach
-              </select>
-            </div>
-
-            <div class="col-md-2">
               <label>Item Type</label>
               <select name="item_type" class="form-control" required>
                 <option value="" disabled selected>Item Type</option>
@@ -65,9 +55,31 @@
             </div>
 
             <div class="col-md-2">
+              <label for="unit_id">Measurement Unit</label>
+              <select name="measurement_unit" id="unit_id" class="form-control" required>
+                <option value="" disabled selected>-- Select Unit --</option>
+                @foreach($units as $unit)
+                  <option value="{{ $unit->id }}">{{ $unit->name }} ({{ $unit->shortcode }})</option>
+                @endforeach
+              </select>
+            </div>
+
+            <div class="col-md-2">
+              <label>Consumption</label>
+              <input type="number" step="any" name="consumption" class="form-control" value="{{ old('consumption', '0') }}">
+              @error('consumption')<div class="text-danger">{{ $message }}</div>@enderror
+            </div>
+
+            <div class="col-md-2 mt-3">
               <label>M.Cost</label>
               <input type="number" step="any" name="manufacturing_cost" class="form-control" value="{{ old('manufacturing_cost', '0.00') }}">
               @error('price')<div class="text-danger">{{ $message }}</div>@enderror
+            </div>
+
+            <div class="col-md-2 mt-3">
+              <label>Selling Price</label>
+              <input type="number" step="any" name="selling_price" class="form-control" value="{{ old('selling_price', '0.00') }}">
+              @error('selling_price')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
 
             <div class="col-md-2 mt-3">

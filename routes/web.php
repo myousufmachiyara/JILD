@@ -39,6 +39,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/products/details', [ProductController::class, 'details'])->name('products.receiving');
     Route::get('/product/{id}/variations', [ProductController::class, 'getVariations']);
     Route::get('/product/{id}/variations', [ProductionReceivingController::class, 'getVariations'])->name('production.receiving.getVariations');
+    
+    Route::get('/products/barcode-selection', [ProductController::class, 'barcodeSelection'])->name('products.barcode.selection');
+    Route::post('/products/generate-multiple-barcodes', [ProductController::class, 'generateMultipleBarcodes'])->name('products.generateBarcodes');
 
     Route::prefix('production_receiving')->name('production.receiving.')->group(function () {
         Route::get('/', [ProductionReceivingController::class, 'index'])->name('index');
@@ -51,6 +54,8 @@ Route::middleware(['auth'])->group(function () {
     
     Route::get('/item/{item}/invoices', [PurchaseInvoiceController::class, 'getInvoicesByItem']);
     Route::get('/invoice-item/{invoiceId}/item/{itemId}', [PurchaseInvoiceController::class, 'getItemDetails']);
+    Route::get('/production-summary/{id}', [ProductionController::class, 'summary'])->name('production.summary');
+
 
     $modules = [
         'coa' => ['controller' => COAController::class, 'permission' => 'coa'],

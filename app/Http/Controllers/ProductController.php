@@ -10,6 +10,7 @@ use App\Models\MeasurementUnit;
 use App\Models\ProductVariation;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Picqer\Barcode\BarcodeGeneratorPNG;
 
 class ProductController extends Controller
 {
@@ -18,6 +19,65 @@ class ProductController extends Controller
         $products = Product::with('category', 'variations')->get();
         $categories = ProductCategory::all();
         return view('products.index', compact('products', 'categories'));
+    }
+
+    public function barcodeSelection()
+    {
+        $variations = ProductVariation::with('product')->get();
+        return view('products.barcode-selection', compact('variations'));
+    }
+
+    public function generateMultipleBarcodes(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'variations' => 'required|array',
+                'variations.*' => 'required|array',
+                'variations.*.id' => 'required|exists:product_variations,id',
+                'variations.*.quantity' => 'required|integer|min:1',
+            ]);
+
+            if ($validator->fails()) {
+                Log::error('Barcode generation validation failed', [
+                    'errors' => $validator->errors(),
+                    'request' => $request->all(),
+                ]);
+                return back()->withErrors($validator)->withInput();
+            }
+
+            $barcodes = [];
+
+            foreach ($request->variations as $item) {
+                $variation = ProductVariation::with('product')->findOrFail($item['id']);
+
+                $barcodeText = $variation->barcode ?? $variation->sku ?? 'NO-BARCODE';
+                $price = number_format($variation->product->selling_price ?? 0, 2);
+
+                $generator = new BarcodeGeneratorPNG();
+                $barcodeImage = base64_encode($generator->getBarcode($barcodeText, $generator::TYPE_CODE_128));
+
+                for ($i = 0; $i < $item['quantity']; $i++) {
+                    $barcodes[] = [
+                        'product' => $variation->product->name,
+                        'variation' => $variation->name ?? '',
+                        'barcodeText' => $barcodeText,
+                        'barcodeImage' => $barcodeImage,
+                        'price' => $price,
+                        'sku' => $variation->sku,
+                    ];
+                }
+            }
+
+            return view('products.multiple-barcodes', compact('barcodes'));
+
+        } catch (\Throwable $e) {
+            Log::error('Exception while generating barcodes', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all(),
+            ]);
+            return back()->with('error', 'Something went wrong while generating barcodes. Check logs for details.');
+        }
     }
 
     public function create()
@@ -40,6 +100,8 @@ class ProductController extends Controller
             'measurement_unit' => 'required|exists:measurement_units,id',
             'item_type' => 'required|in:fg,raw',
             'manufacturing_cost' => 'nullable|numeric',
+            'consumption' => 'nullable|numeric',
+            'selling_price' => 'nullable|numeric',
             'opening_stock' => 'required|numeric',
             'prod_att.*' => 'nullable|image|mimes:jpeg,png,jpg,webp',
         ]);
@@ -55,6 +117,8 @@ class ProductController extends Controller
                 'barcode' => $request->barcode,
                 'description' => $request->description,
                 'measurement_unit' => $request->measurement_unit,
+                'selling_price' => $request->selling_price,
+                'consumption' => $request->consumption,
                 'item_type' => $request->item_type,
                 'manufacturing_cost' => $request->manufacturing_cost,
                 'opening_stock' => $request->opening_stock,
@@ -139,6 +203,7 @@ class ProductController extends Controller
         return view('products.show', compact('product'));
     }
 
+    
     public function details(Request $request)
     {
         $product = Product::findOrFail($request->id);
@@ -186,7 +251,7 @@ class ProductController extends Controller
 
             $product->update($request->only([
                 'name', 'category_id', 'sku', 'measurement_unit', 'item_type',
-                'manufacturing_cost', 'opening_stock', 'description'
+                'manufacturing_cost', 'opening_stock', 'description', 'selling_price', 'consumption'
             ]));
 
             Log::info('[Product Update] Product updated', ['product_id' => $product->id]);

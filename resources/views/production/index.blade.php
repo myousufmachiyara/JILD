@@ -53,6 +53,7 @@
                   @endif
                 </td>
                 <td>
+                  <a href="{{ route('production.summary', $production->id) }}" class="text-primary" title="Summary"><i class="fa fa-book"></i></a>
                   <a href="{{ route('production.print', $production->id) }}" class="text-success" title="Print"><i class="fa fa-print"></i></a>
                   <a href="{{ route('production.edit', $production->id) }}" class="text-warning" title="Edit"><i class="fa fa-edit"></i></a>
                   <a href="{{ route('production.receiving.create', $production->id) }}" class="text-primary" title="Receive">

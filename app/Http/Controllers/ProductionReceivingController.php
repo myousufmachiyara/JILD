@@ -29,7 +29,6 @@ class ProductionReceivingController extends Controller
 
     public function store(Request $request)
     {
-        // Optional: Log incoming request for debugging
         Log::info('Production Receiving Store Request', $request->all());
 
         $validated = $request->validate([
@@ -40,6 +39,7 @@ class ProductionReceivingController extends Controller
             'item_details.*.variation_id' => 'required|exists:product_variations,id',
             'item_details.*.received_qty' => 'required|numeric|min:0.01',
             'item_details.*.manufacturing_cost' => 'required|numeric|min:0',
+            'item_details.*.profit_margin' => 'nullable|numeric|min:0',
             'item_details.*.remarks' => 'nullable|string',
             'convance_charges' => 'required|numeric|min:0',
             'bill_discount' => 'required|numeric|min:0',
@@ -51,10 +51,8 @@ class ProductionReceivingController extends Controller
         DB::beginTransaction();
 
         try {
-            // Generate GRN number (make sure it's unique)
             $grn_no = 'GRN-' . str_pad(ProductionReceiving::count() + 1, 5, '0', STR_PAD_LEFT);
 
-            // Create main receiving record
             $receiving = ProductionReceiving::create([
                 'production_id' => $validated['production_id'],
                 'vendor_id' => $validated['vendor_id'],
@@ -68,29 +66,38 @@ class ProductionReceivingController extends Controller
                 'received_by' => auth()->id(),
             ]);
 
-            // Log receiving creation
-            Log::info("ProductionReceiving created with ID: {$receiving->id}");
-
             foreach ($validated['item_details'] as $detail) {
+                $costPerPiece = $detail['manufacturing_cost'];
+                $totalCost = $costPerPiece * $detail['received_qty'];
+                $profitMargin = $detail['profit_margin'] ?? 30;
+                $sellingPrice = $costPerPiece * (1 + ($profitMargin / 100));
+                $barcode = 'PRD-' . $detail['product_id'] . '-' . $detail['variation_id'] . '-' . time() . '-' . rand(100, 999);
+
                 ProductionReceivingDetail::create([
                     'production_receiving_id' => $receiving->id,
+                    'production_id' => $validated['production_id'],
                     'product_id' => $detail['product_id'],
-                    'variation_id' => $detail['variation_id'] ?? null,
+                    'variation_id' => $detail['variation_id'],
                     'manufacturing_cost' => $detail['manufacturing_cost'],
                     'received_qty' => $detail['received_qty'],
+                    'cost_per_piece' => $costPerPiece,
+                    'total' => $totalCost,
+                    'total_cost' => $totalCost,
+                    'profit_margin' => $profitMargin,
+                    'selling_price' => $sellingPrice,
+                    'barcode' => $barcode,
                     'remarks' => $detail['remarks'] ?? null,
-                    'total' => $detail['manufacturing_cost'] * $detail['received_qty'],
                 ]);
+
             }
 
             DB::commit();
 
-            return redirect()->route('production.receiving.index') // ✅ ensure this route name is correct
+            return redirect()->route('production.receiving.index')
                 ->with('success', 'Production receiving created successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
 
-            // Log the exception
             Log::error('Production Receiving Store Error: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
             ]);
@@ -123,6 +130,7 @@ class ProductionReceivingController extends Controller
             'item_details.*.variation_id' => 'required|exists:product_variations,id',
             'item_details.*.received_qty' => 'required|numeric|min:0.01',
             'item_details.*.manufacturing_cost' => 'required|numeric|min:0',
+            'item_details.*.profit_margin' => 'nullable|numeric|min:0',
             'item_details.*.remarks' => 'nullable|string',
             'convance_charges' => 'required|numeric|min:0',
             'bill_discount' => 'required|numeric|min:0',
@@ -147,18 +155,30 @@ class ProductionReceivingController extends Controller
                 'total_amount' => $validated['total_amt'],
             ]);
 
-            // Delete existing details before inserting updated ones
+            // Delete existing details
             ProductionReceivingDetail::where('production_receiving_id', $receiving->id)->delete();
 
             foreach ($validated['item_details'] as $detail) {
+                $costPerPiece = $detail['manufacturing_cost'];
+                $totalCost = $costPerPiece * $detail['received_qty'];
+                $profitMargin = $detail['profit_margin'] ?? 30;
+                $sellingPrice = $costPerPiece * (1 + ($profitMargin / 100));
+                $barcode = 'PRD-' . $detail['product_id'] . '-' . $detail['variation_id'] . '-' . time() . '-' . rand(100, 999);
+
                 ProductionReceivingDetail::create([
                     'production_receiving_id' => $receiving->id,
+                    'production_id' => $validated['production_id'],
                     'product_id' => $detail['product_id'],
-                    'variation_id' => $detail['variation_id'] ?? null,
-                    'manufacturing_cost' => $detail['manufacturing_cost'],
+                    'variation_id' => $detail['variation_id'],
+                    'manufacturing_cost' => $costPerPiece,
                     'received_qty' => $detail['received_qty'],
+                    'total_unit_cost' => $costPerPiece,
+                    'total' => $totalCost,
+                    'total_cost' => $totalCost,
+                    'profit_margin' => $profitMargin,
+                    'selling_price' => $sellingPrice,
+                    'barcode' => $barcode,
                     'remarks' => $detail['remarks'] ?? null,
-                    'total' => $detail['manufacturing_cost'] * $detail['received_qty'],
                 ]);
             }
 
@@ -179,7 +199,7 @@ class ProductionReceivingController extends Controller
             ]);
         }
     }
-
+    
     public function getVariations($id)
     {
         $product = Product::with('variations')->findOrFail($id);

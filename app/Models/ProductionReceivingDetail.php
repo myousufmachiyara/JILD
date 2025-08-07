@@ -12,11 +12,20 @@ class ProductionReceivingDetail extends Model
     protected $fillable = [
         'production_receiving_id',
         'product_id',
+        'production_id',
         'variation_id',
         'manufacturing_cost',
         'received_qty',
-        'remarks',
+        'total_unit_cost',
         'total',
+        'remarks',
+    ];
+
+    protected $casts = [
+        'manufacturing_cost' => 'float',
+        'received_qty' => 'float',
+        'total_unit_cost' => 'float',
+        'total' => 'float',
     ];
 
     public function receiving()

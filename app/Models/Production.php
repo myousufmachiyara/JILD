@@ -39,4 +39,6 @@ class Production extends Model
         return $this->hasMany(ProductionReceiving::class);
     }
 
+    
+
 }

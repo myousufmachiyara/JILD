@@ -21,6 +21,8 @@ return new class extends Migration
 
             $table->decimal('manufacturing_cost', 10, 2)->default(0);
             $table->decimal('opening_stock', 10, 2)->default(0);
+            $table->decimal('selling_price', 10, 2)->default(0);
+            $table->decimal('consumption', 10, 2)->default(0);
 
             $table->unsignedBigInteger('measurement_unit');
             $table->string('item_type', 10)->nullable();
