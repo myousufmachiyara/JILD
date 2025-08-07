@@ -103,22 +103,24 @@ class ProductionReceivingController extends Controller
 
     public function edit($id)
     {
-        $receiving = ProductionReceiving::with('details')->findOrFail($id);
+        $receiving = ProductionReceiving::with(['details.product', 'details.variation'])->findOrFail($id);
         $productions = Production::all();
         $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
-        $products = Product::where('item_type', 'fg')->get();
+        $products = Product::where('item_type','fg')->get();
 
         return view('production-receiving.edit', compact('receiving', 'productions', 'vendors', 'products'));
     }
 
     public function update(Request $request, $id)
     {
+        Log::info("Production Receiving Update Request: ", $request->all());
+
         $validated = $request->validate([
             'production_id' => 'required|exists:productions,id',
             'vendor_id' => 'required|exists:chart_of_accounts,id',
             'rec_date' => 'required|date',
             'item_details.*.product_id' => 'required|exists:products,id',
-            'item_details.*.variation' => 'nullable|string',
+            'item_details.*.variation_id' => 'required|exists:product_variations,id',
             'item_details.*.received_qty' => 'required|numeric|min:0.01',
             'item_details.*.manufacturing_cost' => 'required|numeric|min:0',
             'item_details.*.remarks' => 'nullable|string',
@@ -130,8 +132,10 @@ class ProductionReceivingController extends Controller
         ]);
 
         DB::beginTransaction();
+
         try {
             $receiving = ProductionReceiving::findOrFail($id);
+
             $receiving->update([
                 'production_id' => $validated['production_id'],
                 'vendor_id' => $validated['vendor_id'],
@@ -143,14 +147,14 @@ class ProductionReceivingController extends Controller
                 'total_amount' => $validated['total_amt'],
             ]);
 
-            // Delete old details and re-insert
-            $receiving->details()->delete();
+            // Delete existing details before inserting updated ones
+            ProductionReceivingDetail::where('production_receiving_id', $receiving->id)->delete();
 
             foreach ($validated['item_details'] as $detail) {
                 ProductionReceivingDetail::create([
                     'production_receiving_id' => $receiving->id,
                     'product_id' => $detail['product_id'],
-                    'variation' => $detail['variation'] ?? null,
+                    'variation_id' => $detail['variation_id'] ?? null,
                     'manufacturing_cost' => $detail['manufacturing_cost'],
                     'received_qty' => $detail['received_qty'],
                     'remarks' => $detail['remarks'] ?? null,
@@ -159,11 +163,20 @@ class ProductionReceivingController extends Controller
             }
 
             DB::commit();
-            return redirect()->route('production.receiving.index')->with('success', 'Production receiving updated successfully!');
+            Log::info("ProductionReceiving #{$id} updated successfully.");
+
+            return redirect()->route('production.receiving.index')
+                ->with('success', 'Production receiving updated successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Production Receiving Update Error: ' . $e->getMessage());
-            return redirect()->back()->withInput()->with('error', 'Update failed. Please check logs.');
+
+            Log::error("Production Receiving Update Error: " . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return redirect()->back()->withInput()->withErrors([
+                'error' => 'Failed to update receiving. Please check logs.',
+            ]);
         }
     }
 
