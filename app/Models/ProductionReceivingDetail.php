@@ -16,16 +16,7 @@ class ProductionReceivingDetail extends Model
         'variation_id',
         'manufacturing_cost',
         'received_qty',
-        'total_unit_cost',
-        'total',
         'remarks',
-    ];
-
-    protected $casts = [
-        'manufacturing_cost' => 'float',
-        'received_qty' => 'float',
-        'total_unit_cost' => 'float',
-        'total' => 'float',
     ];
 
     public function receiving()

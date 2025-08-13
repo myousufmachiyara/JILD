@@ -245,95 +245,105 @@ public function update(Request $request, $id)
     
     public function summary($id)
     {
-        $production = Production::with([
-            'details.product',
-            'receivings.details.product'
-        ])->findOrFail($id);
+        $production = Production::with(['details.product.measurementUnit', 'receivings.details.product.measurementUnit'])->findOrFail($id);
 
-        $rows = [];
-
-        foreach ($production->details as $detail) {
-            $rawProductName = $detail->product->name ?? '-';
-            $issuedQty = $detail->qty;
-            $unit = $detail->unit;
-
-            // Sum all received pcs of finished product related to this raw product (if 1-to-1 mapping)
-            $receivedPcs = $production->receivings->sum(function ($receiving) use ($detail) {
-                return $receiving->details->where('product_id', $detail->product_id)->sum('received_qty');
-            });
-
-            $consumption = $receivedPcs > 0 ? $issuedQty / $receivedPcs : 0;
-
-            $rows[] = [
-                'name' => $rawProductName,
-                'issued_qty' => $issuedQty,
-                'unit' => $unit,
-                'received_pcs' => $receivedPcs,
-                'consumption' => $consumption,
-            ];
-        }
-
-        // Generate PDF
         $pdf = new \TCPDF();
-        $pdf->SetCreator('Your App');
-        $pdf->SetAuthor('Your Company');
-        $pdf->SetTitle('Production Report #' . $production->id);
-        $pdf->SetMargins(10, 10, 10);
+        $pdf->SetCreator(PDF_CREATOR);
+        $pdf->SetAuthor('Your App Name');
+        $pdf->SetTitle('Production Costing');
         $pdf->AddPage();
+        $pdf->SetFont('helvetica', '', 10);
+        $pdf->Ln(5);
 
+        // Header
         $html = '
-        <style>
-            table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-            th, td { border: 1px solid #000; padding: 5px; font-size: 11px; text-align: center; }
-            .header { font-size: 16px; font-weight: bold; text-align: center; margin-bottom: 10px; }
-            .info-table td { border: none; font-size: 12px; }
-        </style>
-
-        <div class="header">Production Summary Report</div>
-
         <table class="info-table">
             <tr>
                 <td><strong>Production ID:</strong> ' . $production->id . '</td>
-                <td><strong>Date:</strong> ' . $production->order_date . '</td>
+                <td style="text-align:right"><strong>Date:</strong> ' . $production->order_date . '</td>
             </tr>
-        </table>
-
-        <br><strong>Item-wise Summary:</strong><br>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Item</th>
-                    <th>Qty Issued</th>
-                    <th>Unit</th>
-                    <th>Received Pcs</th>
-                    <th>Consumption</th>
-                </tr>
-            </thead>
-            <tbody>';
-
-        foreach ($rows as $index => $row) {
-            $html .= '
-            <tr>
-                <td>' . ($index + 1) . '</td>
-                <td>' . $row['name'] . '</td>
-                <td>' . number_format($row['issued_qty'], 2) . '</td>
-                <td>' . $row['unit'] . '</td>
-                <td>' . $row['received_pcs'] . '</td>
-                <td>' . number_format($row['consumption'], 4) . '</td>
-            </tr>';
-        }
-
-        $html .= '</tbody></table>';
-
-        if (!empty($production->remarks)) {
-            $html .= '<br><br><strong>Remarks:</strong><br>' . nl2br($production->remarks);
-        }
-
+        </table>';
         $pdf->writeHTML($html, true, false, true, false, '');
-        $pdf->Output('production_summary_' . $production->id . '.pdf', 'I');
-    }
 
+        // Raw Details Table
+        $pdf->Ln(5);
+        $pdf->SetFont('helvetica', 'B', 11);
+        $pdf->Cell(0, 6, 'Raw Details', 0, 1);
+        $pdf->Ln(2);
+
+        $pdf->SetFont('helvetica', 'B', 9);
+        $pdf->Cell(40, 7, 'Item', 1);
+        $pdf->Cell(25, 7, 'Raw', 1);
+        $pdf->Cell(25, 7, 'Rate', 1);
+        $pdf->Cell(30, 7, 'Total Cost', 1);
+        $pdf->Ln();
+
+        $pdf->SetFont('helvetica', '', 9);
+
+        $totalRawGiven = 0;
+        foreach ($production->details as $raw) {
+            $itemName = optional($raw->product)->name ?? 'N/A';
+            $rawQty = $raw->qty;
+            $rawUnit = optional($raw->measurementUnit)->shortcode ?? '';
+            $rate = $raw->rate;
+            $totalCost = $rawQty * $rate;
+
+            $totalRawGiven += $rawQty;
+
+            $pdf->Cell(40, 7, $itemName, 1);
+            $pdf->Cell(25, 7, number_format($rawQty, 2) . ' ' . $rawUnit, 1);
+            $pdf->Cell(25, 7, number_format($rate, 2), 1);
+            $pdf->Cell(30, 7, number_format($totalCost, 2), 1);
+            $pdf->Ln();
+        }
+
+        // Finish Goods Table
+        $pdf->Ln(5);
+        $pdf->SetFont('helvetica', 'B', 11);
+        $pdf->Cell(0, 6, 'Finish Good Details', 0, 1);
+        $pdf->Ln(2);
+
+        $pdf->SetFont('helvetica', 'B', 9);
+        $pdf->Cell(60, 7, 'Product', 1);
+        $pdf->Cell(30, 7, 'Qty', 1);
+        $pdf->Ln();
+
+        $pdf->SetFont('helvetica', '', 9);
+        $totalProductsReceived = 0;
+        foreach ($production->receivings as $receiving) {
+            foreach ($receiving->details as $detail) {
+                $receivedQty = $detail->received_qty;
+                $unit = optional($detail->product->measurementUnit)->shortcode ?? '-';
+                $totalProductsReceived += $receivedQty;
+
+                $pdf->Cell(60, 7, optional($detail->product)->name ?? '-', 1);
+                $pdf->Cell(30, 7, $receivedQty . ' ' . $unit, 1);
+                $pdf->Ln();
+            }
+        }
+
+        // Summary Table
+        $pdf->Ln(5);
+        $pdf->SetFont('helvetica', 'B', 11);
+        $pdf->Cell(0, 6, 'Summary', 0, 1);
+        $pdf->Ln(2);
+
+        $consumption = $totalProductsReceived > 0
+            ? ($totalRawGiven / $totalProductsReceived)
+            : 0;
+
+        $pdf->SetFont('helvetica', '', 9);
+        $pdf->Cell(60, 7, 'Total Raw Given', 1);
+        $pdf->Cell(60, 7, number_format($totalRawGiven, 2), 1);
+        $pdf->Ln();
+        $pdf->Cell(60, 7, 'Total Products Received', 1);
+        $pdf->Cell(60, 7, number_format($totalProductsReceived, 2), 1);
+        $pdf->Ln();
+        $pdf->Cell(60, 7, 'Consumption (%)', 1);
+        $pdf->Cell(60, 7, number_format($consumption, 2), 1);
+        $pdf->Ln();
+
+        $pdf->Output('production_' . $production->id . '.pdf', 'I');
+    }
 
 }

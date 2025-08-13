@@ -33,4 +33,9 @@ class ProductionDetail extends Model
     {
         return $this->belongsTo(PurchaseInvoice::class, 'invoice_id');
     }
+
+    public function measurementUnit()
+    {
+        return $this->belongsTo(MeasurementUnit::class, 'unit');
+    }
 }

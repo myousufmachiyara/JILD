@@ -39,7 +39,7 @@
                 <td>{{ $loop->iteration }}</td>
                 <td>{{ $rec->grn_no }}</td>
                 <td>{{ \Carbon\Carbon::parse($rec->rec_date)->format('d-m-Y') }}</td>
-                <td>PRDD-{{ $rec->production_id }}</td>
+                <td>PROD-{{ $rec->production_id }}</td>
                 <td>{{ $rec->details->sum('received_qty') }}</td>
                 <td>{{ number_format($rec->net_amount, 2) }}</td>
                 <td>

@@ -12,12 +12,10 @@ class ProductionReceiving extends Model
 
     protected $fillable = [
         'production_id',
-        'vendor_id',
         'rec_date',
         'grn_no',
         'convance_charges',
         'bill_discount',
-        'net_amount',
         'received_by',
     ];
 

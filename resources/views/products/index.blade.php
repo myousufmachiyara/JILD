@@ -16,7 +16,7 @@
         <div style="display: flex;justify-content: space-between;">
           <h2 class="card-title">All Products</h2>
           <div>
-            <a href="{{ route('products.barcode.selection') }}" class="btn btn-danger">Print Barcodes</a>
+            <a href="{{ route('products.barcode.selection') }}" class="btn btn-danger"><i class="fas fa-barcode"></i> Barcodes</a>
             <a href="{{ route('products.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Products</a>
           </div>
         </div>
@@ -56,7 +56,7 @@
                   <form method="POST" action="{{ route('products.destroy', $product->id) }}" style="display:inline-block">
                     @csrf
                     @method('DELETE')
-                    <button class="text-danger" style="border:none" onclick="return confirm('Delete this product?')"><i class="fa fa-times"></i></button>
+                    <button class="text-danger bg-transparent" style="border:none" onclick="return confirm('Delete this product?')"><i class="fa fa-trash"></i></button>
                   </form>
                 </td>
               </tr>

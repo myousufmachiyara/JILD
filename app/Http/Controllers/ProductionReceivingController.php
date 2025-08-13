@@ -33,19 +33,14 @@ class ProductionReceivingController extends Controller
 
         $validated = $request->validate([
             'production_id' => 'required|exists:productions,id',
-            'vendor_id' => 'required|exists:chart_of_accounts,id',
             'rec_date' => 'required|date',
             'item_details.*.product_id' => 'required|exists:products,id',
             'item_details.*.variation_id' => 'required|exists:product_variations,id',
             'item_details.*.received_qty' => 'required|numeric|min:0.01',
             'item_details.*.manufacturing_cost' => 'required|numeric|min:0',
-            'item_details.*.profit_margin' => 'nullable|numeric|min:0',
             'item_details.*.remarks' => 'nullable|string',
             'convance_charges' => 'required|numeric|min:0',
             'bill_discount' => 'required|numeric|min:0',
-            'net_amount' => 'required|numeric|min:0',
-            'total_pcs' => 'required|numeric|min:0',
-            'total_amt' => 'required|numeric|min:0',
         ]);
 
         DB::beginTransaction();
@@ -55,24 +50,14 @@ class ProductionReceivingController extends Controller
 
             $receiving = ProductionReceiving::create([
                 'production_id' => $validated['production_id'],
-                'vendor_id' => $validated['vendor_id'],
                 'rec_date' => $validated['rec_date'],
                 'grn_no' => $grn_no,
                 'convance_charges' => $validated['convance_charges'],
                 'bill_discount' => $validated['bill_discount'],
-                'net_amount' => $validated['net_amount'],
-                'total_pcs' => $validated['total_pcs'],
-                'total_amount' => $validated['total_amt'],
                 'received_by' => auth()->id(),
             ]);
 
-            foreach ($validated['item_details'] as $detail) {
-                $costPerPiece = $detail['manufacturing_cost'];
-                $totalCost = $costPerPiece * $detail['received_qty'];
-                $profitMargin = $detail['profit_margin'] ?? 30;
-                $sellingPrice = $costPerPiece * (1 + ($profitMargin / 100));
-                $barcode = 'PRD-' . $detail['product_id'] . '-' . $detail['variation_id'] . '-' . time() . '-' . rand(100, 999);
-
+            foreach ($validated['item_details'] as $detail) {            
                 ProductionReceivingDetail::create([
                     'production_receiving_id' => $receiving->id,
                     'production_id' => $validated['production_id'],
@@ -80,12 +65,6 @@ class ProductionReceivingController extends Controller
                     'variation_id' => $detail['variation_id'],
                     'manufacturing_cost' => $detail['manufacturing_cost'],
                     'received_qty' => $detail['received_qty'],
-                    'cost_per_piece' => $costPerPiece,
-                    'total' => $totalCost,
-                    'total_cost' => $totalCost,
-                    'profit_margin' => $profitMargin,
-                    'selling_price' => $sellingPrice,
-                    'barcode' => $barcode,
                     'remarks' => $detail['remarks'] ?? null,
                 ]);
 

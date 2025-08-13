@@ -34,15 +34,6 @@
                 @endforeach
               </select>
             </div>
-            <div class="col-md-3">
-              <label>Vendor</label>
-              <select name="vendor_id" class="form-control select2-js" required>
-                <option value="" disabled selected>Select Vendor</option>
-                @foreach($vendors as $vendor)
-                  <option value="{{ $vendor->id }}">{{ $vendor->name }}</option>
-                @endforeach
-              </select>
-            </div>
           </div>
         </div>
       </section>
@@ -92,11 +83,7 @@
                         <option value="">Select Variation</option>
                     </select>
                 </td>
-                <td>
-                    <input type="number" class="form-control manufacturing_cost" 
-                            name="item_details[0][manufacturing_cost]" 
-                            step="any" value="0" readonly>
-                </td>
+                <td><input type="number" class="form-control manufacturing_cost" name="item_details[0][manufacturing_cost]" step="any" value="0" readonly></td>
                 <td><input type="number" class="form-control received-qty" name="item_details[0][received_qty]" step="0.01" value="0" required></td>
                 <td><input type="text" class="form-control" name="item_details[0][remarks]"></td>
                 <td><input type="number" class="form-control row-total" name="item_details[0][total]" step="0.01" value="0" readonly></td>
@@ -111,12 +98,10 @@
             <div class="col-md-2">
               <label>Total Pcs</label>
               <input type="text" class="form-control" id="total_pcs" disabled>
-              <input type="hidden" name="total_pcs" id="total_pcs_val">
             </div>
             <div class="col-md-2">
               <label>Total Amount</label>
               <input type="text" class="form-control" id="total_amt" disabled>
-              <input type="hidden" name="total_amt" id="total_amt_val">
             </div>
             <div class="col-md-2">
               <label>Conveyance</label>
@@ -129,7 +114,6 @@
             <div class="col-md-4 text-end">
               <label><strong>Net Amount</strong></label>
               <h4 class="text-primary">PKR <span id="netAmountText">0.00</span></h4>
-              <input type="hidden" name="net_amount" id="net_amount">
             </div>
           </div>
         </div>
@@ -259,10 +243,7 @@
       // Create fresh row HTML (don't clone)
       const newRow = $(`
       <tr>
-          <td>
-              <input type="text" class="form-control product-code" 
-                    placeholder="Enter Product Code">
-          </td>
+          <td><input type="text" class="form-control product-code" placeholder="Enter Product Code"></td>
           <td>
               <select name="item_details[${newIndex}][product_id]" 
                       class="form-control select2-js product-select" required>
@@ -278,35 +259,16 @@
               </select>
           </td>
           <td>
-              <select name="item_details[${newIndex}][variation_id]" 
-                      class="form-control select2-js variation-select">
-                  <option value="">Select Variation</option>
-              </select>
+            <select name="item_details[${newIndex}][variation_id]" class="form-control select2-js variation-select">
+              <option value="">Select Variation</option>
+            </select>
           </td>
-          <td>
-              <input type="number" class="form-control manufacturing_cost" 
-                    name="item_details[${newIndex}][manufacturing_cost]" 
-                    step="0.0001" value="0" readonly>
+          <td><input type="number" class="form-control manufacturing_cost" name="item_details[${newIndex}][manufacturing_cost]" step="0.0001" value="0" readonly></td>
+          <td><input type="number" class="form-control received-qty" name="item_details[${newIndex}][received_qty]" step="0.01" value="0" required></td>
+          <td><input type="text" class="form-control" name="item_details[${newIndex}][remarks]"></td>
+          <td><input type="number" class="form-control row-total" name="item_details[${newIndex}][total]" step="0.01" value="0" readonly>
           </td>
-          <td>
-              <input type="number" class="form-control received-qty" 
-                    name="item_details[${newIndex}][received_qty]" 
-                    step="0.01" value="0" required>
-          </td>
-          <td>
-              <input type="text" class="form-control" 
-                    name="item_details[${newIndex}][remarks]">
-          </td>
-          <td>
-              <input type="number" class="form-control row-total" 
-                    name="item_details[${newIndex}][total]" 
-                    step="0.01" value="0" readonly>
-          </td>
-          <td>
-              <button type="button" class="btn btn-danger btn-sm remove-row-btn">
-                  <i class="fas fa-times"></i>
-              </button>
-          </td>
+          <td><button type="button" class="btn btn-danger btn-sm remove-row-btn"><i class="fas fa-times"></i></button></td>
       </tr>`);
 
       // Add to table
@@ -380,17 +342,15 @@
     $('#total_pcs').val(totalQty);
     $('#total_pcs_val').val(totalQty);
     $('#total_amt').val(totalAmt.toFixed(2));
-    $('#total_amt_val').val(totalAmt.toFixed(2));
     calcNet();
   }
 
   function calcNet() {
-    const total = parseFloat($('#total_amt_val').val()) || 0;
+    const total = parseFloat($('#total_amt').val()) || 0;
     const conveyance = parseFloat($('#convance_charges').val()) || 0;
     const discount = parseFloat($('#bill_discount').val()) || 0;
     const net = total + conveyance - discount;
     $('#netAmountText').text(net.toFixed(2));
-    $('#net_amount').val(net.toFixed(2));
   }
   
 </script>

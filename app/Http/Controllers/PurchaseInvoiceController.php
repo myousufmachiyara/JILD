@@ -26,7 +26,7 @@ class PurchaseInvoiceController extends Controller
 
     public function create()
     {
-        $products = Product::select('id', 'name', 'barcode', 'measurement_unit')->get();
+        $products = Product::select('id', 'name', 'barcode', 'measurement_unit')->where('item_type','raw')->get();
         $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
         $units = MeasurementUnit::all();
 
@@ -286,7 +286,7 @@ class PurchaseInvoiceController extends Controller
         <table class="info-table">
             <tr>
                 <td><strong>Invoice No:</strong> ' . $invoice->id . '</td>
-                <td><strong>Date:</strong> ' . $invoice->date . '</td>
+                <td><strong>Date:</strong> ' . $invoice->invoice_date . '</td>
             </tr>
             <tr>
                 <td><strong>Vendor:</strong> ' . ($invoice->vendor->name ?? '') . '</td>

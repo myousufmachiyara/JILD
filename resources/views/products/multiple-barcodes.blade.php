@@ -4,20 +4,39 @@
     <title>Print Barcodes</title>
     <style>
         body { font-family: Arial, sans-serif; }
-        .barcode-block {
-            display: inline-block;
-            width: 200px;
+
+        .barcode-label {
+            width: 180px;
+            height: 140px;
+            border: 1px solid #ccc;
+            padding: 8px;
+            margin: 8px;
+            display: flex; /* flexbox layout */
+            flex-direction: column; /* stack content vertically */
+            justify-content: center; /* center vertically */
+            align-items: center; /* center horizontally */
             text-align: center;
-            margin: 10px;
+            vertical-align: top;
             page-break-inside: avoid;
+            overflow: hidden;
         }
-        .barcode-block img {
-            width: 100%;
+
+        .barcode-label img {
+            max-width: 160px;
+            height: 50px;
         }
-        .price {
-            font-weight: bold;
-            margin-top: 5px;
+
+        .barcode-label strong,
+        .barcode-label small {
+            display: block;
+            word-wrap: break-word;
         }
+
+        .no-print {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
         @media print {
             .no-print {
                 display: none;
@@ -27,18 +46,19 @@
 </head>
 <body>
 
-<div class="no-print" style="text-align: center; margin-bottom: 20px;">
-    <button onclick="window.print()">Print</button>
-</div>
 @foreach($barcodes as $barcode)
-    <div class="barcode-label" style="width: 200px; border: 1px solid #ccc; padding: 10px; margin: 10px; display: inline-block; text-align: center;">
-        <strong>{{ $barcode['product'] }}</strong><br>
-        <small>{{ $barcode['variation'] }}</small><br>
-        <img src="data:image/png;base64,{{ $barcode['barcodeImage'] }}" alt="barcode"><br>
-        <small>{{ $barcode['barcodeText'] }}</small><br>
+    <div class="barcode-label">
+        <strong>{{ $barcode['product'] }}</strong>
+        <small>{{ $barcode['variation'] }}</small>
+        <img src="data:image/png;base64,{{ $barcode['barcodeImage'] }}" alt="barcode">
+        <small>{{ $barcode['barcodeText'] }}</small>
         <strong>Rs. {{ $barcode['price'] }}</strong>
     </div>
 @endforeach
+
+<div class="no-print">
+    <button onclick="window.print()">Print</button>
+</div>
 
 </body>
 </html>

@@ -37,4 +37,9 @@ class Product extends Model
     {
         return $this->hasMany(ProductImage::class);
     }
+    
+    public function measurementUnit()
+    {
+        return $this->belongsTo(MeasurementUnit::class, 'measurement_unit');
+    }
 }

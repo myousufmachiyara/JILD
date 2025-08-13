@@ -21,20 +21,12 @@ return new class extends Migration
             $table->unsignedBigInteger('variation_id');
 
             // Costing
-            $table->decimal('raw_material_cost', 10, 4)->default(0); // avg. cost of raw material used per unit
-            $table->decimal('manufacturing_cost', 10, 4)->default(0); // manual or fixed cost per unit
-            $table->decimal('total_unit_cost', 10, 4); // total cost per unit
-            $table->decimal('received_qty', 10, 4); // total received quantity
-
-            // Barcode / traceability
-            $table->string('barcode_prefix')->nullable(); // e.g. PRD-00001-V1
-            $table->string('barcode_label')->nullable();  // full code if generated here
-            $table->string('serial_format')->nullable(); // for traceable tags (optional)
+            $table->decimal('manufacturing_cost', 10, 2)->default(0); // manual or fixed cost per unit
+            $table->decimal('received_qty', 10, 2); // total received quantity
 
             // Utility
             $table->text('remarks')->nullable();
-            $table->decimal('total', 10, 2); // total cost for this row: (unit cost * qty)
-            
+
             $table->timestamps();
 
             // Foreign Keys
