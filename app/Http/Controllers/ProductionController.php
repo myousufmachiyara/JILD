@@ -284,7 +284,7 @@ public function update(Request $request, $id)
         foreach ($production->details as $raw) {
             $itemName = optional($raw->product)->name ?? 'N/A';
             $rawQty = $raw->qty;
-            $rawUnit = optional($raw->measurementUnit)->shortcode ?? '';
+            $rawUnit = optional($raw->product->measurementUnit)->shortcode ?? '';
             $rate = $raw->rate;
             $totalCost = $rawQty * $rate;
 
@@ -309,17 +309,35 @@ public function update(Request $request, $id)
         $pdf->Ln();
 
         $pdf->SetFont('helvetica', '', 9);
-        $totalProductsReceived = 0;
+
+        // Aggregate products by product_id
+        $productSummary = [];
         foreach ($production->receivings as $receiving) {
             foreach ($receiving->details as $detail) {
-                $receivedQty = $detail->received_qty;
+                $productId = $detail->product_id;
+                $productName = optional($detail->product)->name ?? '-';
                 $unit = optional($detail->product->measurementUnit)->shortcode ?? '-';
-                $totalProductsReceived += $receivedQty;
+                $receivedQty = $detail->received_qty;
 
-                $pdf->Cell(60, 7, optional($detail->product)->name ?? '-', 1);
-                $pdf->Cell(30, 7, $receivedQty . ' ' . $unit, 1);
-                $pdf->Ln();
+                if (!isset($productSummary[$productId])) {
+                    $productSummary[$productId] = [
+                        'name' => $productName,
+                        'unit' => $unit,
+                        'qty' => 0
+                    ];
+                }
+
+                $productSummary[$productId]['qty'] += $receivedQty;
             }
+        }
+
+        // Display aggregated data
+        $totalProductsReceived = 0;
+        foreach ($productSummary as $product) {
+            $totalProductsReceived += $product['qty'];
+            $pdf->Cell(60, 7, $product['name'], 1);
+            $pdf->Cell(30, 7, number_format($product['qty'], 2) . ' ' . $product['unit'], 1);
+            $pdf->Ln();
         }
 
         // Summary Table
