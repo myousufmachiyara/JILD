@@ -363,5 +363,4 @@ public function update(Request $request, $id)
 
         $pdf->Output('production_' . $production->id . '.pdf', 'I');
     }
-
 }

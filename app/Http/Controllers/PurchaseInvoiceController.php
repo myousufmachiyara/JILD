@@ -264,87 +264,129 @@ class PurchaseInvoiceController extends Controller
 
     public function print($id)
     {
-        $invoice = PurchaseInvoice::with(['vendor', 'items.product', 'items.unit'])->findOrFail($id);
+        $invoice = PurchaseInvoice::with(['vendor', 'items'])->findOrFail($id);
 
         $pdf = new \TCPDF();
+        $pdf->setPrintHeader(false); // remove default header (and its line)
+        $pdf->setPrintFooter(false); // remove default footer
         $pdf->SetCreator('Your App');
         $pdf->SetAuthor('Your Company');
         $pdf->SetTitle('Purchase Invoice #' . $invoice->id);
         $pdf->SetMargins(10, 10, 10);
         $pdf->AddPage();
+        $pdf->setCellPadding(1.5);
 
-        $html = '
-        <style>
-            table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-            th, td { border: 1px solid #000; padding: 5px; font-size: 11px; }
-            .header { font-size: 16px; font-weight: bold; text-align: center; margin-bottom: 10px; }
-            .info-table td { border: none; font-size: 12px; }
-        </style>
+        // --- Logo ---
+        $logoPath = public_path('assets/img/logo-black.webp');
+        if (file_exists($logoPath)) {
+            $pdf->Image($logoPath, 10, 10, 30);
+        }
 
-        <div class="header">Purchase Invoice</div>
+        // --- Invoice Info Box ---
+        $pdf->SetXY(130, 12);
+        $invoiceInfo = '
+        <table cellpadding="2" style="font-size:10px; line-height:14px;">
+            <tr><td><b>Invoice #</b></td><td>' . $invoice->id . '</td></tr>
+            <tr><td><b>Date</b></td><td>' . \Carbon\Carbon::parse($invoice->invoice_date)->format('d/m/Y') . '</td></tr>
+            <tr><td><b>Bill No</b></td><td>' . ($invoice->bill_no ?? '-') . '</td></tr>
+            <tr><td><b>Ref No</b></td><td>' . ($invoice->ref_no ?? '-') . '</td></tr>
+            <tr><td><b>Vendor</b></td><td>' . ($invoice->vendor->name ?? '-') . '</td></tr>
+            <tr><td><b>Payment Terms</b></td><td>' . ($invoice->payment_terms ?? '-') . '</td></tr>
+        </table>';
+        $pdf->writeHTML($invoiceInfo, false, false, false, false, '');
 
-        <table class="info-table">
-            <tr>
-                <td><strong>Invoice No:</strong> ' . $invoice->id . '</td>
-                <td><strong>Date:</strong> ' . $invoice->invoice_date . '</td>
-            </tr>
-            <tr>
-                <td><strong>Vendor:</strong> ' . ($invoice->vendor->name ?? '') . '</td>
-                <td><strong>Bill No:</strong> ' . ($invoice->bill_no ?? '-') . '</td>
-            </tr>
-            <tr>
-                <td><strong>Ref No:</strong> ' . ($invoice->ref_no ?? '-') . '</td>
-                <td><strong>Payment Terms:</strong> ' . ($invoice->payment_terms ?? '-') . '</td>
-            </tr>
-        </table>
+        // --- Title Box (no horizontal line above) ---
+        $pdf->SetXY(150, 48);
+        $pdf->SetFillColor(23, 54, 93);
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', 'B', 12);
+        $pdf->Cell(50, 8, 'Purchase Invoice', 0, 1, 'C', 1);
+        $pdf->SetTextColor(0, 0, 0);
 
-        <table>
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Item Code</th>
-                    <th>Item Name</th>
-                    <th>Bundle</th>
-                    <th>Quantity</th>
-                    <th>Unit</th>
-                    <th>Rate</th>
-                    <th>Remarks</th>
-                </tr>
-            </thead>
-            <tbody>';
+        // --- Items Table ---
+        $pdf->Ln(15);
+        $html = '<table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
+            <tr style="background-color:#f5f5f5; font-weight:bold;">
+                <th width="7%">S.No</th>
+                <th width="28%">Item Name</th>
+                <th width="10%">Bundle</th>
+                <th width="15%">Qty</th>
+                <th width="20%">Rate</th>
+                <th width="20%">Total</th>
+            </tr>';
 
-        foreach ($invoice->items as $i => $item) {
+        $count = 0;
+        $totalAmount = 0;
+
+        foreach ($invoice->items as $item) {
+            $count++;
+            $amount = $item->quantity * $item->price;
+            $totalAmount += $amount;
+
             $html .= '
-                <tr>
-                    <td>' . ($i + 1) . '</td>
-                    <td>' . ($item->item->item_code ?? '-') . '</td>
-                    <td>' . ($item->item->name ?? '-') . '</td>
-                    <td>' . $item->bundle . '</td>
-                    <td>' . $item->quantity . '</td>
-                    <td>' . ($item->unit->name ?? '-') . '</td>
-                    <td>' . number_format($item->price, 2) . '</td>
-                    <td>' . $item->remarks . '</td>
-                </tr>';
+            <tr>
+                <td align="center">' . $count . '</td>
+                <td>' . ($item->product->name ?? '-') . '</td>
+                <td align="center">' . ($item->bundle ?? '-') . '</td>
+                <td align="center">' . number_format($item->quantity, 2). ' ' .$item->measurementUnit->shortcode.'</td>
+                <td align="right">' . number_format($item->price, 2) . '</td>
+                <td align="right">' . number_format($item->price, 2) . '</td>
+            </tr>';
         }
 
-        $html .= '</tbody></table>';
+        // --- Totals ---
+        $html .= '
+            <tr>
+                <td colspan="5" align="right"><b>Total</b></td>
+                <td align="right"><b>' . number_format($totalAmount, 2) . '</b></td>
+            </tr>';
 
-        $html .= '<br><br><strong>Total Items:</strong> ' . $invoice->items->count();
-
-        if (!empty($invoice->charges) || !empty($invoice->discount)) {
-            $html .= '<br><strong>Additional Charges:</strong> ' . number_format($invoice->charges, 2);
-            $html .= '<br><strong>Discount:</strong> ' . number_format($invoice->discount, 2);
+        if (!empty($invoice->charges)) {
+            $totalAmount += $invoice->charges;
+            $html .= '
+            <tr>
+                <td colspan="5" align="right"><b>Additional Charges</b></td>
+                <td align="right">' . number_format($invoice->charges, 2) . '</td>
+            </tr>';
         }
 
-        if (!empty($invoice->remarks)) {
-            $html .= '<br><br><strong>Remarks:</strong><br>' . nl2br($invoice->remarks);
+        if (!empty($invoice->discount)) {
+            $totalAmount -= $invoice->discount;
+            $html .= '
+            <tr>
+                <td colspan="5" align="right"><b>Discount</b></td>
+                <td align="right">' . number_format($invoice->discount, 2) . '</td>
+            </tr>';
         }
 
-        $html .= '<br><br><br><strong>Authorized Signature: ____________________</strong>';
+        $html .= '
+            <tr style="background-color:#f5f5f5;">
+                <td colspan="5" align="right"><b>Net Total</b></td>
+                <td align="right"><b>' . number_format($totalAmount, 2) . '</b></td>
+            </tr>
+        </table>';
 
         $pdf->writeHTML($html, true, false, true, false, '');
-        $pdf->Output('purchase_invoice_' . $invoice->id . '.pdf', 'I');
 
+        // --- Remarks ---
+        if (!empty($invoice->remarks)) {
+            $remarksHtml = '<b>Remarks:</b><br><span style="font-size:9px;">' . nl2br($invoice->remarks) . '</span>';
+            $pdf->writeHTML($remarksHtml, true, false, true, false, '');
+        }
+
+        // --- Signatures ---
+        $pdf->Ln(20);
+        $yPos = $pdf->GetY();
+        $lineWidth = 40;
+
+        $pdf->Line(28, $yPos, 28 + $lineWidth, $yPos);
+        $pdf->Line(130, $yPos, 130 + $lineWidth, $yPos);
+
+        $pdf->SetXY(28, $yPos + 2);
+        $pdf->Cell($lineWidth, 6, 'Received By', 0, 0, 'C');
+        $pdf->SetXY(130, $yPos + 2);
+        $pdf->Cell($lineWidth, 6, 'Authorized By', 0, 0, 'C');
+
+        return $pdf->Output('purchase_invoice_' . $invoice->id . '.pdf', 'I');
     }
-
 }
