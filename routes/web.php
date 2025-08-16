@@ -20,7 +20,8 @@ use App\Http\Controllers\{
     ProductCategoryController,
     ProductionReceivingController,
     PaymentVoucherController,
-    ReportController
+    ReportController,
+    POSController
 };
 
 Auth::routes();

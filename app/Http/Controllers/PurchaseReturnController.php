@@ -24,7 +24,7 @@ class PurchaseReturnController extends Controller
     public function create()
     {
         $invoices = PurchaseInvoice::with('vendor')->get();
-        $products = Product::all();
+        $products = Product::where('item_type','raw')->get();
         $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
         $units = MeasurementUnit::all();
         return view('purchase-returns.create', compact('invoices', 'products', 'units','vendors'));
@@ -167,103 +167,108 @@ class PurchaseReturnController extends Controller
         $return = PurchaseReturn::with(['vendor', 'items.item', 'items.unit', 'items.invoice'])->findOrFail($id);
 
         $pdf = new \TCPDF();
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
         $pdf->SetCreator('Your App');
         $pdf->SetAuthor('Your Company');
         $pdf->SetTitle('Purchase Return #' . $return->id);
         $pdf->SetMargins(10, 10, 10);
         $pdf->AddPage();
+        $pdf->setCellPadding(1.5);
 
-        $html = '
-        <style>
-            table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-            th, td { border: 1px solid #000; padding: 5px; font-size: 11px; }
-            .header { font-size: 16px; font-weight: bold; text-align: center; margin-bottom: 10px; }
-            .info-table td { border: none; font-size: 12px; }
-            .summary-table td { font-size: 12px; }
-        </style>
+        // --- Logo ---
+        $logoPath = public_path('assets/img/jild-Logo.png');
+        if (file_exists($logoPath)) {
+            $pdf->Image($logoPath, 10, 10, 30);
+        }
 
-        <div class="header">Purchase Return</div>
-        <br><br>';
+        // --- Return Info Box ---
+        $pdf->SetXY(130, 12);
+        $returnInfo = '
+        <table cellpadding="2" style="font-size:10px; line-height:14px;">
+            <tr><td><b>Return #</b></td><td>' . $return->id . '</td></tr>
+            <tr><td><b>Date</b></td><td>' . \Carbon\Carbon::parse($return->return_date)->format('d/m/Y') . '</td></tr>
+            <tr><td><b>Vendor</b></td><td>' . ($return->vendor->name ?? '-') . '</td></tr>
+        </table>';
+        $pdf->writeHTML($returnInfo, false, false, false, false, '');
 
-        $html .= '
-        <table class="info-table">
-            <tr>
-                <td><strong>Return No:</strong> ' . $return->id . '</td>
-                <td><strong>Date:</strong> ' . $return->return_date . '</td>
-            </tr>
-            <tr>
-                <td><strong>Vendor:</strong> ' . ($return->vendor->name ?? '-') . '</td>
-                <td></td>
-            </tr>
-        </table>
-        <br><br>';
+        $pdf->Line(60, 52.25, 200, 52.25);
 
-        $html .= '
-        <table>
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Item Code</th>
-                    <th>Item Name</th>
-                    <th>Invoice #</th>
-                    <th>Quantity</th>
-                    <th>Unit</th>
-                    <th>Rate</th>
-                    <th>Amount</th>
-                    <th>Remarks</th>
-                </tr>
-            </thead>
-            <tbody>';
+        // --- Title Box ---
+        $pdf->SetXY(10, 48);
+        $pdf->SetFillColor(23, 54, 93);
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', 'B', 12);
+        $pdf->Cell(50, 8, 'Purchase Return', 0, 1, 'C', 1);
+        $pdf->SetTextColor(0, 0, 0);
 
-        $totalQty = 0;
+        // --- Items Table ---
+        $pdf->Ln(5);
+        $html = '<table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
+            <tr style="background-color:#f5f5f5; font-weight:bold;">
+                <th width="7%">S.No</th>
+                <th width="28%">Item Name</th>
+                <th width="10%">Invoice #</th>
+                <th width="20%">Qty</th>
+                <th width="15%">Rate</th>
+                <th width="20%">Amount</th>
+            </tr>';
+
+        $count = 0;
         $totalAmount = 0;
 
-        foreach ($return->items as $i => $item) {
-            $totalQty += $item->quantity;
-            $totalAmount += $item->amount;
+        foreach ($return->items as $item) {
+            $count++;
+            $amount = $item->amount;
+            $totalAmount += $amount;
 
             $html .= '
-                <tr>
-                    <td>' . ($i + 1) . '</td>
-                    <td>' . ($item->item->item_code ?? '-') . '</td>
-                    <td>' . ($item->item->name ?? '-') . '</td>
-                    <td>' . ($item->invoice->id ?? '-') . '</td>
-                    <td>' . $item->quantity . '</td>
-                    <td>' . ($item->unit->name ?? '-') . '</td>
-                    <td>' . number_format($item->price, 2) . '</td>
-                    <td>' . number_format($item->amount, 2) . '</td>
-                    <td>' . ($item->remarks ?? '-') . '</td>
-                </tr>';
+            <tr>
+                <td align="center">' . $count . '</td>
+                <td>' . ($item->item->name ?? '-') . '</td>
+                <td align="center">' . ($item->invoice->id ?? '-') . '</td>
+                <td align="center">' . number_format($item->quantity, 2) . ' ' . ($item->unit->shortcode ?? '-') .'</td>
+                <td align="right">' . number_format($item->price, 2) . '</td>
+                <td align="right">' . number_format($amount, 2) . '</td>
+            </tr>';
         }
 
-        $html .= '</tbody></table><br><br>';
-
-        // Totals and Summary Section
+        // --- Totals ---
         $html .= '
-        <table class="summary-table">
             <tr>
-                <td><strong>Total Quantity:</strong></td>
-                <td>' . number_format($totalQty, 2) . '</td>
-            </tr>
-            <tr>
-                <td><strong>Total Amount:</strong></td>
-                <td>' . number_format($totalAmount, 2) . '</td>
-            </tr>
-            <tr>
-                <td><strong>Net Amount:</strong></td>
-                <td>' . number_format($return->net_amount, 2) . '</td>
-            </tr>
-        </table>
-        <br><br>';
+                <td colspan="5" align="right"><b>Total</b></td>
+                <td align="right"><b>' . number_format($totalAmount, 2) . '</b></td>
+            </tr>';
 
-        if (!empty($return->remarks)) {
-            $html .= '<strong>Remarks:</strong><br>' . nl2br($return->remarks) . '<br><br>';
-        }
-
-        $html .= '<br><br><strong>Authorized Signature: ____________________</strong>';
+        $html .= '
+            <tr style="background-color:#f5f5f5;">
+                <td colspan="5" align="right"><b>Net Amount</b></td>
+                <td align="right"><b>' . number_format($return->net_amount, 2) . '</b></td>
+            </tr>
+        </table>';
 
         $pdf->writeHTML($html, true, false, true, false, '');
-        $pdf->Output('purchase_return_' . $return->id . '.pdf', 'I');
+
+        // --- Remarks ---
+        if (!empty($return->remarks)) {
+            $remarksHtml = '<b>Remarks:</b><br><span style="font-size:9px;">' . nl2br($return->remarks) . '</span>';
+            $pdf->writeHTML($remarksHtml, true, false, true, false, '');
+        }
+
+        // --- Signatures ---
+        $pdf->Ln(20);
+        $yPos = $pdf->GetY();
+        $lineWidth = 40;
+
+        $pdf->Line(28, $yPos, 28 + $lineWidth, $yPos);
+        $pdf->Line(130, $yPos, 130 + $lineWidth, $yPos);
+
+        $pdf->SetXY(28, $yPos + 2);
+        $pdf->Cell($lineWidth, 6, 'Received By', 0, 0, 'C');
+        $pdf->SetXY(130, $yPos + 2);
+        $pdf->Cell($lineWidth, 6, 'Authorized By', 0, 0, 'C');
+
+        return $pdf->Output('purchase_return_' . $return->id . '.pdf', 'I');
     }
 
 }

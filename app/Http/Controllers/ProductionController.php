@@ -153,88 +153,87 @@ class ProductionController extends Controller
         return view('production.edit', compact('production', 'vendors', 'categories', 'allProducts', 'units'));
     }
 
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'vendor_id' => 'required|exists:chart_of_accounts,id',
+            'category_id' => 'required|exists:product_categories,id',
+            'order_date' => 'required|date',
+            'production_type' => 'required|string',
+            'att.*' => 'nullable|file|max:2048',
+            'items' => 'required|array|min:1',
+            'items.*.item_id' => 'required|exists:products,id',
+            'items.*.invoice' => 'required|exists:purchase_invoices,id',
+            'items.*.qty' => 'required|numeric|min:0.01',
+            'items.*.item_unit' => 'required|string|max:50', // Use string if it's unit name, or change accordingly
+            'items.*.rate' => 'required|numeric|min:0',
+            'items.*.remarks' => 'nullable|string',
+        ]);
 
-public function update(Request $request, $id)
-{
-    $request->validate([
-        'vendor_id' => 'required|exists:chart_of_accounts,id',
-        'category_id' => 'required|exists:product_categories,id',
-        'order_date' => 'required|date',
-        'production_type' => 'required|string',
-        'att.*' => 'nullable|file|max:2048',
-        'items' => 'required|array|min:1',
-        'items.*.item_id' => 'required|exists:products,id',
-        'items.*.invoice' => 'required|exists:purchase_invoices,id',
-        'items.*.qty' => 'required|numeric|min:0.01',
-        'items.*.item_unit' => 'required|string|max:50', // Use string if it's unit name, or change accordingly
-        'items.*.rate' => 'required|numeric|min:0',
-        'items.*.remarks' => 'nullable|string',
-    ]);
+        DB::beginTransaction();
 
-    DB::beginTransaction();
+        try {
+            $production = Production::findOrFail($id);
 
-    try {
-        $production = Production::findOrFail($id);
-
-        // Handle attachments
-        $attachments = $production->attachments ?? [];
-        if ($request->hasFile('att')) {
-            foreach ($request->file('att') as $file) {
-                $attachments[] = $file->store('attachments/productions', 'public');
+            // Handle attachments
+            $attachments = $production->attachments ?? [];
+            if ($request->hasFile('att')) {
+                foreach ($request->file('att') as $file) {
+                    $attachments[] = $file->store('attachments/productions', 'public');
+                }
             }
-        }
 
-        // Calculate total amount
-        $totalAmount = collect($request->items)->sum(function ($item) {
-            return $item['qty'] * $item['rate'];
-        });
+            // Calculate total amount
+            $totalAmount = collect($request->items)->sum(function ($item) {
+                return $item['qty'] * $item['rate'];
+            });
 
-        // Update production
-        $production->update([
-            'vendor_id' => $request->vendor_id,
-            'category_id' => $request->category_id,
-            'order_date' => $request->order_date,
-            'production_type' => $request->production_type,
-            'total_amount' => $totalAmount,
-            'remarks' => $request->remarks,
-            'updated_by' => auth()->id(),
-        ]);
-
-        // Delete and reinsert details
-        $production->details()->delete();
-
-        foreach ($request->items as $item) {
-            $production->details()->create([
-                'production_id' => $production->id,
-                'invoice_id' => $item['invoice'],
-                'product_id' => $item['item_id'],
-                'qty' => $item['qty'],
-                'unit' => $item['item_unit'],
-                'rate' => $item['rate'],
-                'remarks' => $item['remarks'] ?? null,
+            // Update production
+            $production->update([
+                'vendor_id' => $request->vendor_id,
+                'category_id' => $request->category_id,
+                'order_date' => $request->order_date,
+                'production_type' => $request->production_type,
+                'total_amount' => $totalAmount,
+                'remarks' => $request->remarks,
+                'updated_by' => auth()->id(),
             ]);
+
+            // Delete and reinsert details
+            $production->details()->delete();
+
+            foreach ($request->items as $item) {
+                $production->details()->create([
+                    'production_id' => $production->id,
+                    'invoice_id' => $item['invoice'],
+                    'product_id' => $item['item_id'],
+                    'qty' => $item['qty'],
+                    'unit' => $item['item_unit'],
+                    'rate' => $item['rate'],
+                    'remarks' => $item['remarks'] ?? null,
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('production.index')->with('success', 'Production updated successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            // Log full context for debugging
+            Log::error('Production Update Error', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all(),
+                'production_id' => $id,
+                'user_id' => auth()->id(),
+            ]);
+
+            return back()->withInput()->with('error', 'Failed to update production. Check logs.');
         }
-
-        DB::commit();
-
-        return redirect()->route('production.index')->with('success', 'Production updated successfully.');
-    } catch (\Exception $e) {
-        DB::rollBack();
-
-        // Log full context for debugging
-        Log::error('Production Update Error', [
-            'message' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-            'trace' => $e->getTraceAsString(),
-            'request_data' => $request->all(),
-            'production_id' => $id,
-            'user_id' => auth()->id(),
-        ]);
-
-        return back()->withInput()->with('error', 'Failed to update production. Check logs.');
     }
-}
 
 
     public function show($id)
@@ -260,7 +259,7 @@ public function update(Request $request, $id)
         <table class="info-table">
             <tr>
                 <td><strong>Production ID:</strong> ' . $production->id . '</td>
-                <td style="text-align:right"><strong>Date:</strong> ' . $production->order_date . '</td>
+                <td style="text-align:right"><strong>Order Date:</strong> ' . $production->order_date . '</td>
             </tr>
         </table>';
         $pdf->writeHTML($html, true, false, true, false, '');
@@ -363,4 +362,110 @@ public function update(Request $request, $id)
 
         $pdf->Output('production_' . $production->id . '.pdf', 'I');
     }
+
+    public function print($id)
+    {
+        $production = Production::with(['vendor', 'details.product', 'details.invoice', 'details.measurementUnit'])
+            ->findOrFail($id);
+
+        $pdf = new \TCPDF();
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->SetCreator('Your App');
+        $pdf->SetAuthor('Your Company');
+        $pdf->SetTitle('Production #' . $production->id);
+        $pdf->SetMargins(10, 10, 10);
+        $pdf->AddPage();
+        $pdf->setCellPadding(1.5);
+
+        // --- Logo ---
+        $logoPath = public_path('assets/img/jild-Logo.png');
+        if (file_exists($logoPath)) {
+            $pdf->Image($logoPath, 10, 10, 30);
+        }
+
+        // --- Production Info Box ---
+        $pdf->SetXY(130, 12);
+        $infoHtml = '
+        <table cellpadding="2" style="font-size:10px; line-height:14px;">
+            <tr><td><b>Production #</b></td><td>' . $production->id . '</td></tr>
+            <tr><td><b>Date</b></td><td>' . \Carbon\Carbon::parse($production->order_date)->format('d/m/Y') . '</td></tr>
+            <tr><td><b>Vendor</b></td><td>' . ($production->vendor->name ?? '-') . '</td></tr>
+            <tr><td><b>Type</b></td><td>' . ucfirst(str_replace('_', ' ', $production->production_type)) . '</td></tr>
+        </table>';
+        $pdf->writeHTML($infoHtml, false, false, false, false, '');
+
+        $pdf->Line(60, 52.25, 200, 52.25);
+
+        // --- Title Box ---
+        $pdf->SetXY(10, 48);
+        $pdf->SetFillColor(23, 54, 93);
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', 'B', 12);
+        $pdf->Cell(50, 8, 'Production Order', 0, 1, 'C', 1);
+        $pdf->SetTextColor(0, 0, 0);
+
+        // --- Items Table ---
+        $pdf->Ln(5);
+        $html = '<table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
+            <tr style="background-color:#f5f5f5; font-weight:bold;">
+                <th width="7%">S.No</th>
+                <th width="28%">Product</th>
+                <th width="10%">Invoice #</th>
+                <th width="20%">Qty</th>
+                <th width="15%">Rate</th>
+                <th width="20%">Total</th>
+            </tr>';
+
+        $count = 0;
+        $totalAmount = 0;
+
+        foreach ($production->details as $detail) {
+            $count++;
+            $amount = $detail->total_cost ?? ($detail->qty * $detail->rate);
+            $totalAmount += $amount;
+
+            $html .= '
+            <tr>
+                <td align="center">' . $count . '</td>
+                <td>' . ($detail->product->name ?? '-') . '</td>
+                <td align="center">' . ($detail->invoice->id ?? '-') . '</td>
+                <td align="center">' . number_format($detail->qty, 2) . ' ' .($detail->measurementUnit->shortcode ?? '-') .'</td>
+                <td align="right">' . number_format($detail->rate, 2) . '</td>
+                <td align="right">' . number_format($amount, 2) . '</td>
+            </tr>';
+        }
+
+        // --- Totals ---
+        $html .= '
+            <tr style="background-color:#f5f5f5;">
+                <td colspan="5" align="right"><b>Total Amount</b></td>
+                <td align="right"><b>' . number_format($totalAmount, 2) . '</b></td>
+            </tr>
+        </table>';
+
+        $pdf->writeHTML($html, true, false, true, false, '');
+
+        // --- Remarks ---
+        if (!empty($production->remarks)) {
+            $remarksHtml = '<b>Remarks:</b><br><span style="font-size:9px;">' . nl2br($production->remarks) . '</span>';
+            $pdf->writeHTML($remarksHtml, true, false, true, false, '');
+        }
+
+        // --- Signatures ---
+        $pdf->Ln(20);
+        $yPos = $pdf->GetY();
+        $lineWidth = 40;
+
+        $pdf->Line(28, $yPos, 28 + $lineWidth, $yPos);
+        $pdf->Line(130, $yPos, 130 + $lineWidth, $yPos);
+
+        $pdf->SetXY(28, $yPos + 2);
+        $pdf->Cell($lineWidth, 6, 'Received By', 0, 0, 'C');
+        $pdf->SetXY(130, $yPos + 2);
+        $pdf->Cell($lineWidth, 6, 'Authorized By', 0, 0, 'C');
+
+        return $pdf->Output('production_' . $production->id . '.pdf', 'I');
+    }
+
 }

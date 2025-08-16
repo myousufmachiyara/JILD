@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="fixed js flexbox flexboxlegacy no-touch csstransforms csstransforms3d no-overflowscrolling webkit chrome win js no-mobile-device custom-scroll sidebar-left-collapsed">
+<html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -55,7 +55,7 @@
             }
             @media (min-width: 768px) {
                 .cust-pad {
-                    padding: 85px 20px 0px 20px;
+                    padding: 15px 8px 0px 8px;
                 }
                 .home-cust-pad {
                     padding: 60px 15px 0px 15px;
@@ -112,8 +112,11 @@
             </form>
         </div>
 
-        <header class="page-header">
+        <header class="page-header m-0">
             <div class="logo-container d-none d-md-block">
+                <a href="/" class="logo ">
+                    <img src="/assets/img/jild-Logo.png" width="60px" alt="Jild Logo" />
+                </a>
                 <div id="userbox" class="userbox" style="float:right !important;">
                     <a class="btn btn-success" href="/pos_system"> POS System</a>
                     <a href="#" data-bs-toggle="dropdown" style="margin-right: 20px;">
@@ -177,7 +180,6 @@
         </header>
         <section class="body">
             <div class="inner-wrapper cust-pad">
-                @include('layouts.sidebar')
                 <section role="main" class="content-body"> 
                     @yield('content')
                 </section>

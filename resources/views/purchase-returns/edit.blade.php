@@ -5,7 +5,6 @@
 @section('content')
 <div class="row">
   <div class="col-12">
-    <div class="card shadow rounded-3 p-3">
       <form action="{{ route('purchase_return.update', $purchaseReturn->id) }}" method="POST">
         @csrf
         @method('PUT')
@@ -119,7 +118,6 @@
           </footer>
         </section>
       </form>
-    </div>
   </div>
 </div>
 

@@ -196,72 +196,101 @@ class ProductionReceivingController extends Controller
 
     public function print($id)
     {
-        $receiving = ProductionReceiving::with(['production', 'details.product', 'details.variation'])->findOrFail($id);
+        $receiving = ProductionReceiving::with(['production.vendor', 'details.product', 'details.variation'])
+            ->findOrFail($id);
 
         $pdf = new \TCPDF();
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
         $pdf->SetCreator('Your App');
         $pdf->SetAuthor('Your Company');
         $pdf->SetTitle('Production Receiving #' . $receiving->id);
         $pdf->SetMargins(10, 10, 10);
         $pdf->AddPage();
+        $pdf->setCellPadding(1.5);
 
-        $html = '
-        <style>
-            table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-            th, td { border: 1px solid #000; padding: 5px; font-size: 11px; }
-            .header { font-size: 16px; font-weight: bold; text-align: center; margin-bottom: 10px; }
-            .info-table td { border: none; font-size: 12px; }
-        </style>
-
-        <div class="header">Production Receiving</div>
-
-        <table class="info-table">
-            <tr>
-                <td><strong>Receiving ID:</strong> ' . $receiving->id . '</td>
-                <td><strong>Date:</strong> ' . $receiving->rec_date . '</td>
-            </tr>
-            <tr>
-                <td><strong>Production:</strong> PROD-' . ($receiving->production->id ?? '-') . '</td>
-                <td><strong>Challan No:</strong> ' . ($receiving->challan_no ?? '-') . '</td>
-            </tr>
-        </table>
-
-        <table>
-            <thead>
-                <tr>
-                    <th width="5%">#</th>
-                    <th width="25%">Item Name</th>
-                    <th width="30%">Variation SKU</th>
-                    <th width="10%">M.Cost</th>
-                    <th width="10%">Received</th>
-                    <th width="20%">Remarks</th>
-                </tr>
-            </thead>
-            <tbody>';
-
-            foreach ($receiving->details as $i => $detail) {
-                $html .= '
-                <tr>
-                    <td width="5%">' . ($i + 1) . '</td>
-                    <td width="25%">' . ($detail->product->name ?? '-') . '</td>
-                    <td width="30%">' . ($detail->variation->sku ?? '-') . '</td>
-                    <td width="10%">' . ($detail->manufacturing_cost) . '</td>
-                    <td width="10%">' . $detail->received_qty . '</td>
-                    <td width="20%">' . ($detail->remarks ?? '-') . '</td>
-                </tr>';
-            }
-
-        $html .= '</tbody></table>';
-
-        $html .= '<br><br><strong>Total Items:</strong> ' . $receiving->details->count();
-
-        if (!empty($receiving->remarks)) {
-            $html .= '<br><br><strong>Remarks:</strong><br>' . nl2br($receiving->remarks);
+        // --- Logo ---
+        $logoPath = public_path('assets/img/jild-Logo.png');
+        if (file_exists($logoPath)) {
+            $pdf->Image($logoPath, 10, 10, 30);
         }
 
-        $html .= '<br><br><br><strong>Authorized Signature: ____________________</strong>';
+        // --- Info Box ---
+        $pdf->SetXY(130, 12);
+        $infoHtml = '
+        <table cellpadding="2" style="font-size:10px; line-height:14px;">
+            <tr><td><b>Receiving #</b></td><td>' . $receiving->id . '</td></tr>
+            <tr><td><b>Date</b></td><td>' . \Carbon\Carbon::parse($receiving->rec_date)->format('d/m/Y') . '</td></tr>
+            <tr><td><b>Production</b></td><td>PROD-' . ($receiving->production->id ?? '-') . '</td></tr>
+            <tr><td><b>Vendor</b></td><td>' . ($receiving->production->vendor->name ?? '-') . '</td></tr>
+            <tr><td><b>Challan No</b></td><td>' . ($receiving->challan_no ?? '-') . '</td></tr>
+        </table>';
+        $pdf->writeHTML($infoHtml, false, false, false, false, '');
+
+        $pdf->Line(60, 52.25, 200, 52.25);
+
+        // --- Title Bar ---
+        $pdf->SetXY(10, 48);
+        $pdf->SetFillColor(23, 54, 93);
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', 'B', 12);
+        $pdf->Cell(60, 8, 'Production Receiving', 0, 1, 'C', 1);
+        $pdf->SetTextColor(0, 0, 0);
+
+        $pdf->Ln(5);
+
+        // --- Items Table ---
+        $html = '<table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
+            <tr style="background-color:#f5f5f5; font-weight:bold;">
+                <th width="7%">S.No</th>
+                <th width="20%">Item Name</th>
+                <th width="30%">Variation</th>
+                <th width="10%">M.Cost</th>
+                <th width="10%">Received</th>
+                <th width="23%">Remarks</th>
+            </tr>';
+
+        $count = 0;
+        foreach ($receiving->details as $detail) {
+            $count++;
+            $html .= '
+            <tr>
+                <td align="center">' . $count . '</td>
+                <td>' . ($detail->product->name ?? '-') . '</td>
+                <td>' . ($detail->variation->sku ?? '-') . '</td>
+                <td align="right">' . number_format($detail->manufacturing_cost, 2) . '</td>
+                <td align="center">' . $detail->received_qty . '</td>
+                <td>' . ($detail->remarks ?? '-') . '</td>
+            </tr>';
+        }
+
+        $html .= '
+            <tr style="background-color:#f5f5f5;">
+                <td colspan="6" align="left"><b>Total Items:</b> ' . $receiving->details->count() . '</td>
+            </tr>
+        </table>';
 
         $pdf->writeHTML($html, true, false, true, false, '');
-        $pdf->Output('production_receiving_' . $receiving->id . '.pdf', 'I');
+
+        // --- Remarks ---
+        if (!empty($receiving->remarks)) {
+            $remarksHtml = '<b>Remarks:</b><br><span style="font-size:9px;">' . nl2br($receiving->remarks) . '</span>';
+            $pdf->writeHTML($remarksHtml, true, false, true, false, '');
+        }
+
+        // --- Signatures ---
+        $pdf->Ln(20);
+        $yPos = $pdf->GetY();
+        $lineWidth = 40;
+
+        $pdf->Line(28, $yPos, 28 + $lineWidth, $yPos);
+        $pdf->Line(130, $yPos, 130 + $lineWidth, $yPos);
+
+        $pdf->SetXY(28, $yPos + 2);
+        $pdf->Cell($lineWidth, 6, 'Received By', 0, 0, 'C');
+        $pdf->SetXY(130, $yPos + 2);
+        $pdf->Cell($lineWidth, 6, 'Authorized By', 0, 0, 'C');
+
+        return $pdf->Output('production_receiving_' . $receiving->id . '.pdf', 'I');
     }
 }

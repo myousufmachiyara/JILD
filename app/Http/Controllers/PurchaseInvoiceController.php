@@ -243,7 +243,7 @@ class PurchaseInvoiceController extends Controller
 
     public function getItemDetails($invoiceId, $itemId)
     {
-        $item = PurchaseInvoiceItem::with(['product', 'unit'])
+        $item = PurchaseInvoiceItem::with(['product', 'measurementUnit'])
             ->where('purchase_invoice_id', $invoiceId)
             ->where('item_id', $itemId)
             ->first();
@@ -277,7 +277,7 @@ class PurchaseInvoiceController extends Controller
         $pdf->setCellPadding(1.5);
 
         // --- Logo ---
-        $logoPath = public_path('assets/img/logo-black.webp');
+        $logoPath = public_path('assets/img/jild-Logo.png');
         if (file_exists($logoPath)) {
             $pdf->Image($logoPath, 10, 10, 30);
         }
@@ -295,8 +295,10 @@ class PurchaseInvoiceController extends Controller
         </table>';
         $pdf->writeHTML($invoiceInfo, false, false, false, false, '');
 
+        $pdf->Line(60, 52.25, 200, 52.25); // Line ends just before the blue box
+        
         // --- Title Box (no horizontal line above) ---
-        $pdf->SetXY(150, 48);
+        $pdf->SetXY(10, 48);
         $pdf->SetFillColor(23, 54, 93);
         $pdf->SetTextColor(255, 255, 255);
         $pdf->SetFont('helvetica', 'B', 12);
@@ -304,15 +306,15 @@ class PurchaseInvoiceController extends Controller
         $pdf->SetTextColor(0, 0, 0);
 
         // --- Items Table ---
-        $pdf->Ln(15);
+        $pdf->Ln(5);
         $html = '<table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
             <tr style="background-color:#f5f5f5; font-weight:bold;">
                 <th width="7%">S.No</th>
                 <th width="28%">Item Name</th>
                 <th width="10%">Bundle</th>
-                <th width="15%">Qty</th>
-                <th width="20%">Rate</th>
-                <th width="20%">Total</th>
+                <th width="10%">Qty</th>
+                <th width="15%">Rate</th>
+                <th width="15%">Total</th>
             </tr>';
 
         $count = 0;
