@@ -18,7 +18,6 @@ return new class extends Migration
             $table->unsignedBigInteger('invoice_id');
             $table->decimal('rate', 15, 2);
             $table->decimal('qty', 15, 2);
-            $table->decimal('total_cost', 15, 2);
             $table->string('unit');
             $table->timestamps();
 

@@ -15,10 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('vendor_id');
             $table->date('return_date');
-            $table->string('reference_no')->nullable();
             $table->text('remarks')->nullable();
-            $table->decimal('total_amount', 15, 2);
-            $table->decimal('net_amount', 15, 2);
             $table->timestamps();
             $table->softdeletes();
 

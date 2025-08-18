@@ -159,13 +159,13 @@ class ProductionController extends Controller
             'vendor_id' => 'required|exists:chart_of_accounts,id',
             'category_id' => 'required|exists:product_categories,id',
             'order_date' => 'required|date',
-            'production_type' => 'required|string',
-            'att.*' => 'nullable|file|max:2048',
+            'production_type' => 'required|string|in:cmt,sale_leather',
+            'attachments.*' => 'nullable|file|max:2048',
             'items' => 'required|array|min:1',
             'items.*.item_id' => 'required|exists:products,id',
             'items.*.invoice' => 'required|exists:purchase_invoices,id',
             'items.*.qty' => 'required|numeric|min:0.01',
-            'items.*.item_unit' => 'required|string|max:50', // Use string if it's unit name, or change accordingly
+            'items.*.item_unit' => 'required|exists:measurement_units,id',
             'items.*.rate' => 'required|numeric|min:0',
             'items.*.remarks' => 'nullable|string',
         ]);
@@ -175,10 +175,10 @@ class ProductionController extends Controller
         try {
             $production = Production::findOrFail($id);
 
-            // Handle attachments
+            // Handle attachments (merge old + new)
             $attachments = $production->attachments ?? [];
-            if ($request->hasFile('att')) {
-                foreach ($request->file('att') as $file) {
+            if ($request->hasFile('attachments')) {
+                foreach ($request->file('attachments') as $file) {
                     $attachments[] = $file->store('attachments/productions', 'public');
                 }
             }
@@ -196,10 +196,14 @@ class ProductionController extends Controller
                 'production_type' => $request->production_type,
                 'total_amount' => $totalAmount,
                 'remarks' => $request->remarks,
-                'updated_by' => auth()->id(),
+                'attachments' => $attachments,   // Make sure casted as array in model
+                'challan_no' => $request->challan_no ?? $production->challan_no,
+                'voucher_amount' => $request->voucher_amount ?? $production->voucher_amount,
+                'challan_generated' => $request->challan_generated ?? $production->challan_generated,
+                // 'updated_by' => auth()->id(),
             ]);
 
-            // Delete and reinsert details
+            // Refresh details
             $production->details()->delete();
 
             foreach ($request->items as $item) {
@@ -219,8 +223,6 @@ class ProductionController extends Controller
             return redirect()->route('production.index')->with('success', 'Production updated successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
-
-            // Log full context for debugging
             Log::error('Production Update Error', [
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
@@ -234,7 +236,6 @@ class ProductionController extends Controller
             return back()->withInput()->with('error', 'Failed to update production. Check logs.');
         }
     }
-
 
     public function show($id)
     {

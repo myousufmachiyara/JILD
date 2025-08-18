@@ -39,8 +39,6 @@ class PurchaseReturnController extends Controller
             'vendor_id' => 'required|exists:chart_of_accounts,id',
             'return_date' => 'required|date',
             'remarks' => 'nullable|string|max:1000',
-            'total_amount' => 'required|numeric|min:0',
-            'net_amount' => 'required|numeric|min:0',
 
             // Validate each item row
             'item_id.*' => 'required|exists:products,id',
@@ -58,8 +56,6 @@ class PurchaseReturnController extends Controller
                 'vendor_id'     => $request->vendor_id,
                 'return_date'   => $request->return_date,
                 'remarks'       => $request->remarks,
-                'total_amount'  => $request->total_amount,
-                'net_amount'    => $request->net_amount,
             ]);
 
             Log::info('Purchase Return created', ['id' => $purchaseReturn->id]);
@@ -72,8 +68,6 @@ class PurchaseReturnController extends Controller
                     'quantity'             => $request->quantity[$index],
                     'unit_id'              => $request->unit[$index],
                     'price'                => $request->price[$index],
-                    'amount'               => $request->amount[$index],
-                    'remarks'              => $request->remarks[$index] ?? null,
                 ];
 
                 PurchaseReturnItem::create($itemData);
@@ -198,7 +192,7 @@ class PurchaseReturnController extends Controller
         $pdf->SetXY(10, 48);
         $pdf->SetFillColor(23, 54, 93);
         $pdf->SetTextColor(255, 255, 255);
-        $pdf->SetFont('helvetica', 'B', 12);
+        $pdf->SetFont('helvetica', '', 12);
         $pdf->Cell(50, 8, 'Purchase Return', 0, 1, 'C', 1);
         $pdf->SetTextColor(0, 0, 0);
 
@@ -208,7 +202,7 @@ class PurchaseReturnController extends Controller
             <tr style="background-color:#f5f5f5; font-weight:bold;">
                 <th width="7%">S.No</th>
                 <th width="28%">Item Name</th>
-                <th width="10%">Invoice #</th>
+                <th width="10%">Inv. #</th>
                 <th width="20%">Qty</th>
                 <th width="15%">Rate</th>
                 <th width="20%">Amount</th>

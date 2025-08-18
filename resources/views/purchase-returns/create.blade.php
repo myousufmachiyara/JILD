@@ -41,7 +41,6 @@
                   <th>Unit</th>
                   <th>Price</th>
                   <th>Amount</th>
-                  <th>Remarks</th>
                   <th>Action</th>
                 </tr>
               </thead>
@@ -73,7 +72,6 @@
                   </td>
                   <td><input type="number" name="price[]" class="form-control" step="any" oninput="recalc(this)"></td>
                   <td><input type="number" name="amount[]" class="form-control" step="any" readonly></td>
-                  <td><input type="text" name="remarks[]" class="form-control"></td>
                   <td>
                     <button type="button" class="btn btn-danger btn-sm" onclick="$(this).closest('tr').remove(); updateTotal()">
                       <i class="fas fa-times"></i>
@@ -139,7 +137,6 @@
         </td>
         <td><input type="number" name="price[]" class="form-control" step="any" oninput="recalc(this)"></td>
         <td><input type="number" name="amount[]" class="form-control" step="any" readonly></td>
-        <td><input type="text" name="remarks[]" class="form-control"></td>
         <td>
           <button type="button" class="btn btn-danger btn-sm" onclick="$(this).closest('tr').remove(); updateTotal()">
             <i class="fas fa-times"></i>

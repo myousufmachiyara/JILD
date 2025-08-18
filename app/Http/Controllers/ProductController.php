@@ -153,7 +153,7 @@ class ProductController extends Controller
                     $variation = $product->variations()->create([
                         'sku' => $variationData['sku'] ?? null,
                         'manufacturing_cost' => $variationData['manufacturing_cost'] ?? 0,
-                        'stock_quantity' => $variationData['stock_quantity'] ?? 0,
+                        'stock_quantity' => $variationData['stock_quantity'] ?? 0,                     
                     ]);
 
                     Log::info('[Product Store] Variation created', [

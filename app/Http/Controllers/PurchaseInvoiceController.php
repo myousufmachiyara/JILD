@@ -289,7 +289,7 @@ class PurchaseInvoiceController extends Controller
             <tr><td><b>Invoice #</b></td><td>' . $invoice->id . '</td></tr>
             <tr><td><b>Date</b></td><td>' . \Carbon\Carbon::parse($invoice->invoice_date)->format('d/m/Y') . '</td></tr>
             <tr><td><b>Bill No</b></td><td>' . ($invoice->bill_no ?? '-') . '</td></tr>
-            <tr><td><b>Ref No</b></td><td>' . ($invoice->ref_no ?? '-') . '</td></tr>
+            <tr><td><b>Ref.</b></td><td>' . ($invoice->ref_no ?? '-') . '</td></tr>
             <tr><td><b>Vendor</b></td><td>' . ($invoice->vendor->name ?? '-') . '</td></tr>
             <tr><td><b>Payment Terms</b></td><td>' . ($invoice->payment_terms ?? '-') . '</td></tr>
         </table>';
@@ -301,7 +301,7 @@ class PurchaseInvoiceController extends Controller
         $pdf->SetXY(10, 48);
         $pdf->SetFillColor(23, 54, 93);
         $pdf->SetTextColor(255, 255, 255);
-        $pdf->SetFont('helvetica', 'B', 12);
+        $pdf->SetFont('helvetica', '', 12);
         $pdf->Cell(50, 8, 'Purchase Invoice', 0, 1, 'C', 1);
         $pdf->SetTextColor(0, 0, 0);
 
@@ -309,10 +309,10 @@ class PurchaseInvoiceController extends Controller
         $pdf->Ln(5);
         $html = '<table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
             <tr style="background-color:#f5f5f5; font-weight:bold;">
-                <th width="7%">S.No</th>
-                <th width="28%">Item Name</th>
+                <th width="8%">S.No</th>
+                <th width="32%">Item Name</th>
                 <th width="10%">Bundle</th>
-                <th width="10%">Qty</th>
+                <th width="20%">Qty</th>
                 <th width="15%">Rate</th>
                 <th width="15%">Total</th>
             </tr>';
@@ -332,7 +332,7 @@ class PurchaseInvoiceController extends Controller
                 <td align="center">' . ($item->bundle ?? '-') . '</td>
                 <td align="center">' . number_format($item->quantity, 2). ' ' .$item->measurementUnit->shortcode.'</td>
                 <td align="right">' . number_format($item->price, 2) . '</td>
-                <td align="right">' . number_format($item->price, 2) . '</td>
+                <td align="right">' . number_format($item->price * $item->quantity, 2) . '</td>
             </tr>';
         }
 
@@ -372,7 +372,7 @@ class PurchaseInvoiceController extends Controller
 
         // --- Remarks ---
         if (!empty($invoice->remarks)) {
-            $remarksHtml = '<b>Remarks:</b><br><span style="font-size:9px;">' . nl2br($invoice->remarks) . '</span>';
+            $remarksHtml = '<b>Remarks:</b><br><span style="font-size:12px;">' . nl2br($invoice->remarks) . '</span>';
             $pdf->writeHTML($remarksHtml, true, false, true, false, '');
         }
 

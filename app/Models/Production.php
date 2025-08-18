@@ -17,6 +17,7 @@ class Production extends Model
         'production_type',
         'remarks',
         'created_by',
+        'updated_by',
     ];
 
     public function vendor()

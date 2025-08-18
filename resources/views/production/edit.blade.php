@@ -27,8 +27,8 @@
           </header>
           <div class="card-body">
             <div class="row">
-              <div class="col-12 col-md-2 mb-3">
-                <label>Production #</label>
+              <div class="col-12 col-md-1 mb-3">
+                <label>Prod #</label>
                 <input type="text" class="form-control" value="{{ $production->id ?? '' }}" disabled />
               </div>
 
@@ -47,7 +47,7 @@
                 <select class="form-control select2-js" name="vendor_id" id="vendor_name" required>
                   <option value="" disabled>Select Vendor</option>
                     @foreach($vendors as $item)
-                      <option value="{{ $item->id }}">{{ $item->name }} ({{ $item->id }})</option>
+                      <option value="{{ $item->id }}">{{ $item->name }}</option>
                     @endforeach
                 </select>
               </div>
@@ -59,16 +59,14 @@
                   <option value="cmt" {{ $production->production_type == 'cmt' ? 'selected' : '' }}>CMT</option>
                   <option value="sale_leather" {{ $production->production_type == 'sale_leather' ? 'selected' : '' }}>Sale Leather</option>
                 </select>
-                <input type="hidden" name="challan_generated" value="{{ $production->challan_generated ?? 0 }}">
               </div>
 
               <div class="col-12 col-md-2 mb-3">
                 <label>Order Date</label>
-                <input type="date" name="order_date" class="form-control" value="{{ \Carbon\Carbon::parse($production->order_date)->toDateString() }}" required />
+                <input type="date" name="order_date" id="order_date" class="form-control" value="{{ \Carbon\Carbon::parse($production->order_date)->toDateString() }}" required />
               </div>
 
-
-              <div class="col-12 col-md-4 mb-3">
+              <div class="col-12 col-md-3 mb-3">
                 <label>Attachment (optional)</label>
                 <input type="file" name="attachment" class="form-control">
                 @if ($production->attachment)
@@ -95,7 +93,6 @@
                   <th>Unit</th>
                   <th>Rate</th>
                   <th>Amount</th>
-                  <th>Remarks</th>
                   <th><button type="button" class="btn btn-sm btn-success" id="addRow"><i class="fas fa-plus"></i></button></th>
                 </tr>
               </thead>
@@ -141,7 +138,6 @@
                   </td>
                   <td><input type="number" name="items[{{ $index }}][rate]" class="form-control rate" value="{{ $item->rate }}" step="any" required></td>
                   <td><input type="number" name="items[{{ $index }}][amount]" class="form-control amount" value="{{ $item->qty * $item->rate }}" readonly></td>
-                  <td><input type="text" name="items[{{ $index }}][remarks]" class="form-control" value="{{ $item->remarks }}"></td>
                   <td><button type="button" class="btn btn-sm btn-danger removeRow"><i class="fas fa-trash"></i></button></td>
                 </tr>
                 @endforeach
@@ -241,7 +237,6 @@
 
       const vendorName = document.querySelector("#vendor_name option:checked")?.textContent ?? "-";
       const orderDate = $('#order_date').val();
-      const challanNo = "PROD-" + Math.floor(100000 + Math.random() * 900000);
 
       let itemsHTML = "";
       let grandTotal = 0;
@@ -270,7 +265,6 @@
           <hr>
           <div class="d-flex justify-content-between text-dark">
             <p><strong>Vendor:</strong> ${vendorName}</p>
-            <p><strong>Challan No:</strong> ${challanNo}</p>
             <p><strong>Date:</strong> ${orderDate}</p>
           </div>
           <table class="table table-bordered mt-3">
@@ -293,8 +287,6 @@
             </tfoot>
           </table>
           <input type="hidden" name="voucher_amount" value="${grandTotal}">
-          <input type="hidden" name="challan_no" value="${challanNo}">
-          <input type="hidden" name="challan_generated" value="1">
           <div class="d-flex justify-content-between mt-4">
             <div>
               <p class="text-dark"><strong>Authorized By:</strong></p>
@@ -318,19 +310,17 @@
         }
         input.value = value;
       };
-      ensureHiddenInput("challan_no", challanNo);
-      ensureHiddenInput("challan_generated", "1");
       ensureHiddenInput("voucher_amount", grandTotal.toFixed(2));
     }
 
     // ---- AUTO-FILL IF CMT ----
-    if ($('#production_type').val() === 'cmt') {
+    if ($('#production_type').val() === 'sale_leather') {
       generateVoucher();
     }
 
     // On type change → toggle challan
     $('#production_type').on('change', function () {
-      if ($(this).val() === 'cmt') {
+      if ($(this).val() === 'sale_leather') {
         generateVoucher();
       } else {
         $('#voucher-container').empty();
@@ -406,9 +396,7 @@
           </select>
         </td>
         <td><input type="number" name="items[${rowIdx}][rate]" class="form-control rate" step="0.01" required></td>
-        <td><input type="number" name="items[${rowIdx}][amount]" class="form-control amount" readonly></td>
-        
-        <td><input type="text" name="items[${rowIdx}][remarks]" class="form-control"></td>
+        <td><input type="number" name="items[${rowIdx}][amount]" class="form-control amount" readonly></td>        
         <td><button type="button" class="btn btn-sm btn-danger removeRow"><i class="fas fa-trash"></i></button></td>
       </tr>`;
       $('#rawMaterialTable tbody').append(row);

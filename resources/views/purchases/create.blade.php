@@ -42,7 +42,7 @@
             </div>
 
             <div class="col-md-2 mb-3">
-              <label>Ref #</label>
+              <label>Ref.</label>
               <input type="text" name="ref_no" class="form-control">
             </div>
 

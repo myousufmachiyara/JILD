@@ -9,7 +9,7 @@ class PurchaseReturn extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['vendor_id', 'return_date', 'reference_no', 'remarks', 'total_amount', 'net_amount'];
+    protected $fillable = ['vendor_id', 'return_date', 'remarks'];
 
     public function vendor()
     {
