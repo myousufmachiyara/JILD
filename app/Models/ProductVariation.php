@@ -15,6 +15,7 @@ class ProductVariation extends Model
         'barcode',
         'manufacturing_cost',
         'stock_quantity',
+        'selling_price',
     ];
 
     // Parent Product

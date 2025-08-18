@@ -386,7 +386,7 @@
             <option value="">Select Invoice</option>
           </select>
         </td>
-        <td><input type="number" name="items[${rowIdx}][qty]" class="form-control qty" step="0.01" required></td>
+        <td><input type="number" name="items[${rowIdx}][qty]" class="form-control qty" step="any" required></td>
         <td>
           <select name="items[${rowIdx}][item_unit]" class="form-control" required>
             <option value="">Select Unit</option>
@@ -395,7 +395,7 @@
             @endforeach
           </select>
         </td>
-        <td><input type="number" name="items[${rowIdx}][rate]" class="form-control rate" step="0.01" required></td>
+        <td><input type="number" name="items[${rowIdx}][rate]" class="form-control rate" step="any" required></td>
         <td><input type="number" name="items[${rowIdx}][amount]" class="form-control amount" readonly></td>        
         <td><button type="button" class="btn btn-sm btn-danger removeRow"><i class="fas fa-trash"></i></button></td>
       </tr>`;

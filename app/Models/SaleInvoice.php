@@ -12,10 +12,8 @@ class SaleInvoice extends Model
     protected $fillable = [
         'invoice_no',
         'date',
+        'remarks',
         'account_id',
-        'type',
-        'convance_charges',
-        'other_expenses',
         'created_by',
     ];
 

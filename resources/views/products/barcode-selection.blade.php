@@ -1,12 +1,12 @@
 @extends('layouts.app')
-@section('title', 'Select Products to Print Barcode')
+@section('title', 'Product Barcoding')
 
 @section('content')
 
 <div class="card shadow-sm">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h4 class="card-title">Select Products to Print Barcode</h4>
-        <input type="text" id="searchBox" class="form-control w-50" placeholder="Search product by name...">
+        <h4 class="card-title">Product Barcoding</h4>
+        <input type="text" id="searchBox" class="form-control w-25" placeholder="Search product by name...">
     </div>
 
     <div class="card-body">

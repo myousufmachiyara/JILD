@@ -5,6 +5,12 @@
     <style>
         body { font-family: Arial, sans-serif; }
 
+        .barcode-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+        }
+
         .barcode-label {
             width: 180px;
             height: 140px;
@@ -46,15 +52,18 @@
 </head>
 <body>
 
-@foreach($barcodes as $barcode)
-    <div class="barcode-label">
-        <strong>{{ $barcode['product'] }}</strong>
-        <small>{{ $barcode['variation'] }}</small>
-        <img src="data:image/png;base64,{{ $barcode['barcodeImage'] }}" alt="barcode">
-        <small>{{ $barcode['barcodeText'] }}</small>
-        <strong>Rs. {{ $barcode['price'] }}</strong>
-    </div>
-@endforeach
+<div class="barcode-container">
+    @foreach($barcodes as $barcode)
+        <div class="barcode-label">
+            <strong>{{ $barcode['product'] }}</strong>
+            <small>{{ $barcode['variation'] }}</small>
+            <img src="data:image/png;base64,{{ $barcode['barcodeImage'] }}" alt="barcode">
+            <small>{{ $barcode['barcodeText'] }}</small>
+            <strong>Rs. {{ $barcode['price'] }}</strong>
+        </div>
+    @endforeach
+</div>
+
 
 <div class="no-print">
     <button onclick="window.print()">Print</button>

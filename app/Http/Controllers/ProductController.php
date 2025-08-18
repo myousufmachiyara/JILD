@@ -156,6 +156,9 @@ class ProductController extends Controller
                         'stock_quantity' => $variationData['stock_quantity'] ?? 0,                     
                     ]);
 
+                    $variation->barcode = 'VAR-' . str_pad($variation->id, 6, '0', STR_PAD_LEFT);
+                    $variation->save();
+
                     Log::info('[Product Store] Variation created', [
                         'variation_id' => $variation->id,
                         'product_id' => $product->id,
@@ -306,8 +309,8 @@ class ProductController extends Controller
                 foreach ($request->new_variations as $index => $newVar) {
                     if (empty($newVar['sku'])) {
                         return redirect()->back()
-                            ->withInput()
-                            ->with('error', "New variation at row {$index} is missing SKU.");
+                        ->withInput()
+                        ->with('error', "New variation at row {$index} is missing SKU.");
                     }
 
                     try {
@@ -316,6 +319,12 @@ class ProductController extends Controller
                             'manufacturing_cost' => $newVar['manufacturing_cost'] ?? 0,
                             'stock_quantity' => $newVar['stock_quantity'] ?? 0,
                         ]);
+
+                        // 🔑 Assign barcode only if not already set
+                        if (empty($variation->barcode)) {
+                            $variation->barcode = 'VAR-' . strtoupper(Str::random(10));
+                            $variation->save();
+                        }
 
                         if (!empty($newVar['attributes']) && is_array($newVar['attributes'])) {
                             $variation->attributeValues()->sync($newVar['attributes']);
@@ -351,14 +360,14 @@ class ProductController extends Controller
 
             return redirect()->route('products.index')->with('success', 'Product updated successfully.');
         } catch (\Throwable $e) {
-        DB::rollBack();
+            DB::rollBack();
 
-        Log::error('[Product Update] Failed', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ]);
+            Log::error('[Product Update] Failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
 
-        return redirect()->back()->withInput()->with('error', 'Product update failed. Please try again.');
+            return redirect()->back()->withInput()->with('error', 'Product update failed. Please try again.');
         }
     }
 

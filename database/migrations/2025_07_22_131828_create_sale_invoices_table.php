@@ -13,15 +13,13 @@ return new class extends Migration
     {
         Schema::create('sale_invoices', function (Blueprint $table) {
             $table->id();
-            $table->string('invoice_no')->unique();
             $table->date('date');
             $table->unsignedBigInteger('account_id');
-            $table->string('type'); // distinguishes Cash and Credit
-            $table->decimal('convance_charges', 10, 2)->nullable();
-            $table->decimal('other_expenses', 10, 2)->nullable();
+            $table->enum('type', ['cash', 'credit']); // distinguishes Cash and Credit
+            $table->decimal('discount', 10, 2)->default(0); // overall invoice discount
             $table->unsignedBigInteger('created_by');
             $table->timestamps();
-            $table->softdeletes();
+            $table->softDeletes();
 
             $table->foreign('account_id')->references('id')->on('chart_of_accounts');
             $table->foreign('created_by')->references('id')->on('users');

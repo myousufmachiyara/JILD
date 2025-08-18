@@ -84,9 +84,9 @@
                     </select>
                 </td>
                 <td><input type="number" class="form-control manufacturing_cost" name="item_details[0][manufacturing_cost]" step="any" value="0" readonly></td>
-                <td><input type="number" class="form-control received-qty" name="item_details[0][received_qty]" step="0.01" value="0" required></td>
+                <td><input type="number" class="form-control received-qty" name="item_details[0][received_qty]" step="any" value="0" required></td>
                 <td><input type="text" class="form-control" name="item_details[0][remarks]"></td>
-                <td><input type="number" class="form-control row-total" name="item_details[0][total]" step="0.01" value="0" readonly></td>
+                <td><input type="number" class="form-control row-total" name="item_details[0][total]" step="any" value="0" readonly></td>
                 <td><button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>
               </tr>
             </tbody>
@@ -264,9 +264,9 @@
             </select>
           </td>
           <td><input type="number" class="form-control manufacturing_cost" name="item_details[${newIndex}][manufacturing_cost]" step="0.0001" value="0" readonly></td>
-          <td><input type="number" class="form-control received-qty" name="item_details[${newIndex}][received_qty]" step="0.01" value="0" required></td>
+          <td><input type="number" class="form-control received-qty" name="item_details[${newIndex}][received_qty]" step="any" value="0" required></td>
           <td><input type="text" class="form-control" name="item_details[${newIndex}][remarks]"></td>
-          <td><input type="number" class="form-control row-total" name="item_details[${newIndex}][total]" step="0.01" value="0" readonly>
+          <td><input type="number" class="form-control row-total" name="item_details[${newIndex}][total]" step="any" value="0" readonly>
           </td>
           <td><button type="button" class="btn btn-danger btn-sm remove-row-btn"><i class="fas fa-times"></i></button></td>
       </tr>`);

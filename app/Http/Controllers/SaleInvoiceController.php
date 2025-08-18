@@ -10,6 +10,7 @@ use App\Models\Production;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class SaleInvoiceController extends Controller
 {
@@ -25,54 +26,84 @@ class SaleInvoiceController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'invoice_no' => 'required|unique:sale_invoices',
-            'date' => 'required|date',
-            'account_id' => 'required|exists:chart_of_accounts,id',
-            'type' => 'required|in:cash,credit',
-            'convance_charges' => 'nullable|numeric',
-            'other_expenses' => 'nullable|numeric',
-            'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
-            'items.*.variation_id' => 'required|exists:product_variations,id',
-            'items.*.production_id' => 'required|exists:productions,id',
-            'items.*.cost_price' => 'required|numeric',
-            'items.*.sale_price' => 'required|numeric',
-            'items.*.quantity' => 'required|integer|min:1',
+        // ✅ Validate incoming request
+        $validated = $request->validate([
+            'date'         => 'required|date',
+            'account_id'   => 'required|exists:chart_of_accounts,id',
+            'type'         => 'required|in:cash,credit',
+            'discount'     => 'nullable|numeric|min:0',
+            'net_amount'   => 'required|numeric|min:0',
+            'items'        => 'required|array|min:1',
+            'items.*.product_id'   => 'required|exists:products,id',
+            'items.*.variation_id' => 'nullable|exists:product_variations,id',
+            'items.*.sale_price'   => 'required|numeric|min:0',
+            'items.*.disc_price'   => 'nullable|numeric|min:0',
+            'items.*.quantity'     => 'required|numeric|min:1',
+            'items.*.total'        => 'required|numeric|min:0',
         ]);
 
         DB::beginTransaction();
-
         try {
-            // Create Sale Invoice
+            // ✅ Create invoice
             $invoice = SaleInvoice::create([
-                'invoice_no' => $request->invoice_no,
-                'date' => $request->date,
-                'account_id' => $request->account_id,
-                'type' => $request->type,
-                'convance_charges' => $request->convance_charges ?? 0,
-                'other_expenses' => $request->other_expenses ?? 0,
-                'created_by' => Auth::id(),
+                'invoice_no'       => $validated['invoice_no'] ?? 'INV-' . time(),
+                'date'             => $validated['date'],
+                'account_id'       => $validated['account_id'],
+                'type'             => $validated['type'],
+                'discount'         => $validated['discount'] ?? 0,
+                'net_amount'       => $validated['net_amount'],
+                'other_expenses'   => 0, // adjust if needed
+                'convance_charges' => 0, // adjust if needed
+                'created_by'       => Auth::id(),
+                'remarks'          => $request->remarks,
             ]);
 
-            // Create related items
-            foreach ($request->items as $item) {
-                SaleInvoiceItem::create([
-                    'sale_invoice_id' => $invoice->id,
-                    'product_id' => $item['product_id'],
-                    'variation_id' => $item['variation_id'],
-                    'production_id' => $item['production_id'],
-                    'cost_price' => $item['cost_price'],
-                    'sale_price' => $item['sale_price'],
-                    'quantity' => $item['quantity'],
-                ]);
+            // ✅ Save items
+            foreach ($validated['items'] as $index => $item) {
+                try {
+                    SaleInvoiceItem::create([
+                        'sale_invoice_id' => $invoice->id,
+                        'product_id'      => $item['product_id'],
+                        'variation_id'    => $item['variation_id'] ?? null,
+                        'cost_price'      => 0, // you can fetch from product/production later
+                        'sale_price'      => $item['sale_price'],
+                        'discount'        => $item['disc_price'] ?? 0,
+                        'quantity'        => $item['quantity'],
+                        'total'           => $item['total'],
+                    ]);
+                } catch (\Throwable $itemEx) {
+                    // Log individual item failure but don’t stop loop unless you want strict rollback
+                    Log::error('[SaleInvoice] Item save failed', [
+                        'invoice_id'   => $invoice->id,
+                        'item_index'   => $index,
+                        'item_data'    => $item,
+                        'error'        => $itemEx->getMessage(),
+                    ]);
+                    throw $itemEx; // rethrow to rollback whole transaction
+                }
             }
 
             DB::commit();
-            return response()->json(['success' => true, 'message' => 'Sale Invoice created successfully.']);
-        } catch (\Exception $e) {
-            DB::rollback();
-            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+            Log::info('[SaleInvoice] Created successfully', [
+                'invoice_id' => $invoice->id,
+                'created_by' => Auth::id(),
+            ]);
+
+            return redirect()->route('sale_invoices.index')
+                ->with('success', 'Sale invoice created successfully.');
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            // Log full error
+            Log::error('[SaleInvoice] Store failed', [
+                'request_data' => $request->all(),
+                'error'        => $e->getMessage(),
+                'trace'        => $e->getTraceAsString(),
+            ]);
+
+            return back()->withInput()
+                ->with('error', 'Error saving invoice. Please contact administrator.');
         }
     }
 
