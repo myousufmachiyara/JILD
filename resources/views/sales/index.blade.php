@@ -14,9 +14,7 @@
 
       <header class="card-header d-flex justify-content-between align-items-center">
         <h2 class="card-title">All Sale Invoices</h2>
-        <a href="{{ route('sale_invoices.create') }}" class="btn btn-primary">
-          <i class="fas fa-plus"></i> Sale Invoice
-        </a>
+        <a href="{{ route('sale_invoices.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Sale Invoice</a>
       </header>
 
       <div class="card-body">
@@ -25,7 +23,6 @@
             <thead class="thead-dark">
               <tr>
                 <th>#</th>
-                <th>Invoice No</th>
                 <th>Date</th>
                 <th>Account</th>
                 <th>Type</th>
@@ -37,27 +34,29 @@
             @foreach ($invoices as $invoice)
             <tr>
                 <td>{{ $loop->iteration }}</td>
-                <td>{{ $invoice->invoice_no }}</td>
                 <td>{{ $invoice->date }}</td>
                 <td>{{ $invoice->account->name ?? 'POS Customer' }}</td>
                 <td>
                     <span class="badge {{ $invoice->type === 'credit' ? 'bg-warning' : 'bg-success' }}">{{ ucfirst($invoice->type) }}</span>
                 </td>
                 <td>
-                    {{ number_format(
-                        $invoice->items->sum(fn($item) => $item->sale_price * $item->quantity)
-                        + $invoice->convance_charges
-                        + $invoice->other_expenses
-                    , 2) }}
+                  {{ number_format(
+                      $invoice->items->sum(function($item) {
+                          $disc = $item->discount ?? 0;
+                          $discountedPrice = $item->sale_price - ($item->sale_price * $disc / 100);
+                          return $discountedPrice * $item->quantity;
+                      })
+                      - $invoice->discount
+                  , 2) }}
                 </td>
                 <td>
-                    <a href="{{ route('sale_invoices.show', $invoice->id) }}" class="btn btn-sm btn-info"><i class="fa fa-eye"></i></a>
-                    <a href="{{ route('sale_invoices.edit', $invoice->id) }}" class="btn btn-sm btn-warning"><i class="fa fa-edit"></i></a>
-                    <form action="{{ route('sale_invoices.destroy', $invoice->id) }}" method="POST" style="display:inline-block;" onsubmit="return confirm('Are you sure?')">
-                        @csrf
-                        @method('DELETE')
-                        <button class="btn btn-sm btn-danger"><i class="fa fa-trash"></i></button>
-                    </form>
+                  <a href="{{ route('sale_invoices.edit', $invoice->id) }}" class="text-primary"><i class="fas fa-edit"></i></a>
+                  <a href="{{ route('sale_invoices.print', $invoice->id) }}" target="_blank" class="text-success"><i class="fas fa-print"></i></a>
+                  <form action="{{ route('sale_invoices.destroy', $invoice->id) }}" method="POST" style="display:inline;">
+                    @csrf
+                    @method('DELETE')
+                    <button class="text-danger" style="border:none" onclick="return confirm('Are you sure?')"><i class="fas fa-trash"></i></button>
+                  </form>
                 </td>
             </tr>
             @endforeach

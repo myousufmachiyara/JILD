@@ -14,6 +14,7 @@ class SaleInvoice extends Model
         'date',
         'remarks',
         'account_id',
+        'discount',
         'created_by',
     ];
 

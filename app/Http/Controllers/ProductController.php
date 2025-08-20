@@ -209,6 +209,7 @@ class ProductController extends Controller
         return redirect()->route('products.index');
     }
     
+    
     public function details(Request $request)
     {
         $product = Product::findOrFail($request->id);

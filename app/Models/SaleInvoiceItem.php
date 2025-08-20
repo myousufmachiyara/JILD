@@ -10,9 +10,8 @@ class SaleInvoiceItem extends Model
         'sale_invoice_id',
         'product_id',
         'variation_id',
-        'production_id',
-        'cost_price',
         'sale_price',
+        'discount',
         'quantity',
     ];
 
@@ -36,4 +35,8 @@ class SaleInvoiceItem extends Model
         return $this->belongsTo(Production::class);
     }
 
+    public function measurementUnit()
+    {
+        return $this->belongsTo(MeasurementUnit::class, 'unit');
+    }
 }

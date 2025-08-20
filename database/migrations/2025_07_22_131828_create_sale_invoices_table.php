@@ -17,6 +17,7 @@ return new class extends Migration
             $table->unsignedBigInteger('account_id');
             $table->enum('type', ['cash', 'credit']); // distinguishes Cash and Credit
             $table->decimal('discount', 10, 2)->default(0); // overall invoice discount
+            $table->text('remarks')->nullable();
             $table->unsignedBigInteger('created_by');
             $table->timestamps();
             $table->softDeletes();
