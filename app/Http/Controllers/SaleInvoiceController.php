@@ -197,7 +197,7 @@ class SaleInvoiceController extends Controller
         $pdf->setCellPadding(1.5);
 
         // --- Logo ---
-        $logoPath = public_path('assets/img/jild-Logo.png');
+        $logoPath = public_path('assets/img/JildLogo.png');
         if (file_exists($logoPath)) {
             $pdf->Image($logoPath, 10, 10, 30);
         }
