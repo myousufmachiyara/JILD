@@ -17,7 +17,11 @@ class PurchaseReturnController extends Controller
 {
     public function index()
     {
-        $returns = PurchaseReturn::with('vendor')->latest()->get();
+        $returns = PurchaseReturn::with('vendor')
+            ->withSum('items as total_amount', \DB::raw('quantity * price'))
+            ->latest()
+            ->get();
+
         return view('purchase-returns.index', compact('returns'));
     }
 
@@ -210,10 +214,11 @@ class PurchaseReturnController extends Controller
 
         $count = 0;
         $totalAmount = 0;
+        $amount = 0;
 
         foreach ($return->items as $item) {
             $count++;
-            $amount = $item->amount;
+            $amount = $amount + ($item->price * $item->quantity) ;
             $totalAmount += $amount;
 
             $html .= '
@@ -232,20 +237,13 @@ class PurchaseReturnController extends Controller
             <tr>
                 <td colspan="5" align="right"><b>Total</b></td>
                 <td align="right"><b>' . number_format($totalAmount, 2) . '</b></td>
-            </tr>';
-
-        $html .= '
-            <tr style="background-color:#f5f5f5;">
-                <td colspan="5" align="right"><b>Net Amount</b></td>
-                <td align="right"><b>' . number_format($return->net_amount, 2) . '</b></td>
-            </tr>
-        </table>';
+            </tr></table>';
 
         $pdf->writeHTML($html, true, false, true, false, '');
 
         // --- Remarks ---
         if (!empty($return->remarks)) {
-            $remarksHtml = '<b>Remarks:</b><br><span style="font-size:9px;">' . nl2br($return->remarks) . '</span>';
+            $remarksHtml = '<b>Remarks:</b><br><span style="font-size:12px;">' . nl2br($return->remarks) . '</span>';
             $pdf->writeHTML($remarksHtml, true, false, true, false, '');
         }
 

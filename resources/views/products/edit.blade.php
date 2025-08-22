@@ -94,7 +94,7 @@
             <div class="col-md-4 mt-3">
               <label>Product Images</label>
               <input type="file" name="prod_att[]" multiple class="form-control">
-              <small class="text-muted">Leave empty if you don't want to update images.</small>
+              <small class="text-danger">Leave empty if you don't want to update images.</small>
             </div>
           </div>
 
@@ -184,11 +184,11 @@ $(document).ready(function () {
           </div>
           <div class="col-md-2">
             <label>M.Cost</label>
-            <input type="number" step="any" name="new_variations[${newVariationIndex}][manufacturing_cost]" class="form-control">
+            <input type="number" step="any" name="new_variations[${newVariationIndex}][manufacturing_cost]" value="0.00" class="form-control">
           </div>
           <div class="col-md-2">
             <label>Stock</label>
-            <input type="number" step="any" name="new_variations[${newVariationIndex}][stock_quantity]" class="form-control">
+            <input type="number" step="any" name="new_variations[${newVariationIndex}][stock_quantity]" value="0.00" class="form-control">
           </div>
           <div class="col-md-4">
             <label>Attributes</label>
@@ -218,6 +218,7 @@ $(document).ready(function () {
     const block = $(this).closest('.variation-block');
     const variationId = $(this).data('id');
     if (confirm('Are you sure you want to remove this variation?')) {
+      block.find('input, select, textarea').prop('disabled', true); // disable all fields so they don’t get submitted
       block.hide();
       block.append(`<input type="hidden" name="removed_variations[]" value="${variationId}" class="removed-variation-flag">`);
       const undoHtml = `<div class="undo-variation-alert alert alert-warning mb-3" data-id="${variationId}">
@@ -230,11 +231,13 @@ $(document).ready(function () {
   $(document).on('click', '.undo-remove-variation', function () {
     const alertBox = $(this).closest('.undo-variation-alert');
     const variationId = alertBox.data('id');
-    const block = $('.variation-block').has(`input[value="${variationId}"]`);
+    const block = $('.variation-block').has(`input[name="variation_ids[]"][value="${variationId}"]`);
     block.find('.removed-variation-flag').remove();
+    block.find('input, select, textarea').prop('disabled', false);
     block.show();
     alertBox.remove();
   });
+  
 });
 </script>
 @endsection

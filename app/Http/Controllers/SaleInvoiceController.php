@@ -231,8 +231,8 @@ class SaleInvoiceController extends Controller
                 <th width="20%">Product</th>
                 <th width="28%">Variation</th>
                 <th width="8%">Qty</th>
-                <th width="12%">Price</th>
-                <th width="12%">Discount</th>
+                <th width="11%">Price</th>
+                <th width="13%">Discount</th>
                 <th width="13%">Total</th>
             </tr>';
 
@@ -241,7 +241,11 @@ class SaleInvoiceController extends Controller
 
         foreach ($invoice->items as $item) {
             $count++;
-            $lineTotal = ($item->sale_price - ($item->discount ?? 0)) * $item->quantity;
+
+            $discountPercent = $item->discount ?? 0;
+            $discountAmount = ($item->sale_price * $discountPercent) / 100;
+            $netPrice = $item->sale_price - $discountAmount;
+            $lineTotal = $netPrice * $item->quantity;
             $totalAmount += $lineTotal;
 
             $html .= '
@@ -251,7 +255,7 @@ class SaleInvoiceController extends Controller
                 <td>' . ($item->variation->sku ?? '-') . '</td>
                 <td align="center">'. $item->quantity . '</td>
                 <td align="right">' . number_format($item->sale_price, 2) . '</td>
-                <td align="right">' . number_format($item->discount, 2) . '</td>
+                <td align="right">' . number_format($item->discount, 0) . '%</td>
                 <td align="right">' . number_format($lineTotal, 2) . '</td>
             </tr>';
         }
