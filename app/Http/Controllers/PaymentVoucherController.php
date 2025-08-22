@@ -138,19 +138,16 @@ class PaymentVoucherController extends Controller
             $pdf->Image($logoPath, 10, 10, 30);
         }
 
-        // --- Voucher Info Box ---
+        // --- Voucher Info ---
         $pdf->SetXY(130, 12);
-        $voucherInfo = '
+        $infoHtml = '
         <table cellpadding="2" style="font-size:10px; line-height:14px;">
             <tr><td><b>Voucher #</b></td><td>' . $voucher->id . '</td></tr>
             <tr><td><b>Date</b></td><td>' . \Carbon\Carbon::parse($voucher->date)->format('d/m/Y') . '</td></tr>
-            <tr><td><b>Debit Account</b></td><td>' . ($voucher->debitAccount->name ?? '-') . '</td></tr>
-            <tr><td><b>Credit Account</b></td><td>' . ($voucher->creditAccount->name ?? '-') . '</td></tr>
-            <tr><td><b>Amount</b></td><td>' . number_format($voucher->amount, 2) . '</td></tr>
         </table>';
-        $pdf->writeHTML($voucherInfo, false, false, false, false, '');
+        $pdf->writeHTML($infoHtml, false, false, false, false, '');
 
-        $pdf->Line(60, 52.25, 200, 52.25); // line under info box
+        $pdf->Line(60, 52.25, 200, 52.25);
 
         // --- Title Box ---
         $pdf->SetXY(10, 48);
@@ -159,18 +156,40 @@ class PaymentVoucherController extends Controller
         $pdf->SetFont('helvetica', '', 12);
         $pdf->Cell(50, 8, 'Payment Voucher', 0, 1, 'C', 1);
         $pdf->SetTextColor(0, 0, 0);
+        $pdf->Ln(5);
+
+        // --- Payment Details Table ---
+        $html = '<table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
+            <tr style="background-color:#f5f5f5; font-weight:bold;">
+                <th width="10%">S.No</th>
+                <th width="40%">Debit Account</th>
+                <th width="40%">Credit Account</th>
+                <th width="10%">Amount</th>
+            </tr>';
+
+        // If you have multiple lines, loop through them, otherwise just 1
+        $html .= '<tr>
+            <td>1</td>
+            <td>' . ($voucher->debitAccount->name ?? '-') . '</td>
+            <td>' . ($voucher->creditAccount->name ?? '-') . '</td>
+            <td align="right">' . number_format($voucher->amount, 2) . '</td>
+        </tr>';
+
+        // Total row
+        $html .= '
+            <tr style="background-color:#f5f5f5;">
+                <td colspan="3" align="right"><b>Total</b></td>
+                <td align="right"><b>' . number_format($voucher->amount, 2) . '</b></td>
+            </tr>';
+
+        $html .= '</table>';
+
+        $pdf->writeHTML($html, true, false, true, false, '');
+        $pdf->Ln(5);
 
         // --- Remarks ---
         if (!empty($voucher->remarks)) {
-            $remarksHtml = '<b>Remarks:</b><br><span style="font-size:12px;">' . nl2br($voucher->remarks) . '</span>';
-            $pdf->writeHTML($remarksHtml, true, false, true, false, '');
-        }
-
-        // --- Attachments info (optional) ---
-        if (!empty($voucher->attachments)) {
-            $pdf->Ln(5);
-            $pdf->SetFont('helvetica', '', 10);
-            $pdf->Cell(0, 6, 'Attachments: ' . implode(', ', $voucher->attachments), 0, 1);
+            $pdf->writeHTML('<b>Remarks:</b><br><span style="font-size:12px;">' . nl2br($voucher->remarks) . '</span>', true, false, true, false, '');
         }
 
         // --- Signatures ---
