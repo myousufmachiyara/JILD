@@ -15,7 +15,7 @@
           <div class="row mb-3">
             <div class="col-md-3">
               <label for="customer_id">Customer Name</label>
-              <select name="customer_id" class="form-control" required>
+              <select name="account_id" class="form-control" required>
                 <option value="">Select Customer</option>
                 @foreach($customers as $cust)
                   <option value="{{ $cust->id }}">{{ $cust->name }}</option>
@@ -74,7 +74,7 @@
               <label for="remarks">Remarks</label>
               <textarea name="remarks" class="form-control" rows="2"></textarea>
             </div>
-            <div class="col-md-4 offset-md-2">
+            <div class="col-md-2 offset-md-4">
               <label for="net_amount">Net Amount</label>
               <input type="number" name="net_amount" id="net_amount" class="form-control" readonly>
             </div>

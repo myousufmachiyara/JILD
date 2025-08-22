@@ -18,8 +18,7 @@
               <th>ID</th>
               <th>Customer</th>
               <th>Date</th>
-              <th>Total</th>
-              <th>Net Amount</th>
+              <th>Total Amount</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -30,7 +29,6 @@
                 <td>{{ $ret->customer->name ?? '-' }}</td>
                 <td>{{ $ret->return_date }}</td>
                 <td>{{ number_format($ret->total_amount, 2) }}</td>
-                <td>{{ number_format($ret->net_amount, 2) }}</td>
                 <td>
                   <a href="{{ route('sale_return.edit', $ret->id) }}" class="text-primary">
                     <i class="fas fa-edit"></i>

@@ -10,7 +10,7 @@ class SaleReturn extends Model
     use HasFactory;
 
     protected $fillable = [
-        'customer_id',
+        'account_id',
         'return_date',
         'sale_invoice_no',
         'remarks',
@@ -20,7 +20,7 @@ class SaleReturn extends Model
     // Relationships
     public function customer()
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(ChartOfAccounts::class, 'account_id');
     }
 
     public function items()
