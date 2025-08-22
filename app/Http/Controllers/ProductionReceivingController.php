@@ -15,7 +15,13 @@ class ProductionReceivingController extends Controller
 {
     public function index()
     {
-        $receivings = ProductionReceiving::with(['vendor', 'production', 'details'])->orderBy('id', 'desc')->get();
+        $receivings = ProductionReceiving::with(['vendor', 'production'])
+            ->withSum(['details as total_amount' => function ($query) {
+                $query->select(\DB::raw('SUM(manufacturing_cost * received_qty)'));
+            }], 'received_qty') // dummy second param, not used
+            ->orderBy('id', 'desc')
+            ->get();
+
         return view('production-receiving.index', compact('receivings'));
     }
 
@@ -236,6 +242,7 @@ class ProductionReceivingController extends Controller
         $pdf->SetFont('helvetica', 'B', 12);
         $pdf->Cell(60, 8, 'Production Receiving', 0, 1, 'C', 1);
         $pdf->SetTextColor(0, 0, 0);
+        $pdf->SetFont('helvetica', '', 12);
 
         $pdf->Ln(5);
 
@@ -266,7 +273,7 @@ class ProductionReceivingController extends Controller
 
         $html .= '
             <tr style="background-color:#f5f5f5;">
-                <td colspan="6" align="left"><b>Total Items:</b> ' . $receiving->details->count() . '</td>
+                <td colspan="6" align="right"><b>Total Items:</b> ' . $receiving->details->count() . '</td>
             </tr>
         </table>';
 

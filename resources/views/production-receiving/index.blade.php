@@ -41,7 +41,7 @@
                 <td>{{ \Carbon\Carbon::parse($rec->rec_date)->format('d-m-Y') }}</td>
                 <td>PROD-{{ $rec->production_id }}</td>
                 <td>{{ $rec->details->sum('received_qty') }}</td>
-                <td>{{ number_format($rec->net_amount, 2) }}</td>
+                <td>{{ number_format($rec->total_amount, 2) }}</td>
                 <td>
                   <a href="{{ route('production.receiving.print', $rec->id) }}" target="_blank" class="text-success"><i class="fas fa-print"></i></a>
                   <a href="{{ route('production.receiving.edit', $rec->id) }}" class="text-warning"><i class="fa fa-edit"></i></a>

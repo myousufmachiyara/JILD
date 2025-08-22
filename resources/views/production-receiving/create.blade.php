@@ -25,7 +25,7 @@
               <label>Receiving Date</label>
               <input type="date" name="rec_date" class="form-control" value="{{ date('Y-m-d') }}" required />
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
               <label>Production Order</label>
               <select name="production_id" class="form-control select2-js" required>
                 <option value="" disabled selected>Select Production</option>
@@ -48,22 +48,20 @@
           <table class="table table-bordered" id="itemTable">
             <thead>
               <tr>
-                <th>Item Code</th>
+                <th width="15%">Item Code</th>
                 <th>Item</th>
                 <th>Variation</th>
-                <th>M. Cost</th>
-                <th>Received</th>
+                <th width="10%" >M. Cost</th>
+                <th width="10%">Received</th>
                 <th>Remarks</th>
-                <th>Total</th>
+                <th width="10%">Total</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td>
-                    <input type="text" class="form-control product-code" 
-                            placeholder="Enter Product Code"
-                            onblur="fetchByCode($(this).closest('tr').index())">
+                  <input type="text" class="form-control product-code" placeholder="Enter Product Code" onblur="fetchByCode($(this).closest('tr').index())">
                 </td>
                 <td>
                     <select name="item_details[0][product_id]" class="form-control select2-js product-select" required>
@@ -80,7 +78,7 @@
                 </td>
                 <td>
                     <select name="item_details[0][variation_id]" class="form-control select2-js variation-select">
-                        <option value="">Select Variation</option>
+                      <option value="">Select Variation</option>
                     </select>
                 </td>
                 <td><input type="number" class="form-control manufacturing_cost" name="item_details[0][manufacturing_cost]" step="any" value="0" readonly></td>
@@ -117,7 +115,7 @@
             </div>
           </div>
         </div>
-        <footer class="card-footer text-end mt-3">
+        <footer class="card-footer text-end">
           <a href="{{ route('production.receiving.index') }}" class="btn btn-danger">Discard</a>
           <button type="submit" class="btn btn-primary">Receive</button>
         </footer>
