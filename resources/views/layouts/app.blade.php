@@ -147,7 +147,7 @@
 
             <div class="logo-container d-md-none">
                 <a href="/" class="logo ">
-                    <img src="/assets/img/JildLogo.png" width="60px" alt="Jild Logo" />
+                    <img src="/assets/img/Jild-Logo.png" width="60px" alt="Jild Logo" />
                 </a>
                 <div id="userbox" class="userbox" style="float:right !important;">
                     <a href="#" data-bs-toggle="dropdown" style="margin-right: 20px;">
