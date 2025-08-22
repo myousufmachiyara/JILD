@@ -6,105 +6,114 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\ChartOfAccounts;
 use App\Models\Product;
+use App\Models\PurchaseInvoice;
+use App\Models\PurchaseInvoiceItem;
+use App\Models\PurchaseReturn;
+use App\Models\PurchaseReturnItem;
+use App\Models\Production;
+use App\Models\ProductionDetail;
+use App\Models\ProductionReceiving;
+use App\Models\ProductionReceivingDetail;
+use App\Models\SaleInvoice;
+use App\Models\SaleInvoiceItem;
+use App\Models\SaleReturn;
+use App\Models\SaleReturnItem;
 
 class ReportController extends Controller
 {
+
     public function itemLedger(Request $request)
     {
         $items = Product::all();
-
         $itemId = $request->input('item_id');
-        $from = $request->input('from_date');
-        $to = $request->input('to_date');
-        $ledger = [];
+        $from   = $request->input('from_date');
+        $to     = $request->input('to_date');
+
+        $ledger = collect();
 
         if ($itemId && $from && $to) {
-            $ledger = DB::select("
-                SELECT * FROM (
-                -- 1. Purchase Invoice Items (IN)
-                SELECT 
-                    pii.id AS ref_id,
-                    'Purchase Invoice' AS type,
-                    pi.invoice_date AS date,
-                    pii.item_id,
-                    CONCAT('Bill No: ', pi.bill_no) AS description,
-                    pii.quantity AS qty_in,
-                    0 AS qty_out
-                FROM purchase_invoice_items pii
-                INNER JOIN purchase_invoices pi ON pi.id = pii.purchase_invoice_id
-                WHERE pii.item_id = ?
 
-                UNION ALL
+            // ✅ Purchases
+            $purchases = PurchaseInvoiceItem::where('item_id', $itemId)
+                ->whereHas('invoice', fn($q) => $q->whereBetween('invoice_date', [$from, $to]))
+                ->get()
+                ->map(fn($row) => [
+                    'date' => $row->invoice->invoice_date,
+                    'type' => 'Purchase',
+                    'description' => 'Bill No: '.$row->invoice->bill_no,
+                    'qty_in' => $row->quantity,
+                    'qty_out' => 0,
+                ]);
 
-                    -- 2. Sale Invoice Items (OUT)
-                    SELECT 
-                        sii.id AS ref_id,
-                        'Sale Invoice' AS type,
-                        si.date AS date,
-                        sii.product_id,
-                        CONCAT('Invoice No: ', si.invoice_no) AS description,
-                        0 AS qty_in,
-                        sii.quantity AS qty_out
-                    FROM sale_invoice_items sii
-                    INNER JOIN sale_invoices si ON si.id = sii.sale_invoice_id
-                    WHERE sii.product_id = ?
+            // ✅ Purchase Returns
+            $purchaseReturns = PurchaseReturnItem::where('item_id', $itemId)
+                ->whereHas('return', fn($q) => $q->whereBetween('return_date', [$from, $to]))
+                ->get()
+                ->map(fn($row) => [
+                    'date' => $row->return->return_date,
+                    'type' => 'Purchase Return',
+                    'description' => 'Return No: '.$row->return->reference_no,
+                    'qty_in' => 0,
+                    'qty_out' => $row->quantity,
+                ]);
 
-                    UNION ALL
+            // ✅ Sales
+            $sales = SaleInvoiceItem::where('product_id', $itemId)
+                ->whereHas('invoice', fn($q) => $q->whereBetween('date', [$from, $to]))
+                ->get()
+                ->map(fn($row) => [
+                    'date' => $row->invoice->date,
+                    'type' => 'Sale',
+                    'description' => 'Invoice No: '.$row->invoice->invoice_no,
+                    'qty_in' => 0,
+                    'qty_out' => $row->quantity,
+                ]);
 
-                    -- 3. Purchase Return Items (OUT)
-                    SELECT 
-                        pri.id AS ref_id,
-                        'Purchase Return' AS type,
-                        pr.return_date AS date,
-                        pri.item_id,
-                        CONCAT('Return No: ', pr.reference_no) AS description,
-                        0 AS qty_in,
-                        pri.quantity AS qty_out
-                    FROM purchase_return_items pri
-                    INNER JOIN purchase_returns pr ON pr.id = pri.purchase_return_id
-                    WHERE pri.item_id = ?
+            // ✅ Sale Returns
+            $saleReturns = SaleReturnItem::where('product_id', $itemId)
+                ->whereHas('saleReturn', fn($q) => $q->whereBetween('return_date', [$from, $to]))
+                ->get()
+                ->map(fn($row) => [
+                    'date' => $row->saleReturn->return_date,
+                    'type' => 'Sale Return',
+                    'description' => 'Return No: '.$row->saleReturn->reference_no,
+                    'qty_in' => $row->quantity,
+                    'qty_out' => 0,
+                ]);
 
-                    UNION ALL
+            // ✅ Production Raw Issue (goes OUT)
+            $productions = ProductionDetail::where('product_id', $itemId)
+                ->whereHas('production', fn($q) => $q->whereBetween('order_date', [$from, $to]))
+                ->get()
+                ->map(fn($row) => [
+                    'date' => $row->production->order_date,
+                    'type' => 'Production Raw Issue',
+                    'description' => 'Raw Material Issued',
+                    'qty_in' => 0,
+                    'qty_out' => $row->qty,
+                ]);
 
-                    -- 4. Production Raw Issue (OUT)
-                    SELECT 
-                        pd.id AS ref_id,
-                        'Production Raw Issue' AS type,
-                        p.order_date AS date,
-                        pd.product_id,
-                        'Raw Material Issued' AS description,
-                        0 AS qty_in,
-                        pd.qty AS qty_out
-                    FROM production_details pd
-                    INNER JOIN productions p ON p.id = pd.production_id
-                    WHERE pd.product_id = ?
+            // ✅ Production Receiving (goes IN)
+            $productionReceivings = ProductionReceivingDetail::where('product_id', $itemId)
+                ->whereHas('receiving', fn($q) => $q->whereBetween('rec_date', [$from, $to]))
+                ->get()
+                ->map(fn($row) => [
+                    'date' => $row->receiving->rec_date,
+                    'type' => 'Production Receiving',
+                    'description' => 'Manufactured Goods Received',
+                    'qty_in' => $row->qty,
+                    'qty_out' => 0,
+                ]);
 
-                    UNION ALL
-
-                    -- 5. Production Receiving (IN)
-                    SELECT 
-                        prd.id AS ref_id,
-                        'Production Receiving' AS type,
-                        pr.rec_date AS date,
-                        prd.product_id AS item_id,
-                        'Manufactured Goods Received' AS description,
-                        prd.received_qty AS qty_in,
-                        0 AS qty_out
-                    FROM production_receiving_details prd
-                    INNER JOIN production_receivings pr ON pr.id = prd.production_receiving_id
-                    WHERE prd.product_id = ?
-                ) AS ledger
-                WHERE date BETWEEN ? AND ?
-                ORDER BY date ASC
-            ", [
-                $itemId, // for purchase_invoice_items
-                $itemId, // for sale_invoice_items
-                $itemId, // for purchase_return_items
-                $itemId, // for production_details
-                $itemId, // for production_receiving_details
-                $from,
-                $to
-            ]);
+            // ✅ Merge all
+            $ledger = $purchases
+                ->concat($purchaseReturns)
+                ->concat($sales)
+                ->concat($saleReturns)
+                ->concat($productions)
+                ->concat($productionReceivings)
+                ->sortBy('date')
+                ->values();
         }
 
         return view('reports.item_ledger', compact('items', 'ledger', 'itemId', 'from', 'to'));

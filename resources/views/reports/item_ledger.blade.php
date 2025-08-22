@@ -48,15 +48,13 @@
                 <tbody>
                     @php $balance = 0; @endphp
                     @foreach($ledger as $row)
-                        @php
-                            $balance += ($row->qty_in - $row->qty_out);
-                        @endphp
+                        @php $balance += ($row['qty_in'] - $row['qty_out']); @endphp
                         <tr>
-                            <td>{{ \Carbon\Carbon::parse($row->date)->format('d-m-Y') }}</td>
-                            <td>{{ $row->type }}</td>
-                            <td>{{ $row->description }}</td>
-                            <td class="text-success text-end">{{ $row->qty_in ?: '-' }}</td>
-                            <td class="text-danger text-end">{{ $row->qty_out ?: '-' }}</td>
+                            <td>{{ \Carbon\Carbon::parse($row['date'])->format('d-m-Y') }}</td>
+                            <td>{{ $row['type'] }}</td>
+                            <td>{{ $row['description'] }}</td>
+                            <td class="text-success text-end">{{ $row['qty_in'] ?: '-' }}</td>
+                            <td class="text-danger text-end">{{ $row['qty_out'] ?: '-' }}</td>
                             <td class="text-end"><strong>{{ $balance }}</strong></td>
                         </tr>
                     @endforeach
