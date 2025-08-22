@@ -31,7 +31,7 @@ Route::middleware(['auth', RoleMiddleware::class . ':admin|superadmin'])->group(
     Route::resource('users', UserController::class);
     Route::resource('roles', RoleController::class);
     Route::resource('permissions', PermissionController::class);
-    Route::get('/item-ledger', [ReportController::class, 'itemLedger'])->name('reports.item_ledger');
+    Route::get('/reports/item-ledger', [ReportController::class, 'itemLedger'])->name('reports.item_ledger');
     Route::get('/reports/party-ledger', [ReportController::class, 'partyLedger'])->name('reports.party_ledger');
 });
 

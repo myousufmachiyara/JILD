@@ -18,10 +18,10 @@ use App\Models\SaleInvoice;
 use App\Models\SaleInvoiceItem;
 use App\Models\SaleReturn;
 use App\Models\SaleReturnItem;
+use App\Models\PaymentVoucher;
 
 class ReportController extends Controller
 {
-
     public function itemLedger(Request $request)
     {
         $items = Product::all();
@@ -121,99 +121,178 @@ class ReportController extends Controller
 
     public function partyLedger(Request $request)
     {
-        $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
+        $partyId = $request->vendor_id;  // ✅ from query string
+        $from = $request->from_date ?? Carbon::now()->startOfMonth()->toDateString();
+        $to   = $request->to_date   ?? Carbon::now()->endOfMonth()->toDateString();
+        $transactions = collect();
+        
+        // 1️⃣ Purchase (main entry)
+        $purchases = PurchaseInvoice::with('vendor')
+            ->where('vendor_id', $partyId)
+            ->whereBetween('invoice_date', [$from, $to])
+            ->get()
+            ->map(function($purchase) {
+                return [
+                    'date' => $purchase->date,
+                    'type' => 'Purchase',
+                    'description' => 'Purchase #' . $purchase->id,
+                    'debit' => $purchase->total_amount,
+                    'credit' => 0,
+                ];
+            });
+        $transactions = $transactions->merge($purchases);
 
-        $vendorId = $request->input('vendor_id');
-        $from = $request->input('from_date');
-        $to = $request->input('to_date');
+        // 2️⃣ Purchase Item Details
+        $purchaseItems = PurchaseInvoiceItem::with('invoice')
+            ->whereHas('invoice', function($q) use($partyId, $from, $to) {
+                $q->where('vendor_id', $partyId)->whereBetween('invoice_date', [$from, $to]);
+            })
+            ->get()
+            ->map(function($item) {
+                return [
+                    'date' => $item->invoice->invoice_date,
+                    'type' => 'Purchase Item',
+                    'description' => 'Purchase Item of PO #' . $item->invoice->id,
+                    'debit' => $item->rate * $item->qty,
+                    'credit' => 0,
+                ];
+            });
+        $transactions = $transactions->merge($purchaseItems);
 
-        $ledger = [];
+        // 3️⃣ Production (main entry)
+        $productions = Production::with('vendor')
+            ->where('production_type', 'sale_leather')
+            ->where('vendor_id', $partyId)
+            ->whereBetween('order_date', [$from, $to])
+            ->get()
+            ->map(function($production) {
+                return [
+                    'date' => $production->order_date,
+                    'type' => 'Production',
+                    'description' => 'Production #' . $production->id,
+                    'debit' => $production->total_amount,
+                    'credit' => 0,
+                ];
+            });
+        $transactions = $transactions->merge($productions);
 
-        if ($vendorId && $from && $to) {
-           $ledger = DB::select("
-            SELECT * FROM (
-                -- 1. PURCHASE INVOICES
-                SELECT
-                    pi.id AS ref_id,
-                    'Purchase Invoice' AS type,
-                    pi.invoice_date AS date,
-                    pi.vendor_id AS account_id,
-                    CONCAT('Bill No: ', pi.bill_no) AS description,
-                    0 AS debit,
-                    (
-                        IFNULL((SELECT SUM(quantity * price) FROM purchase_invoice_items WHERE purchase_invoice_id = pi.id), 0)
-                        + pi.convance_charges + pi.labour_charges - pi.bill_discount
-                    ) AS credit
-                FROM purchase_invoices pi
+        // 4️⃣ Production Details (only sale_leather)
+        $productionDetails = ProductionDetail::with('production')
+            ->whereHas('production', function($q) use($partyId, $from, $to) {
+                $q->where('vendor_id', $partyId)
+                ->whereBetween('order_date', [$from, $to]);
+            })
+            ->get()
+            ->map(function($detail) {
+                return [
+                    'date' => $detail->production->order_date,
+                    'type' => 'Production Raw',
+                    'description' => 'Production Raw Material Usage',
+                    'debit' => $detail->qty * $detail->rate,
+                    'credit' => 0,
+                ];
+            });
+        $transactions = $transactions->merge($productionDetails);
 
-                UNION ALL
+       // 5️⃣ Production Receiving (main)
+        $receivings = ProductionReceiving::with('production')
+            ->whereHas('production', function($q) use ($partyId) {
+                $q->where('vendor_id', $partyId);
+            })
+            ->whereBetween('rec_date', [$from, $to])
+            ->get()
+            ->map(function($rec) {
+                return [
+                    'date'        => $rec->rec_date,
+                    'type'        => 'Production Receiving',
+                    'description' => 'Production Receiving #' . $rec->id,
+                    'debit'       => 0,
+                    'credit'      => $rec->total_amount, // manufacturing cost to pay
+                ];
+            });
 
-                -- 2. PAYMENT VOUCHERS
-                SELECT
-                    pv.id AS ref_id,
-                    'Payment Voucher' AS type,
-                    pv.date,
-                    pv.ac_cr_sid AS account_id,
-                    pv.remarks AS description,
-                    pv.amount AS debit,
-                    0 AS credit
-                FROM payment_vouchers pv
+        $transactions = $transactions->merge($receivings);
 
-                UNION ALL
+        // 6️⃣ Production Receiving Details
+        $receivingDetails = ProductionReceivingDetail::with(['receiving.production'])
+            ->whereHas('receiving.production', function($q) use($partyId, $from, $to) {
+                $q->where('vendor_id', $partyId)
+                ->whereBetween('rec_date', [$from, $to]);
+            })
+            ->get()
+            ->map(function($detail) {
+                return [
+                    'date' => $detail->receiving->date,
+                    'type' => 'Production Cost',
+                    'description' => 'Manufacturing Cost Payment (Production #' . $detail->receiving->production->id . ')',
+                    'debit' => $detail->qty * $detail->manufacturing_cost,
+                    'credit' => 0,
+                ];
+            });
 
-                -- 3. PURCHASE RETURNS
-                SELECT
-                    pr.id AS ref_id,
-                    'Purchase Return' AS type,
-                    pr.return_date AS date,
-                    pr.vendor_id AS account_id,
-                    CONCAT('Return No: ', pr.reference_no) AS description,
-                    pr.net_amount AS debit,
-                    0 AS credit
-                FROM purchase_returns pr
+        $transactions = $transactions->merge($receivingDetails);
 
-                UNION ALL
+        // 7️⃣ Sale (main entry)
+        $sales = SaleInvoice::with('account')
+            ->where('account_id', $partyId)
+            ->whereBetween('date', [$from, $to])
+            ->get()
+            ->map(function($sale) {
+                return [
+                    'date' => $sale->date,
+                    'type' => 'Sale Invoice',
+                    'description' => 'Sale Invoice #' . $sale->id,
+                    'debit' => 0,
+                    'credit' => $sale->total_amount,
+                ];
+            });
+        $transactions = $transactions->merge($sales);
 
-                -- 4. PRODUCTION RAW ISSUE
-                SELECT
-                    pd.production_id AS ref_id,
-                    'Production Raw Issue' AS type,
-                    p.order_date AS date,
-                    p.vendor_id AS account_id,
-                    'Raw Material Issued for Production' AS description,
-                    0 AS debit,
-                    SUM(pd.qty * pd.rate) AS credit
-                FROM production_details pd
-                INNER JOIN productions p ON p.id = pd.production_id
-                GROUP BY pd.production_id, p.order_date, p.vendor_id
+        // 8️⃣ Sale Items
+        $saleItems = SaleInvoiceItem::with('invoice')
+            ->whereHas('invoice', function($q) use($partyId, $from, $to) {
+                $q->where('account_id', $partyId)->whereBetween('date', [$from, $to]);
+            })
+            ->get()
+            ->map(function($item) {
+                return [
+                    'date' => $item->sale->date,
+                    'type' => 'Sale Item',
+                    'description' => 'Sale Item of Invoice #' . $item->sale->id,
+                    'debit' => 0,
+                    'credit' => $item->qty * $item->rate,
+                ];
+            });
+        $transactions = $transactions->merge($saleItems);
 
-                UNION ALL
+        // 9️⃣ Payment Voucher
+        $payments = PaymentVoucher::whereBetween('date', [$from, $to])
+            ->where(function($q) use($partyId) {
+                $q->where('ac_dr_sid', $partyId)->orWhere('ac_cr_sid', $partyId);
+            })
+            ->get()
+            ->map(function($pv) use ($partyId) {
+                return [
+                    'date' => $pv->date,
+                    'type' => 'Payment Voucher',
+                    'description' => 'Payment Voucher #' . $pv->id,
+                    'debit' => $pv->ac_dr_sid == $partyId ? $pv->amount : 0,
+                    'credit' => $pv->ac_cr_sid == $partyId ? $pv->amount : 0,
+                ];
+            });
+        $transactions = $transactions->merge($payments);
 
-                -- 5. PRODUCTION RECEIVING
-                SELECT
-                    pr.id AS ref_id,
-                    'Production Receiving' AS type,
-                    pr.rec_date AS date,
-                    pr.vendor_id AS account_id,
-                    'Manufacturing Cost for Received Goods' AS description,
-                    SUM(prd.manufacturing_cost * prd.received_qty) AS debit,
-                    0 AS credit
-                FROM production_receivings pr
-                INNER JOIN production_receiving_details prd ON pr.id = prd.production_receiving_id
-                GROUP BY pr.id, pr.rec_date, pr.vendor_id
-            ) AS ledger
-            WHERE date BETWEEN :from AND :to
-            AND account_id = :vendorId
-            ORDER BY date ASC
-            ", [
-                'vendorId' => $vendorId,
-                'from' => $from,
-                'to' => $to
-            ]);
-        }
-
-        return view('reports.party_ledger', compact('vendors', 'ledger', 'vendorId', 'from', 'to'));
-    }
+        // Sort by date
+        $transactions = $transactions->sortBy('date')->values();
+    
+        return view('reports.party_ledger', [
+            'ledger' => $transactions,
+            'from'   => $from,
+            'to'     => $to,
+            'vendorId' => $partyId,
+            'account' => ChartOfAccounts::all(), // so you can show dropdown
+        ]);
+    }   
 
     public function purchase() {
         return view('reports.purchase');

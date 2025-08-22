@@ -10,12 +10,12 @@
     <div class="card-body">
         <form method="GET" action="{{ route('reports.party_ledger') }}" class="mb-4 row g-3">
             <div class="col-md-4">
-                <label>Vendor</label>
+                <label>Account</label>
                 <select name="vendor_id" class="form-control" required>
-                    <option value="">Select Vendor</option>
-                    @foreach($vendors as $vendor)
-                        <option value="{{ $vendor->id }}" {{ $vendorId == $vendor->id ? 'selected' : '' }}>
-                            {{ $vendor->name }}
+                    <option value="">Select Account</option>
+                    @foreach($account as $coa)
+                        <option value="{{ $coa->id }}" {{ $vendorId == $coa->id ? 'selected' : '' }}>
+                            {{ $coa->name }}
                         </option>
                     @endforeach
                 </select>
@@ -49,14 +49,14 @@
                     @php $balance = 0; @endphp
                     @foreach($ledger as $row)
                         @php
-                            $balance += ($row->credit - $row->debit);
+                            $balance += ($row['credit'] - $row['debit']);
                         @endphp
                         <tr>
-                            <td>{{ \Carbon\Carbon::parse($row->date)->format('d-m-Y') }}</td>
-                            <td>{{ $row->type }}</td>
-                            <td>{{ $row->description }}</td>
-                            <td class="text-end">{{ number_format($row->debit, 2) }}</td>
-                            <td class="text-end">{{ number_format($row->credit, 2) }}</td>
+                            <td>{{ \Carbon\Carbon::parse($row['date'])->format('d-m-Y') }}</td>
+                            <td>{{ $row['type'] }}</td>
+                            <td>{{ $row['description'] }}</td>
+                            <td class="text-end">{{ number_format($row['debit'], 2) }}</td>
+                            <td class="text-end">{{ number_format($row['credit'], 2) }}</td>
                             <td class="text-end">{{ number_format($balance, 2) }}</td>
                         </tr>
                     @endforeach
