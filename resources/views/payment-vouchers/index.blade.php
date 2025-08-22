@@ -43,7 +43,7 @@
                                 <td><strong style="font-size:15px">{{ number_format($row->amount, 0, '.', ',') }}</strong></td>
                             @endif
                             <td class="actions">
-                                <a class="mb-1 mt-1 me-1 text-success" href="{{ route('payment_vouchers.show', $row->id) }}">
+                                <a class="mb-1 mt-1 me-1 text-success" href="{{ route('payment_vouchers.print', $row->id) }}">
                                     <i class="fas fa-print"></i>
                                 </a>
                                 <span class="separator"> | </span>
