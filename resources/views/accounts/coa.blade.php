@@ -26,6 +26,7 @@
                     <div>
                         <form method="GET" action="{{ route('coa.index') }}" class="mb-3 d-flex">
                             <div class="col-md-3" style="display:flex;">
+                                <label> Filter By </label>
                                 <select name="subhead" class="form-control" style="margin-right:10px" onchange="this.form.submit()">
                                     <option value="all" {{ request('subhead') == 'all' ? 'selected' : '' }}>All</option>
                                     @foreach($subHeadOfAccounts as $sub)
