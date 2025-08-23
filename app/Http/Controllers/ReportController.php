@@ -27,8 +27,8 @@ class ReportController extends Controller
     {
         $items = Product::all();
         $itemId = $request->input('item_id');
-        $from   = $request->from_date ?? \Carbon\Carbon::now()->startOfMonth()->toDateString();
-        $to     = $request->to_date   ?? \Carbon\Carbon::now()->toDateString();
+        $from = $request->from_date ?? Carbon::now()->startOfMonth()->toDateString();
+        $to   = $request->to_date   ?? Carbon::now()->toDateString();
 
         $ledger = collect();
 
@@ -124,7 +124,7 @@ class ReportController extends Controller
     {
         $partyId = $request->vendor_id;  // ✅ from query string
         $from = $request->from_date ?? Carbon::now()->startOfMonth()->toDateString();
-        $to   = $request->to_date   ?? Carbon::now()->endOfMonth()->toDateString();
+        $to   = $request->to_date   ?? Carbon::now()->toDateString();
         $transactions = collect();
         
         // 1️⃣ Purchase (main entry)
