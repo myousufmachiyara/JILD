@@ -38,6 +38,7 @@
                 <thead>
                     <tr>
                         <th>Date</th>
+                        <th>Details</th>
                         <th>Type</th>
                         <th>Description</th>
                         <th>Debit</th>
@@ -53,6 +54,11 @@
                         @endphp
                         <tr>
                             <td>{{ \Carbon\Carbon::parse($row['date'])->format('d-m-Y') }}</td>
+                            <td>
+                                <a href="{{ route($row['module'] . '.print', $row['id']) }}" target="_blank">
+                                    Show Details
+                                </a>
+                            </td>                            
                             <td>{{ $row['type'] }}</td>
                             <td>{{ $row['description'] }}</td>
                             <td class="text-end">{{ number_format($row['debit'], 2) }}</td>

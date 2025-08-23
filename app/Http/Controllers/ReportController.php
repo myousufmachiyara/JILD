@@ -139,11 +139,13 @@ class ReportController extends Controller
                 });
 
                 return [
+                    'id' => $invoice->id,
                     'date' => $invoice->invoice_date,
                     'type' => 'Purchase',
                     'description' => 'Purchase Invoice #' . $invoice->id,
                     'debit' => $total,
                     'credit' => 0,
+                    'module' => 'purchase_invoices', // ✅ matches $modules key
                 ];
             });
 
@@ -161,11 +163,14 @@ class ReportController extends Controller
                 });
 
                 return [
+                    'id' => $return->id,
                     'date' => $return->return_date,
                     'type' => 'Purchase Return',
                     'description' => 'Purchase Return #' . $return->id,
                     'debit' => 0,
                     'credit' => $total,
+                    'module' => 'purchase_return', // ✅ matches $modules key
+
                 ];
             });
 
@@ -185,11 +190,14 @@ class ReportController extends Controller
             });
 
             return [
+                'id' => $receiving->id,
                 'date' => $receiving->rec_date,
                 'type' => 'Production Receiving',
                 'description' => 'Production Receiving #' . $receiving->id,
                 'debit' => $total,
                 'credit' => 0,
+                'module' => 'production', // ✅ matches $modules key
+
             ];
         });
 
@@ -210,11 +218,14 @@ class ReportController extends Controller
                 });
 
                 return [
+                    'id' => $invoice->id,
                     'date' => $invoice->date,
                     'type' => 'Sale',
                     'description' => 'Sale Invoice #' . $invoice->id,
                     'debit' => 0,
                     'credit' => $total,   // Customer owes us (credit in our books)
+                    'module' => 'sale_invoices', // ✅ matches $modules key
+
                 ];
             });
 
@@ -232,11 +243,13 @@ class ReportController extends Controller
                 });
 
                 return [
+                    'id' => $return->id,
                     'date' => $return->return_date,
                     'type' => 'Sale Return',
                     'description' => 'Sale Return #' . $return->id,
                     'debit' => $total,   // We give back (debit to reduce receivable)
                     'credit' => 0,
+                    'module' => 'sale_return', // ✅ matches $modules key
                 ];
             });
 
@@ -250,11 +263,13 @@ class ReportController extends Controller
             ->get()
             ->map(function($pv) use ($partyId) {
                 return [
+                    'id' => $pv->id,
                     'date' => $pv->date,
                     'type' => 'Payment Voucher',
                     'description' => 'Payment Voucher #' . $pv->id,
                     'debit' => $pv->ac_dr_sid == $partyId ? $pv->amount : 0,
                     'credit' => $pv->ac_cr_sid == $partyId ? $pv->amount : 0,
+                    'module' => 'payment_vouchers', // ✅ matches $modules key
                 ];
             });
         $transactions = $transactions->merge($payments);
