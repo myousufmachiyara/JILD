@@ -21,8 +21,22 @@
                         <strong class="text-danger">{{ $errors->first('error') }}</strong>
                     @endif
                 </header>
-
+                
                 <div class="card-body">
+                    <div>
+                        <form method="GET" action="{{ route('coa.index') }}" class="mb-3 d-flex">
+                            <div class="col-md-3" style="display:flex;">
+                                <select name="subhead" class="form-control" style="margin-right:10px" onchange="this.form.submit()">
+                                    <option value="all" {{ request('subhead') == 'all' ? 'selected' : '' }}>All</option>
+                                    @foreach($subHeadOfAccounts as $sub)
+                                        <option value="{{ $sub->id }}" {{ request('subhead') == $sub->id ? 'selected' : '' }}>
+                                            {{ $sub->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </form>
+                    </div>
                     <div class="modal-wrapper table-scroll">
                         <table class="table table-bordered table-striped mb-0" id="cust-datatable-default">
                             <thead>

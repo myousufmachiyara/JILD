@@ -9,10 +9,17 @@ use App\Models\SubHeadOfAccounts;
 class COAController extends Controller
 {
 
-    public function index()
+    public function index(Request $request)
     {
-        $chartOfAccounts = ChartOfAccounts::with('subHeadOfAccount')->get();
         $subHeadOfAccounts = SubHeadOfAccounts::with('headOfAccount')->get();
+
+        $query = ChartOfAccounts::with('subHeadOfAccount');
+
+        if ($request->filled('subhead') && $request->subhead != 'all') {
+            $query->where('shoa_id', $request->subhead);
+        }
+
+        $chartOfAccounts = $query->get();
 
         return view('accounts.coa', compact('chartOfAccounts','subHeadOfAccounts'));
     }
