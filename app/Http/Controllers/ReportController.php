@@ -27,8 +27,8 @@ class ReportController extends Controller
     {
         $items = Product::all();
         $itemId = $request->input('item_id');
-        $from   = $request->input('from_date');
-        $to     = $request->input('to_date');
+        $from   = $request->from_date ?? \Carbon\Carbon::now()->startOfMonth()->toDateString();
+        $to     = $request->to_date   ?? \Carbon\Carbon::now()->toDateString();
 
         $ledger = collect();
 
