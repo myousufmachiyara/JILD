@@ -39,7 +39,7 @@ class SaleReturnController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'customer_id'          => 'required|exists:customers,id',
+            'customer_id'          => 'required|exists:chart_of_accounts,id',
             'return_date'          => 'required|date',
             'sale_invoice_no'      => 'nullable|string|max:50',
             'remarks'              => 'nullable|string|max:500',
@@ -60,7 +60,7 @@ class SaleReturnController extends Controller
 
             // Create Sale Return
             $return = SaleReturn::create([
-                'customer_id'     => $validated['customer_id'],
+                'account_id'     => $validated['customer_id'],
                 'return_date'     => $validated['return_date'],
                 'sale_invoice_no' => $validated['sale_invoice_no'] ?? null,
                 'remarks'         => $validated['remarks'] ?? null,
