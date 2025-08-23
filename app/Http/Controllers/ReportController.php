@@ -127,144 +127,120 @@ class ReportController extends Controller
         $to   = $request->to_date   ?? Carbon::now()->toDateString();
         $transactions = collect();
         
-        // 1️⃣ Purchase (main entry)
-        $purchases = PurchaseInvoice::with('vendor')
+        // Purchase Invoices with Items (Invoice-wise total calculation)
+        $purchases = PurchaseInvoice::with('items')
             ->where('vendor_id', $partyId)
             ->whereBetween('invoice_date', [$from, $to])
             ->get()
-            ->map(function($purchase) {
+            ->map(function($invoice) {
+                // Calculate total amount = sum of all item qty * rate
+                $total = $invoice->items->sum(function($item) {
+                    return $item->quantity * $item->price;
+                });
+
                 return [
-                    'date' => $purchase->date,
+                    'date' => $invoice->invoice_date,
                     'type' => 'Purchase',
-                    'description' => 'Purchase #' . $purchase->id,
-                    'debit' => $purchase->total_amount,
+                    'description' => 'Purchase Invoice #' . $invoice->id,
+                    'debit' => $total,
                     'credit' => 0,
                 ];
             });
+
         $transactions = $transactions->merge($purchases);
 
-        // 2️⃣ Purchase Item Details
-        $purchaseItems = PurchaseInvoiceItem::with('invoice')
-            ->whereHas('invoice', function($q) use($partyId, $from, $to) {
-                $q->where('vendor_id', $partyId)->whereBetween('invoice_date', [$from, $to]);
-            })
-            ->get()
-            ->map(function($item) {
-                return [
-                    'date' => $item->invoice->invoice_date,
-                    'type' => 'Purchase Item',
-                    'description' => 'Purchase Item of PO #' . $item->invoice->id,
-                    'debit' => $item->rate * $item->qty,
-                    'credit' => 0,
-                ];
-            });
-        $transactions = $transactions->merge($purchaseItems);
-
-        // 3️⃣ Production (main entry)
-        $productions = Production::with('vendor')
-            ->where('production_type', 'sale_leather')
+        // Purchase Returns (Return reduces vendor payable)
+        $purchaseReturns = PurchaseReturn::with('items')
             ->where('vendor_id', $partyId)
-            ->whereBetween('order_date', [$from, $to])
+            ->whereBetween('return_date', [$from, $to])
             ->get()
-            ->map(function($production) {
-                return [
-                    'date' => $production->order_date,
-                    'type' => 'Production',
-                    'description' => 'Production #' . $production->id,
-                    'debit' => $production->total_amount,
-                    'credit' => 0,
-                ];
-            });
-        $transactions = $transactions->merge($productions);
+            ->map(function($return) {
+                // Calculate total = sum of returned qty * rate
+                $total = $return->items->sum(function($item) {
+                    return $item->quantity * $item->price;
+                });
 
-        // 4️⃣ Production Details (only sale_leather)
-        $productionDetails = ProductionDetail::with('production')
-            ->whereHas('production', function($q) use($partyId, $from, $to) {
-                $q->where('vendor_id', $partyId)
-                ->whereBetween('order_date', [$from, $to]);
-            })
-            ->get()
-            ->map(function($detail) {
                 return [
-                    'date' => $detail->production->order_date,
-                    'type' => 'Production Raw',
-                    'description' => 'Production Raw Material Usage',
-                    'debit' => $detail->qty * $detail->rate,
-                    'credit' => 0,
+                    'date' => $return->return_date,
+                    'type' => 'Purchase Return',
+                    'description' => 'Purchase Return #' . $return->id,
+                    'debit' => 0,
+                    'credit' => $total,
                 ];
             });
-        $transactions = $transactions->merge($productionDetails);
 
-       // 5️⃣ Production Receiving (main)
-        $receivings = ProductionReceiving::with('production')
-            ->whereHas('production', function($q) use ($partyId) {
-                $q->where('vendor_id', $partyId);
-            })
-            ->whereBetween('rec_date', [$from, $to])
-            ->get()
-            ->map(function($rec) {
-                return [
-                    'date'        => $rec->rec_date,
-                    'type'        => 'Production Receiving',
-                    'description' => 'Production Receiving #' . $rec->id,
-                    'debit'       => 0,
-                    'credit'      => $rec->total_amount, // manufacturing cost to pay
-                ];
+        $transactions = $transactions->merge($purchaseReturns);
+
+        // Production Receivings with Details (Receiving increases vendor payable)
+        $receivings = ProductionReceiving::with(['details', 'production'])
+        ->whereHas('production', function ($q) use ($partyId) {
+            $q->where('vendor_id', $partyId);
+        })
+        ->whereBetween('rec_date', [$from, $to])
+        ->get()
+        ->map(function($receiving) {
+            // ✅ Calculate total from details
+            $total = $receiving->details->sum(function($item) {
+                return $item->received_qty * $item->manufacturing_cost;
             });
+
+            return [
+                'date' => $receiving->rec_date,
+                'type' => 'Production Receiving',
+                'description' => 'Production Receiving #' . $receiving->id,
+                'debit' => $total,
+                'credit' => 0,
+            ];
+        });
 
         $transactions = $transactions->merge($receivings);
 
-        // 6️⃣ Production Receiving Details
-        $receivingDetails = ProductionReceivingDetail::with(['receiving.production'])
-            ->whereHas('receiving.production', function($q) use($partyId, $from, $to) {
-                $q->where('vendor_id', $partyId)
-                ->whereBetween('rec_date', [$from, $to]);
-            })
+        // Sale Invoices (customer receivable)
+        $sales = SaleInvoice::with('items')
+            ->where('account_id', $partyId)
+            ->whereBetween('date', [$from, $to])
             ->get()
-            ->map(function($detail) {
+            ->map(function($invoice) {
+                // Invoice-wise total = sum of item qty * price - discount%
+                $total = $invoice->items->sum(function($item) {
+                    
+                    $lineTotal = $item->quantity * $item->sale_price;
+                    $discountAmount = ($lineTotal * $item->discount) / 100; // percentage discount
+                    return $lineTotal - $discountAmount;
+                });
+
                 return [
-                    'date' => $detail->receiving->date,
-                    'type' => 'Production Cost',
-                    'description' => 'Manufacturing Cost Payment (Production #' . $detail->receiving->production->id . ')',
-                    'debit' => $detail->qty * $detail->manufacturing_cost,
+                    'date' => $invoice->date,
+                    'type' => 'Sale',
+                    'description' => 'Sale Invoice #' . $invoice->id,
+                    'debit' => 0,
+                    'credit' => $total,   // Customer owes us (credit in our books)
+                ];
+            });
+
+        $transactions = $transactions->merge($sales);
+
+
+        // Sale Returns (reduces receivable)
+        $saleReturns = SaleReturn::with('items')
+            ->where('account_id', $partyId)
+            ->whereBetween('return_date', [$from, $to])
+            ->get()
+            ->map(function($return) {
+                $total = $return->items->sum(function($item) {
+                    return $item->qty * $item->price;
+                });
+
+                return [
+                    'date' => $return->return_date,
+                    'type' => 'Sale Return',
+                    'description' => 'Sale Return #' . $return->id,
+                    'debit' => $total,   // We give back (debit to reduce receivable)
                     'credit' => 0,
                 ];
             });
 
-        $transactions = $transactions->merge($receivingDetails);
-
-        // 7️⃣ Sale (main entry)
-        $sales = SaleInvoice::with('account')
-            ->where('account_id', $partyId)
-            ->whereBetween('date', [$from, $to])
-            ->get()
-            ->map(function($sale) {
-                return [
-                    'date' => $sale->date,
-                    'type' => 'Sale Invoice',
-                    'description' => 'Sale Invoice #' . $sale->id,
-                    'debit' => 0,
-                    'credit' => $sale->total_amount,
-                ];
-            });
-        $transactions = $transactions->merge($sales);
-
-        // 8️⃣ Sale Items
-        $saleItems = SaleInvoiceItem::with('invoice')
-            ->whereHas('invoice', function($q) use($partyId, $from, $to) {
-                $q->where('account_id', $partyId)->whereBetween('date', [$from, $to]);
-            })
-            ->get()
-            ->map(function($item) {
-                return [
-                    'date' => $item->sale->date,
-                    'type' => 'Sale Item',
-                    'description' => 'Sale Item of Invoice #' . $item->sale->id,
-                    'debit' => 0,
-                    'credit' => $item->qty * $item->rate,
-                ];
-            });
-        $transactions = $transactions->merge($saleItems);
+        $transactions = $transactions->merge($saleReturns);
 
         // 9️⃣ Payment Voucher
         $payments = PaymentVoucher::whereBetween('date', [$from, $to])

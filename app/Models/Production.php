@@ -13,6 +13,7 @@ class Production extends Model
     protected $fillable = [
         'vendor_id',
         'category_id',
+        'voucher_id',
         'order_date',
         'production_type',
         'remarks',

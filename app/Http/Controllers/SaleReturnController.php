@@ -27,6 +27,101 @@ class SaleReturnController extends Controller
         return view('sale_returns.index', compact('returns'));
     }
 
+    public function create()
+    {
+        return view('sale_returns.create', [
+            'products'  => Product::where('item_type', 'fg')->get(),
+            'customers'  => ChartOfAccounts::where('account_type', 'customer')->get(),
+            'invoices'  => SaleInvoice::latest()->get(), // optional link to original
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'customer_id'          => 'required|exists:customers,id',
+            'return_date'          => 'required|date',
+            'sale_invoice_no'      => 'nullable|string|max:50',
+            'remarks'              => 'nullable|string|max:500',
+            'items'                => 'required|array|min:1',
+            'items.*.product_id'   => 'required|exists:products,id',
+            'items.*.variation_id' => 'nullable|exists:product_variations,id',
+            'items.*.qty'          => 'required|numeric|min:1',
+            'items.*.price'        => 'required|numeric|min:0',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            Log::info('[SaleReturn] Store request received', [
+                'user_id' => Auth::id(),
+                'payload' => $validated,
+            ]);
+
+            // Create Sale Return
+            $return = SaleReturn::create([
+                'customer_id'     => $validated['customer_id'],
+                'return_date'     => $validated['return_date'],
+                'sale_invoice_no' => $validated['sale_invoice_no'] ?? null,
+                'remarks'         => $validated['remarks'] ?? null,
+                'created_by'      => Auth::id(),
+            ]);
+
+            Log::info('[SaleReturn] Main record created', [
+                'return_id' => $return->id,
+                'customer'  => $return->customer_id,
+            ]);
+
+            // Create Sale Return Items
+            foreach ($validated['items'] as $idx => $item) {
+                try {
+                    $savedItem = SaleReturnItem::create([
+                        'sale_return_id' => $return->id,
+                        'product_id'     => $item['product_id'],
+                        'variation_id'   => $item['variation_id'] ?? null,
+                        'qty'            => $item['qty'],
+                        'price'          => $item['price'],
+                    ]);
+
+                    Log::debug('[SaleReturn] Item created', [
+                        'return_id'  => $return->id,
+                        'item_index' => $idx,
+                        'item_id'    => $savedItem->id,
+                        'product_id' => $item['product_id'],
+                    ]);
+                } catch (\Throwable $itemEx) {
+                    Log::error('[SaleReturn] Item save failed', [
+                        'return_id'  => $return->id,
+                        'item_index' => $idx,
+                        'error'      => $itemEx->getMessage(),
+                    ]);
+                    throw $itemEx; // rethrow so transaction rolls back
+                }
+            }
+
+            DB::commit();
+            Log::info('[SaleReturn] Completed successfully', [
+                'return_id' => $return->id,
+                'by'        => Auth::id(),
+            ]);
+
+            return redirect()
+                ->route('sale_return.index')
+                ->with('success', 'Sale return created successfully.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('[SaleReturn] Store failed', [
+                'user_id'   => Auth::id(),
+                'payload'   => $request->all(), // raw input for debugging
+                'error'     => $e->getMessage(),
+                'trace'     => $e->getTraceAsString(),
+            ]);
+
+            return back()
+                ->withInput()
+                ->with('error', 'Error saving sale return. Please contact administrator.');
+        }
+    }
 
     public function edit($id)
     {

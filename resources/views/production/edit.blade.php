@@ -45,9 +45,12 @@
               <div class="col-12 col-md-2 mb-3">
                 <label>Vendor Name</label>
                 <select class="form-control select2-js" name="vendor_id" id="vendor_name" required>
-                  <option value="" disabled>Select Vendor</option>
+                    <option value="" disabled>Select Vendor</option>
                     @foreach($vendors as $item)
-                      <option value="{{ $item->id }}">{{ $item->name }}</option>
+                        <option value="{{ $item->id }}" 
+                            {{ (isset($production) && $production->vendor_id == $item->id) ? 'selected' : '' }}>
+                            {{ $item->name }}
+                        </option>
                     @endforeach
                 </select>
               </div>
@@ -338,7 +341,7 @@
     // Recalculate & regenerate challan whenever items table changes
     $(document).on('input change', '#rawMaterialTable input, #rawMaterialTable select', function () {
       calculateTotal();
-      if ($('#production_type').val() === 'cmt') {
+      if ($('#production_type').val() === 'sale_leather') {
         generateVoucher();
       }
     });

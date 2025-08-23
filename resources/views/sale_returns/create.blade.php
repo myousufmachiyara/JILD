@@ -5,17 +5,27 @@
 <div class="row">
   <div class="col">
     <div class="card">
+      @if ($errors->any())
+        <div class="alert alert-danger">
+          <ul class="mb-0">
+            @foreach ($errors->all() as $error)
+              <li>{{ $error }}</li>
+            @endforeach
+          </ul>
+        </div>
+      @endif
       <div class="card-header d-flex justify-content-between align-items-center">
         <h4 class="card-title">New Sale Return</h4>
         <a href="{{ route('sale_return.index') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back</a>
       </div>
+
       <div class="card-body">
         <form action="{{ route('sale_return.store') }}" method="POST" id="saleReturnForm">
           @csrf
           <div class="row mb-3">
             <div class="col-md-3">
               <label for="customer_id">Customer Name</label>
-              <select name="account_id" class="form-control" required>
+              <select name="customer_id" class="form-control" required>
                 <option value="">Select Customer</option>
                 @foreach($customers as $cust)
                   <option value="{{ $cust->id }}">{{ $cust->name }}</option>

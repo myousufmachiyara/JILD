@@ -360,7 +360,6 @@
 
       const vendorName = document.querySelector("#vendor_name option:checked")?.textContent ?? "-";
       const orderDate = $('#order_date').val();
-      const challanNo = "PROD-" + Math.floor(100000 + Math.random() * 900000);
 
       let itemsHTML = "";
       let grandTotal = 0;
@@ -390,7 +389,6 @@
 
           <div class="d-flex justify-content-between text-dark">
             <p><strong>Vendor:</strong> ${vendorName}</p>
-            <p><strong>Challan No:</strong> ${challanNo}</p>
             <p><strong>Date:</strong> ${orderDate}</p>
           </div>
 
@@ -415,7 +413,6 @@
           </table>
 
           <input type="hidden" name="voucher_amount" value="${grandTotal}">
-          <input type="hidden" name="challan_no" value="${challanNo}">
           <input type="hidden" name="challan_generated" value="1">
 
           <div class="d-flex justify-content-between mt-4">
@@ -429,7 +426,7 @@
 
       voucherContainer.innerHTML = html;
 
-      // Also ensure challan_no and challan_generated are attached to form (in case form is submitted separately)
+      // Also ensure challan is generated
       const form = document.querySelector('form');
 
       const ensureHiddenInput = (name, value) => {
@@ -443,7 +440,6 @@
         input.value = value;
       };
 
-      ensureHiddenInput("challan_no", challanNo);
       ensureHiddenInput("challan_generated", "1");
       ensureHiddenInput("voucher_amount", grandTotal.toFixed(2));
     }
