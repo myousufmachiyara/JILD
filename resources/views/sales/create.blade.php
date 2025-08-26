@@ -88,7 +88,7 @@
                   </select>
                 </td>
                 <td><input type="number" name="items[0][sale_price]" class="form-control sale-price" step="any" required></td>
-                <td><input type="number" name="items[0][disc_price]" class="form-control disc-price" step="any" required></td>
+                <td><input type="number" name="items[0][disc_price]" class="form-control disc-price" step="any" value="0"></td>
                 <td><input type="number" name="items[0][quantity]" class="form-control quantity" step="any" required></td>
                 <td><input type="number" name="items[0][total]" class="form-control row-total" readonly></td>
                 <td><button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>
@@ -152,7 +152,7 @@
           </select>
         </td>
         <td><input type="number" name="items[${rowIndex}][sale_price]" class="form-control sale-price" step="any" required></td>
-        <td><input type="number" name="items[${rowIndex}][disc_price]" class="form-control disc-price" step="any" required></td>
+        <td><input type="number" name="items[${rowIndex}][disc_price]" class="form-control disc-price" step="any"></td>
         <td><input type="number" name="items[${rowIndex}][quantity]" class="form-control quantity" step="any" required></td>
         <td><input type="number" name="items[${rowIndex}][total]" class="form-control row-total" readonly></td>
         <td><button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>

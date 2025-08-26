@@ -16520,7 +16520,7 @@ html.dark .table .actions-hover a {
 	border-bottom: none;
 	border-left: 1px solid #EEE;
 	border-right: 1px solid #EEE;
-	border-top: 3px solid #EEE;
+	/* border-top: 3px solid #EEE; */
 	color: #CCC;
 }
 
