@@ -114,154 +114,200 @@
 </div>
 
 <script>
-  document.addEventListener("DOMContentLoaded", function () {
-      let rowIdx = document.querySelectorAll("#itemsTable tbody tr").length;
+document.addEventListener("DOMContentLoaded", function () {
+    let rowIdx = document.querySelectorAll("#itemsTable tbody tr").length;
 
-      // ---------- Helper: calculate row total ----------
-      function calcRowTotal(row) {
-          let qty = parseFloat(row.querySelector(".qty-input").value) || 0;
-          let price = parseFloat(row.querySelector(".price-input").value) || 0;
-          row.querySelector(".total-input").value = (qty * price).toFixed(2);
-      }
+    // ---------- Helper: calculate row total ----------
+    function calcRowTotal(row) {
+        const qty = parseFloat(row.querySelector(".qty-input").value) || 0;
+        const price = parseFloat(row.querySelector(".price-input").value) || 0;
+        row.querySelector(".total-input").value = (qty * price).toFixed(2);
+    }
 
-      // ---------- Helper: update grand total ----------
-      function updateGrandTotal() {
-          let total = 0;
-          document.querySelectorAll("#itemsTable tbody tr").forEach(function(row) {
-              if(row.style.display !== "none"){
-                  total += parseFloat(row.querySelector(".total-input").value) || 0;
-              }
-          });
-          document.getElementById("net_amount").value = total.toFixed(2);
-      }
+    // ---------- Helper: update grand total ----------
+    function updateGrandTotal() {
+        let total = 0;
+        document.querySelectorAll("#itemsTable tbody tr").forEach(row => {
+            if(row.style.display !== "none"){
+                total += parseFloat(row.querySelector(".total-input").value) || 0;
+            }
+        });
+        document.getElementById("net_amount").value = total.toFixed(2);
+    }
 
-      // ---------- Bind events to a row ----------
-      function bindRowEvents(row) {
-          // Remove row
-          row.querySelector(".removeRowBtn").addEventListener("click", function() {
-              let deleteFlag = row.querySelector(".delete-flag");
-              if (deleteFlag) {
-                  deleteFlag.value = "1";
-                  row.style.display = "none";
-              } else {
-                  row.remove();
-              }
-              updateGrandTotal();
-          });
+    // ---------- Helper: set product reliably (like Sale edit) ----------
+    function setProductSelectValue(productSelect, productId, row) {
+        productSelect.value = productId;
+        productSelect.dispatchEvent(new Event('change'));
 
-          // Qty or price input changes
-          row.querySelectorAll(".qty-input, .price-input").forEach(input => {
-              input.addEventListener("input", function() {
-                  calcRowTotal(row);
-                  updateGrandTotal();
-              });
-          });
+        // Apply wanted variation after product fetch
+        if(row.dataset.wantedVariationId){
+            setTimeout(() => {
+                const variationSelect = row.querySelector(".variation-select");
+                if(variationSelect.querySelector(`option[value="${row.dataset.wantedVariationId}"]`)){
+                    variationSelect.value = row.dataset.wantedVariationId;
+                }
+                delete row.dataset.wantedVariationId;
+            }, 200); // wait for variations to be fetched
+        }
 
-          // Product select change
-          row.querySelector(".product-select").addEventListener("change", async function() {
-              let productSelect = this;
-              let productId = productSelect.value;
-              let variationSelect = row.querySelector(".variation-select");
+        // Apply preferred price if set
+        if(row.dataset.preferPrice){
+            row.querySelector(".price-input").value = parseFloat(row.dataset.preferPrice).toFixed(2);
+            delete row.dataset.preferPrice;
+        }
+    }
 
-              // Set selling price from product
-              let price = parseFloat(productSelect.options[productSelect.selectedIndex].dataset.price) || 0;
-              row.querySelector(".price-input").value = price.toFixed(2);
+    // ---------- Bind events to a row ----------
+    function bindRowEvents(row) {
+        // Remove row
+        row.querySelector(".removeRowBtn").addEventListener("click", function() {
+            const deleteFlag = row.querySelector(".delete-flag");
+            if(deleteFlag){
+                deleteFlag.value = "1";
+                row.style.display = "none";
+            } else {
+                row.remove();
+            }
+            updateGrandTotal();
+        });
 
-              // Fetch variations
-              variationSelect.innerHTML = `<option value="">Loading...</option>`;
-              if(productId){
-                  try {
-                      let res = await fetch(`/product/${productId}/variations`);
-                      let data = await res.json();
-                      variationSelect.innerHTML = `<option value="">-- Select Variation --</option>`;
-                      data.forEach(v => {
-                          variationSelect.innerHTML += `<option value="${v.id}">${v.sku}</option>`;
-                      });
+        // Qty/Price input change
+        row.querySelectorAll(".qty-input, .price-input").forEach(input => {
+            input.addEventListener("input", () => {
+                calcRowTotal(row);
+                updateGrandTotal();
+            });
+        });
 
-                      // Apply barcode-selected variation if exists
-                      if(row.dataset.wantedVariationId){
-                          let wantedId = row.dataset.wantedVariationId;
-                          if(variationSelect.querySelector(`option[value="${wantedId}"]`)){
-                              variationSelect.value = wantedId;
-                          }
-                          delete row.dataset.wantedVariationId;
-                      }
-                  } catch(err){
-                      variationSelect.innerHTML = `<option value="">-- Select Variation --</option>`;
-                      console.error(err);
-                  }
-              } else {
-                  variationSelect.innerHTML = `<option value="">-- Select Variation --</option>`;
-              }
+        // Product select change
+        row.querySelector(".product-select").addEventListener("change", async function () {
+            const productSelect = this;
+            const productId = productSelect.value;
+            const variationSelect = row.querySelector(".variation-select");
 
-              // Recalculate row total
-              calcRowTotal(row);
-              updateGrandTotal();
-          });
+            // Set price from product option
+            const price = parseFloat(productSelect.options[productSelect.selectedIndex].dataset.price) || 0;
+            row.querySelector(".price-input").value = price.toFixed(2);
 
-          // Barcode input
-          row.querySelector(".product-code").addEventListener("input", function() {
-              const code = this.value.trim();
-              if(!code) return;
+            // Fetch variations
+            variationSelect.innerHTML = `<option value="">Loading...</option>`;
+            if(productId){
+                try {
+                    const res = await fetch(`/product/${productId}/variations`);
+                    const data = await res.json();
 
-              fetch(`/get-variation-by-code/${encodeURIComponent(code)}`)
-              .then(res => res.json())
-              .then(data => {
-                  if(data.success && data.variation){
-                      const variation = data.variation;
-                      row.dataset.wantedVariationId = variation.id;
-                      let productSelect = row.querySelector(".product-select");
-                      productSelect.value = variation.product_id;
-                      productSelect.dispatchEvent(new Event('change'));
-                  } else {
-                      alert(data.message || 'No variation found for this barcode');
-                      this.value = '';
-                      this.focus();
-                  }
-              })
-              .catch(() => alert('Error fetching variation by barcode.'));
-          });
-      }
+                    variationSelect.innerHTML = `<option value="">-- Select Variation --</option>`;
+                    data.forEach(v => {
+                        variationSelect.innerHTML += `<option value="${v.id}">${v.sku}</option>`;
+                    });
 
-      // ---------- Bind existing rows ----------
-      document.querySelectorAll("#itemsTable tbody tr").forEach(row => bindRowEvents(row));
+                    // Apply wanted variation if set
+                    if(row.dataset.wantedVariationId){
+                        const wantedId = row.dataset.wantedVariationId;
+                        if(variationSelect.querySelector(`option[value="${wantedId}"]`)){
+                            variationSelect.value = wantedId;
+                        }
+                        delete row.dataset.wantedVariationId;
+                    }
 
-      // ---------- Add new row ----------
-      document.getElementById("addRowBtn").addEventListener("click", function () {
-          let tableBody = document.querySelector("#itemsTable tbody");
-          let newRow = document.createElement("tr");
-          newRow.innerHTML = `
-              <td><input type="text" class="form-control product-code" placeholder="Scan/Enter Code"></td>
-              <td>
-                  <select name="items[${rowIdx}][product_id]" class="form-control product-select" required>
-                      <option value="">-- Select Product --</option>
-                      @foreach($products as $product)
-                          <option value="{{ $product->id }}" data-price="{{ $product->selling_price }}">{{ $product->name }}</option>
-                      @endforeach
-                  </select>
-              </td>
-              <td>
-                  <select name="items[${rowIdx}][variation_id]" class="form-control variation-select">
-                      <option value="">-- Select Variation --</option>
-                  </select>
-              </td>
-              <td><input type="number" name="items[${rowIdx}][qty]" class="form-control qty-input" value="1" min="1"></td>
-              <td><input type="number" step="0.01" name="items[${rowIdx}][price]" class="form-control price-input" value="0"></td>
-              <td><input type="text" class="form-control total-input" readonly value="0"></td>
-              <td>
-                  <button type="button" class="btn btn-danger btn-sm removeRowBtn">X</button>
-                  <input type="hidden" name="items[${rowIdx}][delete]" value="0" class="delete-flag">
-              </td>
-          `;
-          tableBody.appendChild(newRow);
-          bindRowEvents(newRow);
-          rowIdx++;
-      });
+                } catch(err) {
+                    variationSelect.innerHTML = `<option value="">-- Select Variation --</option>`;
+                    console.error(err);
+                }
+            } else {
+                variationSelect.innerHTML = `<option value="">-- Select Variation --</option>`;
+            }
 
-      // ---------- Initial grand total ----------
-      updateGrandTotal();
-  });
+            calcRowTotal(row);
+            updateGrandTotal();
+        });
+
+        // Barcode input
+        row.querySelector(".product-code").addEventListener("blur", function() {
+            const code = this.value.trim();
+            if(!code) return;
+
+            fetch(`/get-variation-by-code/${encodeURIComponent(code)}`)
+            .then(res => res.json())
+            .then(data => {
+                if(data.success && data.variation){
+                    const variation = data.variation;
+                    const productSelect = row.querySelector(".product-select");
+
+                    // Store wanted variation and preferred price
+                    row.dataset.wantedVariationId = variation.id;
+                    if(variation.price !== undefined && variation.price !== null){
+                        row.dataset.preferPrice = variation.price;
+                    }
+
+                    // Set product -> triggers variation fetch
+                    productSelect.value = variation.product_id;
+
+                    // Trigger change manually
+                    const event = new Event('change');
+                    productSelect.dispatchEvent(event);
+
+                    // Wait for variations to be populated, then select wanted variation
+                    const variationSelect = row.querySelector(".variation-select");
+                    const checkOptions = setInterval(() => {
+                        if(variationSelect.querySelector(`option[value="${variation.id}"]`)){
+                            variationSelect.value = variation.id;
+                            clearInterval(checkOptions);
+                        }
+                    }, 50); // check every 50ms
+
+                } else {
+                    alert(data.message || "No variation found for this barcode");
+                    this.value = '';
+                    this.focus();
+                }
+            })
+            .catch(() => alert('Error fetching variation by barcode.'));
+        });
+
+    }
+
+    // ---------- Bind existing rows ----------
+    document.querySelectorAll("#itemsTable tbody tr").forEach(row => bindRowEvents(row));
+
+    // ---------- Add new row ----------
+    document.getElementById("addRowBtn").addEventListener("click", function () {
+        const tableBody = document.querySelector("#itemsTable tbody");
+        const newRow = document.createElement("tr");
+        newRow.innerHTML = `
+            <td><input type="text" class="form-control product-code" placeholder="Scan/Enter Code"></td>
+            <td>
+                <select name="items[${rowIdx}][product_id]" class="form-control product-select" required>
+                    <option value="">-- Select Product --</option>
+                    @foreach($products as $product)
+                        <option value="{{ $product->id }}" data-price="{{ $product->selling_price }}">{{ $product->name }}</option>
+                    @endforeach
+                </select>
+            </td>
+            <td>
+                <select name="items[${rowIdx}][variation_id]" class="form-control variation-select">
+                    <option value="">-- Select Variation --</option>
+                </select>
+            </td>
+            <td><input type="number" name="items[${rowIdx}][qty]" class="form-control qty-input" value="1" min="1"></td>
+            <td><input type="number" step="0.01" name="items[${rowIdx}][price]" class="form-control price-input" value="0"></td>
+            <td><input type="text" class="form-control total-input" readonly value="0"></td>
+            <td>
+                <button type="button" class="btn btn-danger btn-sm removeRowBtn">X</button>
+                <input type="hidden" name="items[${rowIdx}][delete]" value="0" class="delete-flag">
+            </td>
+        `;
+        tableBody.appendChild(newRow);
+        bindRowEvents(newRow);
+        rowIdx++;
+    });
+
+    // ---------- Initial grand total ----------
+    updateGrandTotal();
+});
 </script>
+
 
 
 @endsection
