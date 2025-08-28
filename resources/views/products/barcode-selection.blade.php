@@ -31,6 +31,11 @@
 
         <form action="{{ route('products.generateBarcodes') }}" method="POST">
             @csrf
+            <div class="text-end mb-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-upc-scan"></i> Generate Barcodes
+                </button>
+            </div>
             <div class="table-responsive">
                 <table class="table table-bordered table-hover align-middle" id="productsTable">
                     <thead class="table-light">
@@ -58,12 +63,6 @@
                         @endforeach
                     </tbody>
                 </table>
-            </div>
-
-            <div class="text-end">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-upc-scan"></i> Generate Barcodes
-                </button>
             </div>
         </form>
     </div>

@@ -44,7 +44,8 @@ Route::middleware(['auth'])->group(function () {
     
     Route::get('/products/barcode-selection', [ProductController::class, 'barcodeSelection'])->name('products.barcode.selection');
     Route::post('/products/generate-multiple-barcodes', [ProductController::class, 'generateMultipleBarcodes'])->name('products.generateBarcodes');
-
+    Route::get('/get-variation-by-code/{code}', [ProductController::class, 'getVariationByCode'])->name('variation.by.code');
+    
     Route::prefix('production_receiving')->name('production.receiving.')->group(function () {
         Route::get('/', [ProductionReceivingController::class, 'index'])->name('index');
         Route::get('/create', [ProductionReceivingController::class, 'create'])->name('create');

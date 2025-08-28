@@ -143,8 +143,10 @@
               <span>Reports</span>
             </a>
             <ul class="nav nav-children">
-              <li><a class="nav-link" href="{{ route('reports.item_ledger') }}">Item Ledger</a></li>
-              <li><a class="nav-link" href="{{ route('reports.party_ledger') }}">Party Ledger</a></li>
+              <li><a class="nav-link" href="{{ route('reports.item_ledger') }}">Inventory</a></li>
+              <li><a class="nav-link" href="">Production</a></li>
+              <li><a class="nav-link" href="{{ route('reports.party_ledger') }}">Accounts</a></li>
+
               <!-- @can('purchase_invoices.index')
               <li><a class="nav-link" href="{{ route('reports.purchase') }}">Purchase</a></li>
               @endcan

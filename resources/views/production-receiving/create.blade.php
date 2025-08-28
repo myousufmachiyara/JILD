@@ -138,7 +138,7 @@
     // Bind events to first row
     bindRowEvents($('#itemTable tbody tr:first'));
 
-    $(document).on('blur', '.product-code', function() {
+    $('#itemTable').on('blur', '.product-code', function() {
       const rowIndex = $(this).closest('tr').index();
       fetchByCode(rowIndex);
     });
@@ -148,14 +148,14 @@
         const row = $(this).closest('tr');
         const selectedOption = $(this).find('option:selected');
         const mfgCostInput = row.find('.manufacturing_cost');
-        
-        // Set manufacturing cost immediately
+
         const mfgCost = selectedOption.data('mfg-cost') || 0;
         mfgCostInput.val(mfgCost).trigger('change');
-        
-        // Load variations
+
         if ($(this).val()) {
-            loadVariations(row, $(this).val());
+            const preselect = $(this).data('preselectVariationId') || null;
+            $(this).removeData('preselectVariationId'); // clear after use
+            loadVariations(row, $(this).val(), preselect);
         } else {
             row.find('.variation-select').html('<option value="">Select Variation</option>');
         }
@@ -177,52 +177,46 @@
       const row = $('#itemTable tbody tr').eq(rowIndex);
       const codeInput = row.find('.product-code');
       const productSelect = row.find('.product-select');
+      const variationSelect = row.find('.variation-select');
       const mfgCostInput = row.find('.manufacturing_cost');
       const enteredCode = codeInput.val().trim();
 
       if (!enteredCode) {
-        return;
+          return;
       }
 
-      // Find matching product
-      let matchedProduct = null;
-      productSelect.find('option').each(function() {
-          const option = $(this);
-          if (option.val() === enteredCode || 
-              option.text().includes(`(${enteredCode})`)) {
-              matchedProduct = option;
-              return false; // break loop
+      $.ajax({
+        url: '/get-variation-by-code/' + encodeURIComponent(enteredCode),
+        method: 'GET',
+        success: function(res) {
+          if (res.success) {
+              console.log("Found variation:", res.variation);
+
+              // Save preselect ID BEFORE triggering change
+              productSelect.data('preselectVariationId', res.variation.id);
+
+              // Trigger product change (this will call loadVariations with preselect)
+              productSelect.val(res.variation.product_id).trigger('change');
+          } else {
+              alert(res.message || 'No variation found with code: ' + enteredCode);
+              codeInput.val('').focus();
           }
+        }
       });
-
-      if (matchedProduct) {
-          // Select the product
-          productSelect.val(matchedProduct.val()).trigger('change');
-          
-          // Set manufacturing cost
-          const mfgCost = matchedProduct.data('mfg-cost') || 0;
-          mfgCostInput.val(mfgCost).trigger('change');
-          
-          // Load variations (if needed)
-          loadVariations(row, matchedProduct.val());
-      } else {
-          alert('No product found with code: ' + enteredCode);
-          codeInput.val('').focus();
-      }
   }
 
-  function loadVariations(row, productId) {
+  function loadVariations(row, productId, preselectVariationId = null) {
       const variationSelect = row.find('.variation-select');
-      
+
       variationSelect.html('<option value="">Loading...</option>');
-      
+
       $.get(`/product/${productId}/variations`, function(data) {
           let options = '<option value="">Select Variation</option>';
           data.forEach(variation => {
               options += `<option value="${variation.id}">${variation.sku}</option>`;
           });
           variationSelect.html(options);
-          
+
           // Reinitialize Select2
           if (variationSelect.hasClass('select2-hidden-accessible')) {
               variationSelect.select2('destroy');
@@ -231,8 +225,14 @@
               width: '100%',
               dropdownAutoWidth: true
           });
+
+          // Step 3: auto-select the variation if provided
+          if (preselectVariationId) {
+              variationSelect.val(preselectVariationId).trigger('change');
+          }
       });
   }
+
 
   function addRow() {
       const table = $('#itemTable tbody');
@@ -287,28 +287,13 @@
 
   // Bind events to new row
   function bindRowEvents(row) {
-      row.find('.product-code').on('blur', function() {
-          const rowIndex = $(this).closest('tr').index();
-          fetchByCode(rowIndex);
-      });
-      
-      row.find('.product-select').on('change', function() {
-          const row = $(this).closest('tr');
-          const selectedOption = $(this).find('option:selected');
-          const mfgCost = selectedOption.data('mfg-cost') || 0;
-          row.find('.manufacturing_cost').val(mfgCost);
-          
-          if ($(this).val()) {
-              loadVariations(row, $(this).val());
-          } else {
-              row.find('.variation-select').html('<option value="">Select Variation</option>');
-          }
-          
-          calculateTotals();
-      });
-      
+      console.log("🔗 Binding events for row:", row.index());
+
+      // Quantity input event
       row.find('.received-qty').on('input', calculateTotals);
-      row.find('.remove-row-btn').on('click', function() {
+
+      // Remove row button
+      row.find('.remove-row-btn').on('click', function () {
           if ($('#itemTable tbody tr').length > 1) {
               $(this).closest('tr').remove();
               calculateTotals();

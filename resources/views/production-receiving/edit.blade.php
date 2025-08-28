@@ -161,215 +161,211 @@
     </form>
   </div>
 
-  <script>
-    let rowIndex = $('#itemTable tbody tr').length; // Set correct index for edit rows
+<script>
+  $(document).ready(function () {
+    // Init Select2
+    $('.select2-js').select2({
+        width: '100%',
+        dropdownAutoWidth: true
+    });
 
-    $(document).ready(function () {
-      $('.select2-js').select2({
-          width: '100%',
-          dropdownAutoWidth: true
-      });
+    // Bind events to all existing rows (edit mode)
+    $('#itemTable tbody tr').each(function() {
+      bindRowEvents($(this));
+    });
 
-      // Bind events to all existing rows (edit mode)
-      $('#itemTable tbody tr').each(function() {
-        bindRowEvents($(this));
-      });
+    // Blur product code → search
+    $(document).on('blur', '.product-code', function() {
+      const rowIndex = $(this).closest('tr').index();
+      fetchByCode(rowIndex);
+    });
 
-      // Product code blur
-      $(document).on('blur', '.product-code', function() {
-        const rowIndex = $(this).closest('tr').index();
-        fetchByCode(rowIndex);
-      });
+    // Product select change
+    $(document).on('change', '.product-select', function() {
+      const row = $(this).closest('tr');
+      const selectedOption = $(this).find('option:selected');
+      const mfgCostInput = row.find('.manufacturing_cost');
 
-      // Product change event
-      $(document).on('change', '.product-select', function() {
-          const row = $(this).closest('tr');
-          const selectedOption = $(this).find('option:selected');
-          const mfgCostInput = row.find('.manufacturing_cost');
+      const mfgCost = selectedOption.data('mfg-cost') || 0;
+      mfgCostInput.val(mfgCost).trigger('change');
 
-          const mfgCost = selectedOption.data('mfg-cost') || 0;
-          mfgCostInput.val(mfgCost).trigger('change');
-
-          if ($(this).val()) {
-              loadVariations(row, $(this).val());
-          } else {
-              row.find('.variation-select').html('<option value="">Select Variation</option>');
-          }
-
-          calculateTotals();
-      });
-
-      // Variation change
-      $(document).on('change', '.variation-select', function () {
-        calculateTotals();
-      });
-
-      // Qty input
-      $(document).on('input', '.received-qty', function () {
-        calculateTotals();
-      });
-
-      // Remove row
-      $(document).on('click', '.remove-row-btn', function () {
-        if ($('#itemTable tbody tr').length > 1) {
-          $(this).closest('tr').remove();
-          calculateTotals();
-        }
-      });
+      if ($(this).val()) {
+          const preselect = $(this).data('preselectVariationId') || null;
+          $(this).removeData('preselectVariationId');
+          loadVariations(row, $(this).val(), preselect);
+      } else {
+          row.find('.variation-select').html('<option value="">Select Variation</option>');
+      }
 
       calculateTotals();
     });
 
-    function fetchByCode(rowIndex) {
-      const row = $('#itemTable tbody tr').eq(rowIndex);
-      const codeInput = row.find('.product-code');
-      const productSelect = row.find('.product-select');
-      const mfgCostInput = row.find('.manufacturing_cost');
-      const enteredCode = codeInput.val().trim();
+    // Variation select change
+    $(document).on('change', '.variation-select', calculateTotals);
 
-      if (!enteredCode) return;
+    // Qty input
+    $(document).on('input', '.received-qty', calculateTotals);
 
-      let matchedProduct = null;
-      productSelect.find('option').each(function() {
-        const option = $(this);
-        if (option.val() === enteredCode || option.text().includes(`(${enteredCode})`)) {
-          matchedProduct = option;
-          return false;
-        }
-      });
-
-      if (matchedProduct) {
-        productSelect.val(matchedProduct.val()).trigger('change');
-        const mfgCost = matchedProduct.data('mfg-cost') || 0;
-        mfgCostInput.val(mfgCost).trigger('change');
-        loadVariations(row, matchedProduct.val());
-      } else {
-        alert('No product found with code: ' + enteredCode);
-        codeInput.val('').focus();
+    // Remove row
+    $(document).on('click', '.remove-row-btn', function () {
+      if ($('#itemTable tbody tr').length > 1) {
+        $(this).closest('tr').remove();
+        calculateTotals();
       }
-    }
+    });
 
-    function loadVariations(row, productId) {
-      const variationSelect = row.find('.variation-select');
-      variationSelect.html('<option value="">Loading...</option>');
+    // Init totals
+    calculateTotals();
 
-      $.get(`/product/${productId}/variations`, function(data) {
-        let options = '<option value="">Select Variation</option>';
-        data.forEach(variation => {
-          options += `<option value="${variation.id}">${variation.sku}</option>`;
-        });
-        variationSelect.html(options);
+    // Ensure variations are preloaded in edit mode
+    $('#itemTable tbody tr').each(function() {
+      const row = $(this);
+      const productId = row.find('.product-select').val();
+      const variationId = row.find('.variation-select').val();
+      if (productId) {
+        loadVariations(row, productId, variationId);
+      }
+    });
+  });
 
-        if (variationSelect.hasClass('select2-hidden-accessible')) {
-          variationSelect.select2('destroy');
+  function fetchByCode(rowIndex) {
+    const row = $('#itemTable tbody tr').eq(rowIndex);
+    const codeInput = row.find('.product-code');
+    const productSelect = row.find('.product-select');
+    const enteredCode = codeInput.val().trim();
+
+    if (!enteredCode) return;
+
+    $.ajax({
+      url: '/get-variation-by-code/' + encodeURIComponent(enteredCode),
+      method: 'GET',
+      success: function(res) {
+        if (res.success) {
+          console.log("Found variation:", res.variation);
+          productSelect.data('preselectVariationId', res.variation.id);
+          productSelect.val(res.variation.product_id).trigger('change');
+        } else {
+          alert(res.message || 'No variation found with code: ' + enteredCode);
+          codeInput.val('').focus();
         }
+      },
+      error: function() {
+        alert('Error fetching variation details.');
+      }
+    });
+  }
 
-        variationSelect.select2({
-          width: '100%',
-          dropdownAutoWidth: true
-        });
+  function loadVariations(row, productId, preselectVariationId = null) {
+    const variationSelect = row.find('.variation-select');
+    variationSelect.html('<option value="">Loading...</option>');
+
+    $.get(`/product/${productId}/variations`, function(data) {
+      let options = '<option value="">Select Variation</option>';
+      data.forEach(variation => {
+        options += `<option value="${variation.id}">${variation.sku}</option>`;
       });
-    }
+      variationSelect.html(options);
 
-    function addRow() {
-      const table = $('#itemTable tbody');
-      const newIndex = table.find('tr').length;
+      if (variationSelect.hasClass('select2-hidden-accessible')) {
+        variationSelect.select2('destroy');
+      }
 
-      const newRow = $(`
-        <tr>
-          <td><input type="text" class="form-control product-code" placeholder="Enter Product Code"></td>
-          <td>
-            <select name="item_details[${newIndex}][product_id]" class="form-control select2-js product-select" required>
-              <option value="">Select Item</option>
-              @foreach($products as $item)
-                <option value="{{ $item->id }}" data-mfg-cost="{{ $item->manufacturing_cost }}" data-unit-id="{{ $item->unit_id }}" data-barcode="{{ $item->barcode }}">
-                  {{ $item->name }}
-                </option>
-              @endforeach
-            </select>
-          </td>
-          <td>
-            <select name="item_details[${newIndex}][variation_id]" class="form-control select2-js variation-select">
-              <option value="">Select Variation</option>
-            </select>
-          </td>
-          <td><input type="number" name="item_details[${newIndex}][manufacturing_cost]" class="form-control manufacturing_cost" step="0.0001" value="0" readonly></td>
-          <td><input type="number" name="item_details[${newIndex}][received_qty]" class="form-control received-qty" step="any" value="0" required></td>
-          <td><input type="text" name="item_details[${newIndex}][remarks]" class="form-control"></td>
-          <td><input type="number" name="item_details[${newIndex}][total]" class="form-control row-total" step="any" value="0" readonly></td>
-          <td><button type="button" class="btn btn-danger btn-sm remove-row-btn"><i class="fas fa-times"></i></button></td>
-        </tr>
-      `);
-
-      table.append(newRow);
-
-      newRow.find('.select2-js').select2({
+      variationSelect.select2({
         width: '100%',
         dropdownAutoWidth: true
       });
 
-      newRow.find('.product-code').focus();
-      bindRowEvents(newRow);
-    }
+      // auto-select variation if provided
+      if (preselectVariationId) {
+        variationSelect.val(preselectVariationId).trigger('change');
+      }
+    });
+  }
 
-    function bindRowEvents(row) {
-      row.find('.product-code').on('blur', function () {
-        const rowIndex = $(this).closest('tr').index();
-        fetchByCode(rowIndex);
-      });
+  function addRow() {
+    const table = $('#itemTable tbody');
+    const newIndex = table.find('tr').length;
 
-      row.find('.product-select').on('change', function () {
-        const selectedOption = $(this).find('option:selected');
-        const mfgCost = selectedOption.data('mfg-cost') || 0;
-        row.find('.manufacturing_cost').val(mfgCost);
+    const newRow = $(`
+      <tr>
+        <td><input type="text" class="form-control product-code" placeholder="Enter Product Code"></td>
+        <td>
+          <select name="item_details[${newIndex}][product_id]" 
+                  class="form-control select2-js product-select" required>
+            <option value="">Select Item</option>
+            @foreach($products as $item)
+              <option value="{{ $item->id }}" 
+                      data-mfg-cost="{{ $item->manufacturing_cost }}"
+                      data-unit-id="{{ $item->unit_id }}"
+                      data-barcode="{{ $item->barcode }}">
+                {{ $item->name }}
+              </option>
+            @endforeach
+          </select>
+        </td>
+        <td>
+          <select name="item_details[${newIndex}][variation_id]" class="form-control select2-js variation-select">
+            <option value="">Select Variation</option>
+          </select>
+        </td>
+        <td><input type="number" name="item_details[${newIndex}][manufacturing_cost]" class="form-control manufacturing_cost" step="0.0001" value="0" readonly></td>
+        <td><input type="number" name="item_details[${newIndex}][received_qty]" class="form-control received-qty" step="any" value="0" required></td>
+        <td><input type="text" name="item_details[${newIndex}][remarks]" class="form-control"></td>
+        <td><input type="number" name="item_details[${newIndex}][total]" class="form-control row-total" step="any" value="0" readonly></td>
+        <td><button type="button" class="btn btn-danger btn-sm remove-row-btn"><i class="fas fa-times"></i></button></td>
+      </tr>
+    `);
 
-        if ($(this).val()) {
-          loadVariations(row, $(this).val());
-        } else {
-          row.find('.variation-select').html('<option value="">Select Variation</option>');
-        }
+    table.append(newRow);
 
+    newRow.find('.select2-js').select2({
+      width: '100%',
+      dropdownAutoWidth: true
+    });
+
+    newRow.find('.product-code').focus();
+    bindRowEvents(newRow);
+  }
+
+  function bindRowEvents(row) {
+    row.find('.received-qty').on('input', calculateTotals);
+    row.find('.remove-row-btn').on('click', function () {
+      if ($('#itemTable tbody tr').length > 1) {
+        $(this).closest('tr').remove();
         calculateTotals();
-      });
+      }
+    });
+  }
 
-      row.find('.received-qty').on('input', calculateTotals);
+  function calculateTotals() {
+    let totalQty = 0, totalAmt = 0;
 
-      row.find('.remove-row-btn').on('click', function () {
-        if ($('#itemTable tbody tr').length > 1) {
-          $(this).closest('tr').remove();
-          calculateTotals();
-        }
-      });
-    }
+    $('#itemTable tbody tr').each(function () {
+      const qty = parseFloat($(this).find('.received-qty').val()) || 0;
+      const cost = parseFloat($(this).find('.manufacturing_cost').val()) || 0;
+      const rowTotal = qty * cost;
+      $(this).find('.row-total').val(rowTotal.toFixed(2));
 
-    function calculateTotals() {
-      let totalQty = 0, totalAmt = 0;
+      totalQty += qty;
+      totalAmt += rowTotal;
+    });
 
-      $('#itemTable tbody tr').each(function () {
-        const qty = parseFloat($(this).find('.received-qty').val()) || 0;
-        const cost = parseFloat($(this).find('.manufacturing_cost').val()) || 0;
-        const rowTotal = qty * cost;
-        $(this).find('.row-total').val(rowTotal.toFixed(2));
+    $('#total_pcs').val(totalQty);
+    $('#total_pcs_val').val(totalQty);
+    $('#total_amt').val(totalAmt.toFixed(2));
+    $('#total_amt_val').val(totalAmt.toFixed(2));
+    calcNet();
+  }
 
-        totalQty += qty;
-        totalAmt += rowTotal;
-      });
+  function calcNet() {
+    const total = parseFloat($('#total_amt_val').val()) || 0;
+    const conveyance = parseFloat($('#convance_charges').val()) || 0;
+    const discount = parseFloat($('#bill_discount').val()) || 0;
+    const net = total + conveyance - discount;
+    $('#netAmountText').text(net.toFixed(2));
+    $('#net_amount').val(net.toFixed(2));
+  }
+</script>
 
-      $('#total_pcs').val(totalQty);
-      $('#total_pcs_val').val(totalQty);
-      $('#total_amt').val(totalAmt.toFixed(2));
-      $('#total_amt_val').val(totalAmt.toFixed(2));
-      calcNet();
-    }
-
-    function calcNet() {
-      const total = parseFloat($('#total_amt_val').val()) || 0;
-      const conveyance = parseFloat($('#convance_charges').val()) || 0;
-      const discount = parseFloat($('#bill_discount').val()) || 0;
-      const net = total + conveyance - discount;
-      $('#netAmountText').text(net.toFixed(2));
-      $('#net_amount').val(net.toFixed(2));
-    }
-  </script>
 
 @endsection

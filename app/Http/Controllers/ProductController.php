@@ -391,4 +391,27 @@ class ProductController extends Controller
 
         return redirect()->route('products.index')->with('success', 'Product deleted successfully.');
     }
+
+    public function getVariationByCode($code)
+    {
+        $variation = ProductVariation::with('product')
+        ->where('barcode', $code)
+        ->first();
+
+        if (!$variation) {
+            return response()->json(['success' => false, 'message' => 'Variation not found']);
+        }
+
+        return response()->json([
+            'success' => true,
+            'variation' => [
+                'id' => $variation->id,                // variation id
+                'sku' => $variation->sku,
+                'barcode' => $variation->barcode,
+                'product_id' => $variation->product_id, // parent product
+                'product_name' => $variation->product->name,
+            ]
+        ]);
+    }
+
 }
