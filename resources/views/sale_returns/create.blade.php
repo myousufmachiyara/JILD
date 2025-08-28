@@ -36,7 +36,6 @@
               <label for="return_date">Date</label>
               <input type="date" name="return_date" class="form-control" value="{{ date('Y-m-d') }}" required>
             </div>
-
             <div class="col-md-2">
               <label for="sale_invoice_no">Sale Inv #</label>
               <input type="text" name="sale_invoice_no" class="form-control">
@@ -52,7 +51,9 @@
                 <th width="8%">Qty</th>
                 <th width="10%">Price</th>
                 <th width="12%">Total</th>
-                <th width="5%"><button type="button" class="btn btn-sm btn-success" id="addRow"><i class="fas fa-plus"></i></button></th>
+                <th width="5%">
+                  <button type="button" class="btn btn-sm btn-success" id="addRow"><i class="fas fa-plus"></i></button>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -103,6 +104,9 @@
 $(document).ready(function () {
     let rowIndex = 1;
 
+    // Initialize Select2 for existing selects
+    $('.product-select, .variation-select').select2({ width: '100%', dropdownAutoWidth: true });
+
     // Add new row
     $("#addRow").click(function () {
         let newRow = `<tr>
@@ -126,6 +130,7 @@ $(document).ready(function () {
             <td><button type="button" class="btn btn-sm btn-danger removeRow"><i class="fas fa-trash"></i></button></td>
           </tr>`;
         $("#itemsTable tbody").append(newRow);
+        $('#itemsTable tbody tr:last .product-select, #itemsTable tbody tr:last .variation-select').select2({ width: '100%', dropdownAutoWidth: true });
         rowIndex++;
     });
 
@@ -135,50 +140,83 @@ $(document).ready(function () {
         calculateNetAmount();
     });
 
-    // Price change → recalc total
-    $(document).on("input", ".price", function () {
+    // Recalculate row total
+    $(document).on("input", ".price, .qty", function () {
         let row = $(this).closest("tr");
-        let price = parseFloat($(this).val()) || 0;
+        let price = parseFloat(row.find(".price").val()) || 0;
         let qty = parseFloat(row.find(".qty").val()) || 1;
         row.find(".total").val((qty * price).toFixed(2));
         calculateNetAmount();
     });
-    
-    // Product change → fetch base price + load variations
+
+    // Product change → load variations
     $(document).on("change", ".product-select", function () {
         let row = $(this).closest("tr");
-        let selectedOption = $(this).find(":selected");
-        let productPrice = selectedOption.data("price") || 0;
+        let productId = $(this).val();
+        let $variationSelect = row.find(".variation-select");
+        const preselectVariationId = $(this).data('preselectVariationId') || null;
+        $(this).removeData('preselectVariationId');
 
+        // Set price from product
+        let productPrice = $(this).find(":selected").data("price") || 0;
         row.find(".price").val(productPrice);
-        let qty = row.find(".qty").val() || 1;
+        let qty = parseFloat(row.find(".qty").val()) || 1;
         row.find(".total").val((qty * productPrice).toFixed(2));
 
-        // Load variations for selected product
-        let productId = $(this).val();
-        let variationSelect = row.find(".variation-select");
-        variationSelect.empty().append('<option value="">Loading...</option>');
         if (productId) {
-          $.get(`/product/${productId}/variations`, function (data) {
-            variationSelect.empty().append('<option value="">Select Variation</option>');
-            data.forEach(function (v) {
-              variationSelect.append(`<option value="${v.id}" data-price="${v.price}">${v.sku}</option>`);
+            $variationSelect.empty().append('<option value="">Loading...</option>');
+            $.get(`/product/${productId}/variations`, function (data) {
+                $variationSelect.empty().append('<option value="">Select Variation</option>');
+                data.forEach(function (v) {
+                    $variationSelect.append(`<option value="${v.id}" data-price="${v.price}">${v.sku}</option>`);
+                });
+                if (preselectVariationId) {
+                    $variationSelect.val(preselectVariationId).trigger('change');
+                }
             });
-          });
         } else {
-          variationSelect.empty().append('<option value="">Select Variation</option>');
+            $variationSelect.empty().append('<option value="">Select Variation</option>');
         }
-
         calculateNetAmount();
     });
 
-    // Qty change → recalc total
-    $(document).on("input", ".qty", function () {
+    // Barcode blur → fetch variation by code
+    $(document).on("blur", ".product-code", function () {
         let row = $(this).closest("tr");
-        let qty = $(this).val();
-        let price = row.find(".price").val();
-        row.find(".total").val((qty * price).toFixed(2));
-        calculateNetAmount();
+        let barcode = $(this).val().trim();
+        if (!barcode) return;
+
+        $.ajax({
+            url: '/get-variation-by-code/' + encodeURIComponent(barcode),
+            method: 'GET',
+            success: function (res) {
+                if (res.success && res.variation) {
+                    let variation = res.variation;
+                    let $productSelect = row.find('.product-select');
+
+                    // Save preselectVariationId to use after product change
+                    $productSelect.data('preselectVariationId', variation.id);
+
+                    // Trigger product change to fetch variations and preselect
+                    $productSelect.val(variation.product_id).trigger('change');
+
+                    // Optional: use variation price
+                    if (variation.price !== undefined && variation.price !== null) {
+                        row.find('.price').val(variation.price);
+                        let qty = parseFloat(row.find(".qty").val()) || 1;
+                        row.find(".total").val((qty * variation.price).toFixed(2));
+                        calculateNetAmount();
+                    }
+
+                } else {
+                    alert(res.message || "No variation found for barcode: " + barcode);
+                    row.find('.product-code').val('').focus();
+                }
+            },
+            error: function () {
+                alert('Error fetching variation by barcode.');
+            }
+        });
     });
 
     function calculateNetAmount() {

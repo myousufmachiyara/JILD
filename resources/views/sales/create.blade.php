@@ -124,44 +124,118 @@
 </div>
 
 <script>
-  let rowIndex = 1;
+  // Start from however many rows are already in the table (usually 1)
+  let rowIndex = $('#itemTable tbody tr').length || 1;
 
   $(document).ready(function () {
-    $('.select2-js').select2();
+    // Init select2 on existing controls
+    $('.select2-js').select2({ width: '100%', dropdownAutoWidth: true });
 
-    // Bind initial row
-    bindRowEvents($('#itemTable tbody tr').first());
+    // Delegate: product change -> load variations + set price
+    $(document).on('change', '.product-select', function () {
+      const row = $(this).closest('tr');
+      const productId = $(this).val();
+
+      // Auto-fill price from product option (fallback price)
+      const productPrice = $(this).find(':selected').data('price') || 0;
+      row.find('.sale-price').val(productPrice);
+
+      // If we set a variation via barcode, we temporarily saved it on the product select
+      const preselectVariationId = $(this).data('preselectVariationId') || null;
+      $(this).removeData('preselectVariationId'); // clear flag after using
+
+      if (productId) {
+        loadVariations(row, productId, preselectVariationId);
+      } else {
+        const $variationSelect = row.find('.variation-select');
+        $variationSelect.html('<option value="">Select Variation</option>').trigger('change');
+      }
+
+      calcRowTotal(row);
+    });
+
+    // Delegate: barcode blur → set product then (after AJAX) set variation
+    $(document).on('blur', '.product-code', function () {
+      const row = $(this).closest('tr');
+      const barcode = $(this).val().trim();
+      if (!barcode) return;
+
+      $.ajax({
+        url: '/get-variation-by-code/' + encodeURIComponent(barcode),
+        method: 'GET',
+        success: function (res) {
+          if (res.success && res.variation) {
+            const variation = res.variation;
+
+            const $productSelect = row.find('.product-select');
+
+            // ✅ set preselectVariationId BEFORE triggering change
+            $productSelect.data('preselectVariationId', variation.id);
+
+            // now set product and trigger change (this will call loadVariations)
+            $productSelect.val(variation.product_id).trigger('change');
+
+            // optionally store variation price
+            if (typeof variation.price !== 'undefined' && variation.price !== null) {
+              row.data('preferPrice', Number(variation.price));
+            }
+          } else {
+            alert(res.message || ('No variation found for code: ' + barcode));
+            row.find('.product-code').val('').focus();
+          }
+        },
+        error: function () {
+          alert('Error fetching variation details.');
+        }
+      });
+    });
+
+    // Delegate: any price/qty/discount change -> recalc this row
+    $(document).on('input', '.sale-price, .quantity, .disc-price', function () {
+      calcRowTotal($(this).closest('tr'));
+    });
+
+    // Initial totals
     calcTotal();
+
+    // Invoice-level discount -> recalc net
+    $(document).on('input', '#discountInput', calcTotal);
   });
 
+  // Create and append a new item row
   function addRow() {
-    const row = `
+    const idx = rowIndex++;
+    const rowHtml = `
       <tr>
         <td><input type="text" class="form-control product-code" placeholder="Scan/Enter Code"></td>
         <td>
-          <select name="items[${rowIndex}][product_id]" class="form-control select2-js product-select" required>
+          <select name="items[${idx}][product_id]" class="form-control select2-js product-select" required>
             <option value="">Select Product</option>
             @foreach($products as $product)
-              <option value="{{ $product->id }}" data-price="{{ $product->selling_price }}" >{{ $product->name }}</option>
+              <option value="{{ $product->id }}" data-price="{{ $product->selling_price }}">{{ $product->name }}</option>
             @endforeach
           </select>
         </td>
         <td>
-          <select name="items[${rowIndex}][variation_id]" class="form-control select2-js variation-select" required>
+          <select name="items[${idx}][variation_id]" class="form-control select2-js variation-select" required>
             <option value="">Select Variation</option>
           </select>
         </td>
-        <td><input type="number" name="items[${rowIndex}][sale_price]" class="form-control sale-price" step="any" required></td>
-        <td><input type="number" name="items[${rowIndex}][disc_price]" class="form-control disc-price" step="any"></td>
-        <td><input type="number" name="items[${rowIndex}][quantity]" class="form-control quantity" step="any" required></td>
-        <td><input type="number" name="items[${rowIndex}][total]" class="form-control row-total" readonly></td>
+        <td><input type="number" name="items[${idx}][sale_price]" class="form-control sale-price" step="any" required></td>
+        <td><input type="number" name="items[${idx}][disc_price]" class="form-control disc-price" step="any" value="0"></td>
+        <td><input type="number" name="items[${idx}][quantity]" class="form-control quantity" step="any" required></td>
+        <td><input type="number" name="items[${idx}][total]" class="form-control row-total" readonly></td>
         <td><button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>
       </tr>
     `;
-    $('#itemTable tbody').append(row);
-    const newRow = $('#itemTable tbody tr').last();
-    bindRowEvents(newRow);
-    rowIndex++;
+    $('#itemTable tbody').append(rowHtml);
+
+    // Init select2 for the new selects
+    const $newRow = $('#itemTable tbody tr').last();
+    $newRow.find('.select2-js').select2({ width: '100%', dropdownAutoWidth: true });
+
+    // Focus the barcode input for quick scanning
+    $newRow.find('.product-code').focus();
   }
 
   function removeRow(btn) {
@@ -169,44 +243,47 @@
     calcTotal();
   }
 
-  function bindRowEvents(row) {
-    row.find('.select2-js').select2();
+  // Fetch variations, populate the dropdown, then preselect if given
+  function loadVariations(row, productId, preselectVariationId = null) {
+    const $variationSelect = row.find('.variation-select');
+    $variationSelect.html('<option value="">Loading...</option>');
 
-    // Product => Load variations + set price
-    row.find('.product-select').on('change', function () {
-      const productId = $(this).val();
-      const variationSelect = row.find('.variation-select');
-      variationSelect.empty().append('<option value="">Loading...</option>');
+    $.get(`/product/${productId}/variations`, function (data) {
+      let options = '<option value="">Select Variation</option>';
+      (data || []).forEach(v => {
+        options += `<option value="${v.id}">${v.sku}</option>`;
+      });
+      $variationSelect.html(options);
 
-      // ✅ Auto-fill price
-      const selectedOption = $(this).find(':selected');
-      const productPrice = selectedOption.data('price') || 0;
-      row.find('.sale-price').val(productPrice);
+      // Re-init select2 safely
+      if ($variationSelect.hasClass('select2-hidden-accessible')) {
+        $variationSelect.select2('destroy');
+      }
+      $variationSelect.select2({ width: '100%', dropdownAutoWidth: true });
 
-      if (productId) {
-        $.get(`/product/${productId}/variations`, function (data) {
-          variationSelect.empty().append('<option value="">Select Variation</option>');
-          data.forEach(function (v) {
-            variationSelect.append(`<option value="${v.id}">${v.sku}</option>`);
-          });
-        });
+      // Preselect the variation if requested (barcode flow)
+      if (preselectVariationId) {
+        $variationSelect.val(String(preselectVariationId)).trigger('change');
+      }
+
+      // If a preferred price (from barcode’s variation) was stored, apply it now
+      const preferPrice = row.data('preferPrice');
+      if (typeof preferPrice !== 'undefined') {
+        row.find('.sale-price').val(Number(preferPrice));
+        row.removeData('preferPrice');
       }
 
       calcRowTotal(row);
     });
-
-    // Price, Qty, Discount => Recalculate
-    row.find('.sale-price, .quantity, .disc-price').on('input', function () {
-      calcRowTotal(row);
-    });
   }
 
+  // Row-level total
   function calcRowTotal(row) {
     const price = parseFloat(row.find('.sale-price').val()) || 0;
     const qty = parseFloat(row.find('.quantity').val()) || 0;
     const discPercent = parseFloat(row.find('.disc-price').val()) || 0;
 
-    // ✅ Apply discount %
+    // Discount as percentage
     const discountedPrice = price - (price * discPercent / 100);
     const total = discountedPrice * qty;
 
@@ -214,26 +291,21 @@
     calcTotal();
   }
 
+  // Invoice total
   function calcTotal() {
     let total = 0;
     $('.row-total').each(function () {
       total += parseFloat($(this).val()) || 0;
     });
 
-    // Invoice level discount
     const invoiceDiscount = parseFloat($('#discountInput').val()) || 0;
     const netAmount = total - invoiceDiscount;
 
     $('#netAmountText').text(netAmount.toFixed(2));
     $('#netAmountInput').val(netAmount.toFixed(2));
   }
-
-  // Recalculate when invoice discount changes
-  $(document).on('input', '#discountInput', function () {
-    calcTotal();
-  });
-
 </script>
+
 
 
 @endsection
