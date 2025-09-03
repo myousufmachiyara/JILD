@@ -186,7 +186,7 @@
 
     $.get(`/product/${productId}/variations`, function (data) {
       let options = '<option value="">Select Variation</option>';
-      (data || []).forEach(v => {
+      (data.variation || []).forEach(v => {
         options += `<option value="${v.id}">${v.sku}</option>`;
       });
       $variationSelect.html(options);
@@ -201,5 +201,7 @@
       }
     });
   }
+  
 </script>
+
 @endsection

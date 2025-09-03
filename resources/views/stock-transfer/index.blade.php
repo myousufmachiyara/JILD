@@ -37,7 +37,7 @@
                 <td>{{ $transfer->date }}</td>
                 <td>{{ $transfer->fromLocation->name ?? '-' }}</td>
                 <td>{{ $transfer->toLocation->name ?? '-' }}</td>
-                <td>{{ $transfer->items->sum('quantity') }}</td>
+                <td>{{ $transfer->details->sum('quantity') }}</td>
                 <td>
                   <a href="{{ route('stock_transfer.edit', $transfer->id) }}" class="text-primary"><i class="fas fa-edit"></i></a>
                   <a href="{{ route('stock_transfer.print', $transfer->id) }}" target="_blank" class="text-success"><i class="fas fa-print"></i></a>

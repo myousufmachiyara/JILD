@@ -250,30 +250,20 @@
 
     $.get(`/product/${productId}/variations`, function (data) {
       let options = '<option value="">Select Variation</option>';
-      (data || []).forEach(v => {
+      console.log(data.variation);
+      (data.variation || []).forEach(v => {
         options += `<option value="${v.id}">${v.sku}</option>`;
       });
       $variationSelect.html(options);
 
-      // Re-init select2 safely
       if ($variationSelect.hasClass('select2-hidden-accessible')) {
         $variationSelect.select2('destroy');
       }
       $variationSelect.select2({ width: '100%', dropdownAutoWidth: true });
 
-      // Preselect the variation if requested (barcode flow)
       if (preselectVariationId) {
         $variationSelect.val(String(preselectVariationId)).trigger('change');
       }
-
-      // If a preferred price (from barcode’s variation) was stored, apply it now
-      const preferPrice = row.data('preferPrice');
-      if (typeof preferPrice !== 'undefined') {
-        row.find('.sale-price').val(Number(preferPrice));
-        row.removeData('preferPrice');
-      }
-
-      calcRowTotal(row);
     });
   }
 

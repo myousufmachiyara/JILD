@@ -414,4 +414,33 @@ class ProductController extends Controller
         ]);
     }
 
+    public function getVariations($productId)
+    {
+        $variations = ProductVariation::where('product_id', $productId)->get();
+
+        if ($variations->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'variation' => [],
+                'message' => 'No variations found for this product.'
+            ]);
+        }
+
+        $variationArray = $variations->map(function($v) {
+            return [
+                'id' => $v->id,
+                'sku' => $v->sku,
+                'barcode' => $v->barcode,
+                'product_id' => $v->product_id,
+                'product_name' => $v->product->name ?? '',
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'variation' => $variationArray
+        ]);
+    }
+
+
 }

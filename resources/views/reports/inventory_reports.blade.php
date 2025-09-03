@@ -21,7 +21,7 @@
                         <label>Select Item</label>
                         <select name="item_id" class="form-control" required>
                             <option value="">-- Select Item --</option>
-                            @foreach($items as $item)
+                            @foreach($products as $item)
                                 <option value="{{ $item->id }}" {{ request('item_id')==$item->id?'selected':'' }}>{{ $item->name }}</option>
                             @endforeach
                         </select>
@@ -62,7 +62,7 @@
                         <label>Select Item</label>
                         <select name="item_id" class="form-control">
                             <option value="">-- All Items --</option>
-                            @foreach($items as $item)
+                            @foreach($products as $item)
                                 <option value="{{ $item->id }}" {{ request('item_id')==$item->id?'selected':'' }}>{{ $item->name }}</option>
                             @endforeach
                         </select>
@@ -74,7 +74,7 @@
             <table class="table table-bordered table-striped">
                 <thead><tr><th>Item</th><th>Stock Inhand</th><th>Unit</th></tr></thead>
                 <tbody>
-                    @forelse($stockInhand as $stock)
+                    @forelse($stockInHand as $stock)
                         <tr>
                             <td>{{ $stock->name }}</td>
                             <td>{{ $stock->quantity }}</td>

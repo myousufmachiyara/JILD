@@ -256,7 +256,9 @@
             console.log("📥 Variations fetched:", data);
 
             let html = '<option value="">Select Variation</option>';
-            (data || []).forEach(v => {
+
+            // Make sure data.variations is an array
+            (data.variations || []).forEach(v => {
                 html += `<option value="${v.id}">${v.sku}</option>`;
             });
 
@@ -279,9 +281,9 @@
 
             calcRowTotal($row);
         });
+
     });
 
-    // ---------- BARCODE blur ----------
     $row.find('.product-code').off('blur').on('blur', function () {
         const barcode = $(this).val().trim();
         if (!barcode) return;
@@ -297,19 +299,21 @@
                 if (res.success && res.variation) {
                     const variation = res.variation;
                     const $productSelect = $row.find('.product-select');
+                    const $variationSelect = $row.find('.variation-select');
 
-                    // Clear previous wanted data
-                    $row.removeData('wantedVariationId');
-                    $row.removeData('preferPrice');
-
-                    // Set wanted variation and prefer price
+                    // Store the desired variation ID
                     $row.data('wantedVariationId', variation.id);
-                    if (variation.price !== undefined && variation.price !== null) {
-                        $row.data('preferPrice', Number(variation.price));
-                    }
 
-                    // Set product -> triggers product change -> fetches new variations
-                    setProductSelectValue($productSelect, variation.product_id);
+                    // Set the product -> triggers change -> calls loadVariations
+                    $productSelect.val(variation.product_id).trigger('change');
+
+                    // Wait for loadVariations to populate options, then preselect
+                    const waitForOptions = setInterval(() => {
+                        if ($variationSelect.find('option').length > 1) {
+                            $variationSelect.val(variation.id).trigger('change');
+                            clearInterval(waitForOptions);
+                        }
+                    }, 50);
 
                 } else {
                     alert(res.message || 'No variation found for this barcode');
@@ -321,53 +325,6 @@
             }
         });
     });
-
-    // BARCODE blur
-    // ---------- BARCODE blur ----------
-    $row.find('.product-code').off('blur').on('blur', function () {
-      const barcode = $(this).val().trim();
-      if (!barcode) return;
-
-      console.log("🔍 Barcode entered:", barcode);
-
-      $.ajax({
-        url: '/get-variation-by-code/' + encodeURIComponent(barcode),
-        method: 'GET',
-        success: function (res) {
-          console.log("📡 Barcode response:", res);
-
-          if (res.success && res.variation) {
-            const variation = res.variation;
-            const $productSelect = $row.find('.product-select');
-            const $variationSelect = $row.find('.variation-select');
-
-            // Clear previous variation options
-            if ($variationSelect.hasClass('select2-hidden-accessible')) $variationSelect.select2('destroy');
-            $variationSelect.html('<option value="">Select Variation</option>').select2({ width: '100%', dropdownAutoWidth: true });
-
-            // Set new wanted variation & prefer price
-            $row.data('wantedVariationId', variation.id);
-            if (variation.price !== undefined && variation.price !== null) {
-              $row.data('preferPrice', Number(variation.price));
-            }
-
-            // Always suppress product change handler for barcode-triggered update
-            $row.data('suppressProductChange', true);
-
-            // Set product value -> triggers product change -> fetches variations
-            setProductSelectValue($productSelect, variation.product_id);
-
-          } else {
-            alert(res.message || 'No variation found for this barcode');
-            $row.find('.product-code').val('').focus();
-          }
-        },
-        error: function () {
-          alert('Error fetching variation by barcode.');
-        }
-      });
-    });
-
 
     // recalc totals
     $row.find('.sale-price, .quantity, .disc-price').off('input').on('input', function () {
