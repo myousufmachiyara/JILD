@@ -28,13 +28,13 @@
           {{-- User Management --}}
           @if(auth()->user()->can('user_roles.index') || auth()->user()->can('users.index'))
           <li class="nav-parent">
-            <a class="nav-link" href="#"><i class="fa fa-user-shield"></i> <span>User Management</span></a>
+            <a class="nav-link" href="#"><i class="fa fa-user-shield"></i> <span>Users</span></a>
             <ul class="nav nav-children">
               @can('user_roles.index')
               <li><a class="nav-link" href="{{ route('roles.index') }}">Roles & Permissions</a></li>
               @endcan
               @can('users.index')
-              <li><a class="nav-link" href="{{ route('users.index') }}">Users</a></li>
+              <li><a class="nav-link" href="{{ route('users.index') }}">All Users</a></li>
               @endcan
             </ul>
           </li>
@@ -68,15 +68,19 @@
           @endif
 
           {{-- Stock Management --}}
-          @can('products.index')
+          @if(auth()->user()->can('locations.index') || auth()->user()->can('stock_transfer.index'))
           <li class="nav-parent">
-            <a class="nav-link" href="#"><i class="fa fa-cubes"></i> <span>Stock Management</span></a>
+            <a class="nav-link" href="#"><i class="fa fa-cubes"></i> <span>Stock Transfer</span></a>
             <ul class="nav nav-children">
-              <li><a class="nav-link">Locations</a></li>
-              <li><a class="nav-link">Stock Transfer</a></li>
+              @can('locations.index')
+                <li><a class="nav-link" href="{{ route('locations.index') }}">Locations</a></li>
+              @endcan
+              @can('stock_transfer.index')
+                <li><a class="nav-link" href="{{ route('stock_transfer.index') }}">Transfer</a></li>
+              @endcan
             </ul>
           </li>
-          @endcan
+          @endif
 
           {{-- Purchase Invoices --}}
           @if(auth()->user()->can('purchase_invoices.index') || auth()->user()->can('purchase_return.index'))
@@ -126,21 +130,38 @@
             <li><a class="nav-link" href="{{ route('payment_vouchers.index') }}"><i class="fa fa-money-check"></i><span>Vouchers</span></a></li>
           @endcan
 
+          {{-- Reports --}}
+          @if(
+            auth()->user()->can('reports.inventory') || 
+            auth()->user()->can('reports.purchase') || 
+            auth()->user()->can('reports.production') || 
+            auth()->user()->can('reports.sales') || 
+            auth()->user()->can('reports.accounts')
+          )
           <li class="nav-parent">
             <a class="nav-link" href="#">
               <i class="fa fa-chart-bar"></i>
               <span>Reports</span>
             </a>
             <ul class="nav nav-children">
-              <li><a class="nav-link" href="{{ route('reports.inventory_reports') }}">Inventory</a></li>
-              <li><a class="nav-link" href="{{ route('reports.purchase_reports') }}">Purchase</a></li>
-              <li><a class="nav-link" href="{{ route('reports.production_reports') }}">Production</a></li>
-              <li><a class="nav-link" href="{{ route('reports.sales_reports') }}">Sales</a></li>
-              <li><a class="nav-link" href="{{ route('reports.accounts_reports') }}">Accounts</a></li>
-              <li><a class="nav-link" href="{{ route('reports.business_reports') }}">Business</a></li>
+              @can('reports.inventory')
+                <li><a class="nav-link" href="{{ route('reports.inventory') }}">Inventory</a></li>
+              @endcan
+              @can('reports.purchase')
+                <li><a class="nav-link">Purchase</a></li>
+              @endcan
+              @can('reports.production')
+                <li><a class="nav-link">Production</a></li>
+              @endcan
+              @can('reports.sales')
+                <li><a class="nav-link">Sales</a></li>
+              @endcan
+              @can('reports.accounts')
+                <li><a class="nav-link">Accounts</a></li>
+              @endcan
             </ul>
           </li>
-
+          @endif
         </ul>
       </nav>
     </div>

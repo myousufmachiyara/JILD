@@ -4,33 +4,39 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 
 class CheckModulePermission
 {
     public function handle($request, Closure $next, $permission)
     {
+        // If user is not logged in
+        if (!auth()->user()) {
+            abort(403, 'Unauthorized action.');
+        }
 
-        $action = $request->route()->getActionMethod();
-
-        // Map actions to logical permissions
+        // Map actions to logical permissions for CRUD routes
         $map = [
-            'store'  => 'create',
-            'update' => 'edit',
+            'store'   => 'create',
+            'update'  => 'edit',
             'destroy' => 'delete',
         ];
 
-        $base = explode('.', $permission)[0]; // e.g. 'projects' from 'projects.create'
+        $action = $request->route()->getActionMethod();
 
-        $mappedAction = $map[$action] ?? $action;
-
-        $finalPermission = "$base.$mappedAction";
+        // If the permission already contains a dot (e.g. reports.inventory), use as-is
+        if (str_contains($permission, '.')) {
+            $finalPermission = $permission;
+        } else {
+            // For CRUD routes, map the action
+            $base = $permission; // e.g. 'projects'
+            $mappedAction = $map[$action] ?? $action;
+            $finalPermission = "$base.$mappedAction";
+        }
 
         if (!auth()->user()->can($finalPermission)) {
             abort(403, 'Unauthorized action.');
         }
 
         return $next($request);
-
     }
 }
