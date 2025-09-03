@@ -22,7 +22,13 @@ use App\Http\Controllers\{
     PaymentVoucherController,
     ReportController,
     POSController,
-    SaleReturnController
+    SaleReturnController,
+    InventoryReportController,
+    ProductionReportController,
+    PurchaseReportController,
+    SalesReportController,
+    AccountsReportController,
+    BusinessReportController,
 };
 
 Auth::routes();
@@ -31,8 +37,13 @@ Route::middleware(['auth', RoleMiddleware::class . ':admin|superadmin'])->group(
     Route::resource('users', UserController::class);
     Route::resource('roles', RoleController::class);
     Route::resource('permissions', PermissionController::class);
-    Route::get('/reports/item-ledger', [ReportController::class, 'itemLedger'])->name('reports.item_ledger');
-    Route::get('/reports/party-ledger', [ReportController::class, 'partyLedger'])->name('reports.party_ledger');
+    
+    Route::get('/reports/inventory-report', [InventoryReportController::class, 'index'])->name('reports.inventory_reports');
+    Route::get('/reports/production-report', [ProductionReportController::class, 'index'])->name('reports.production_reports');
+    Route::get('/reports/purchase-report', [PurchaseReportController::class, 'index'])->name('reports.purchase_reports');
+    Route::get('/reports/sales-report', [SalesReportController::class, 'index'])->name('reports.sales_reports');
+    Route::get('/reports/accounts-report', [AccountsReportController::class, 'index'])->name('reports.accounts_reports');
+    Route::get('/reports/business-report', [BusinessReportController::class, 'index'])->name('reports.business_reports');
 });
 
 Route::middleware(['auth'])->group(function () {

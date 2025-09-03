@@ -58,7 +58,7 @@
           {{-- Products --}}
           @if(auth()->user()->can('products.index'))
           <li class="nav-parent">
-            <a class="nav-link" href="#"><i class="fa fa-boxes"></i> <span>Products</span></a>
+            <a class="nav-link" href="#"><i class="fa fa-layer-group"></i> <span>Products</span></a>
             <ul class="nav nav-children">
               <li><a class="nav-link" href="{{ route('product-categories.index') }}">Categories</a></li>
               <li><a class="nav-link" href="{{ route('attributes.index') }}">Attributes</a></li>
@@ -67,74 +67,63 @@
           </li>
           @endif
 
-          {{-- Purchases --}}
-          @can('purchase_invoices.index')
-          <li>
-            <a class="nav-link" href="{{ route('purchase_invoices.index') }}">
-              <i class="fa fa-shopping-cart"></i>
-              <span>Purchases</span>
-            </a>
+          {{-- Stock Management --}}
+          @can('products.index')
+          <li class="nav-parent">
+            <a class="nav-link" href="#"><i class="fa fa-cubes"></i> <span>Stock Management</span></a>
+            <ul class="nav nav-children">
+              <li><a class="nav-link">Locations</a></li>
+              <li><a class="nav-link">Stock Transfer</a></li>
+            </ul>
           </li>
           @endcan
 
-          {{-- Purchases Return --}}
-          @can('purchase_return.index')
-          <li>
-            <a class="nav-link" href="{{ route('purchase_return.index') }}">
-              <i class="fa fa-undo"></i>
-              <span>Purchase Return</span>
-            </a>
+          {{-- Purchase Invoices --}}
+          @if(auth()->user()->can('purchase_invoices.index') || auth()->user()->can('purchase_return.index'))
+          <li class="nav-parent">
+            <a class="nav-link" href="#"><i class="fa fa-shopping-cart"></i> <span>Purchase Invoices</span></a>
+            <ul class="nav nav-children">
+              @can('purchase_invoices.index')
+              <li><a class="nav-link" href="{{ route('purchase_invoices.index') }}">Purchases</a></li>
+              @endcan
+              @can('purchase_return.index')
+              <li><a class="nav-link" href="{{ route('purchase_return.index') }}">Purchase Return</a></li>
+              @endcan
+            </ul>
           </li>
-          @endcan
+          @endif
+
 
           {{-- Production --}}
-          @can('production.index')
-          <li>
-            <a class="nav-link" href="{{ route('production.index') }}">
-              <i class="fa fa-industry"></i>
-              <span>Production</span>
-            </a>
+          @if(auth()->user()->can('production.index'))
+          <li class="nav-parent">
+            <a class="nav-link" href="#"><i class="fa fa-file-invoice"></i> <span>Production</span></a>
+            <ul class="nav nav-children">
+              <li><a class="nav-link" href="{{ route('production.index') }}">Order</a></li>
+              <li><a class="nav-link" href="{{ route('production.receiving.index') }}">Receiving</a></li>
+            </ul>
           </li>
-          @endcan
+          @endif
+          
 
-          {{-- Production Receiving--}}
-          @can('production.index')
-          <li>
-            <a class="nav-link" href="{{ route('production.receiving.index') }}">
-              <i class="fa fa-industry"></i>
-              <span>Production Receiving</span>
-            </a>
+          {{-- Sale Invoices --}}
+          @if(auth()->user()->can('sale_invoices.index') || auth()->user()->can('sale_return.index'))
+          <li class="nav-parent">
+            <a class="nav-link" href="#"><i class="fa fa-cash-register"></i> <span>Sale Invoices</span></a>
+            <ul class="nav nav-children">
+              @can('sale_invoices.index')
+              <li><a class="nav-link" href="{{ route('sale_invoices.index') }}">Sale</a></li>
+              @endcan
+              @can('sale_return.index')
+              <li><a class="nav-link" href="{{ route('sale_return.index') }}">Sale Return</a></li>
+              @endcan
+            </ul>
           </li>
-          @endcan
-
-          {{-- Sales --}}
-          @can('sale_invoices.index')
-          <li>
-            <a class="nav-link" href="{{ route('sale_invoices.index') }}">
-              <i class="fa fa-cash-register"></i>
-              <span>Sales</span>
-            </a>
-          </li>
-          @endcan
-
-          {{-- Sales --}}
-          @can('sale_return.index')
-          <li>
-            <a class="nav-link" href="{{ route('sale_return.index') }}">
-              <i class="fa fa-undo"></i>
-              <span>Sale Return</span>
-            </a>
-          </li>
-          @endcan
-
-          {{-- Payments --}}
-          @can('payment_vouchers.index')
-          <li>
-            <a class="nav-link" href="{{ route('payment_vouchers.index') }}">
-              <i class="fa fa-credit-card"></i>
-              <span>Payments</span>
-            </a>
-          </li>
+          @endif
+          
+          {{-- Vouchers --}}
+          @if(auth()->user()->can('payment_vouchers.index'))
+            <li><a class="nav-link" href="{{ route('payment_vouchers.index') }}"><i class="fa fa-money-check"></i><span>Vouchers</span></a></li>
           @endcan
 
           <li class="nav-parent">
@@ -143,38 +132,12 @@
               <span>Reports</span>
             </a>
             <ul class="nav nav-children">
-              <li><a class="nav-link" href="{{ route('reports.item_ledger') }}">Inventory</a></li>
-              <li><a class="nav-link" href="">Production</a></li>
-              <li><a class="nav-link" href="{{ route('reports.party_ledger') }}">Accounts</a></li>
-
-              <!-- @can('purchase_invoices.index')
-              <li><a class="nav-link" href="{{ route('reports.purchase') }}">Purchase</a></li>
-              @endcan
-
-              @can('purchase_return.index')
-              <li><a class="nav-link" href="{{ route('reports.purchase_return') }}">Purchase Return</a></li>
-              @endcan
-
-              @can('production.index')
-              <li><a class="nav-link" href="{{ route('reports.production') }}">Production</a></li>
-              @endcan
-
-              @can('production.index')
-              <li><a class="nav-link" href="{{ route('reports.production_receiving') }}">Production Receiving</a></li>
-              @endcan
-
-              @can('sale_invoices.index')
-              <li><a class="nav-link" href="{{ route('reports.sales') }}">Sales</a></li>
-              @endcan
-
-              @can('sale_return.index')
-              <li><a class="nav-link" href="{{ route('reports.sale_return') }}">Sale Return</a></li>
-              @endcan
-
-              @can('payment_vouchers.index')
-              <li><a class="nav-link" href="{{ route('reports.payments') }}">Payment</a></li>
-              @endcan -->
-
+              <li><a class="nav-link" href="{{ route('reports.inventory_reports') }}">Inventory</a></li>
+              <li><a class="nav-link" href="{{ route('reports.purchase_reports') }}">Purchase</a></li>
+              <li><a class="nav-link" href="{{ route('reports.production_reports') }}">Production</a></li>
+              <li><a class="nav-link" href="{{ route('reports.sales_reports') }}">Sales</a></li>
+              <li><a class="nav-link" href="{{ route('reports.accounts_reports') }}">Accounts</a></li>
+              <li><a class="nav-link" href="{{ route('reports.business_reports') }}">Business</a></li>
             </ul>
           </li>
 
