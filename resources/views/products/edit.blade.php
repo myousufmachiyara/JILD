@@ -5,7 +5,7 @@
 @section('content')
 <div class="row">
   <div class="col">
-    <form action="{{ route('products.update', $product->id) }}" method="POST" enctype="multipart/form-data">
+    <form id="productForm" action="{{ route('products.update', $product->id) }}" method="POST" enctype="multipart/form-data">
       @csrf
       @method('PUT')
       <section class="card">
@@ -126,11 +126,9 @@
               {{-- Existing images --}}
               <div id="existingImages" class="mt-2 d-flex flex-wrap">
                 @foreach($product->images as $img)
-                  <div class="position-relative me-2 mb-2">
+                  <div class="existing-image-wrapper position-relative me-2 mb-2">
                     <img src="{{ asset('storage/' . $img->image_path) }}" width="120" height="120" style="object-fit:cover;border-radius:5px;" class="img-thumbnail">
-                    <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 remove-existing-image" data-id="{{ $img->id }}">
-                      &times;
-                    </button>
+                    <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 remove-existing-image" data-id="{{ $img->id }}">&times;</button>
                     <input type="hidden" name="keep_images[]" value="{{ $img->id }}">
                   </div>
                 @endforeach
@@ -316,17 +314,24 @@ $(document).ready(function () {
   });
 
   // Handle removing existing images
-  document.querySelectorAll(".remove-existing-image").forEach((btn) => {
-      btn.addEventListener("click", function() {
-          const id = this.dataset.id;
-          this.closest("div").style.display = "none";
-          // mark this image as removed
-          const input = document.createElement("input");
-          input.type = "hidden";
-          input.name = "removed_images[]";
-          input.value = id;
-          document.querySelector("form").appendChild(input);
-      });
+  document.getElementById("existingImages").addEventListener("click", function(e) {
+    if (!e.target.classList.contains("remove-existing-image")) return;
+
+    const btn = e.target;
+    const id = btn.dataset.id;
+    const wrapper = btn.closest(".existing-image-wrapper");
+
+    wrapper.style.display = "none";
+
+    const hiddenKeep = wrapper.querySelector('input[name="keep_images[]"]');
+    if (hiddenKeep) hiddenKeep.remove();
+
+    const productForm = document.getElementById("productForm");
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "removed_images[]";
+    input.value = id;
+    productForm.appendChild(input);
   });
 
 });

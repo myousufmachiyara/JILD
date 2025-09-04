@@ -270,12 +270,14 @@ class ProductController extends Controller
 
             // ✅ Remove images
             if ($request->filled('removed_images')) {
-                $images = $product->images()->whereIn('id', $request->removed_images)->get();
-                foreach ($images as $img) {
-                    if (\Storage::disk('public')->exists($img->image_path)) {
-                        \Storage::disk('public')->delete($img->image_path);
+                foreach ($request->removed_images as $id) {
+                    $img = $product->images()->find($id);
+                    if ($img) {
+                        if (\Storage::disk('public')->exists($img->image_path)) {
+                            \Storage::disk('public')->delete($img->image_path);
+                        }
+                        $img->delete();
                     }
-                    $img->delete();
                 }
             }
 
