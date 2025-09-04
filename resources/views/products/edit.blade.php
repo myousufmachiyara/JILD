@@ -141,7 +141,7 @@
 
           <div class="row mt-4">
             <div class="col-md-12">
-              <h5>Existing Variations</h5>
+              <h2 class="card-title">Existing Variations</h2>
               <div id="variation-section">
                 @foreach($product->variations as $i => $variation)
                   <div class="variation-block border p-2 mb-3 existing-variation">
@@ -180,7 +180,7 @@
               </div>
 
               <div class="col-md-12 mt-3">
-                <h5>Add New Variations</h5>
+                <h2 class="card-title">Add New Variations</h2>
                 <div id="new-variation-section"></div>
                 <button type="button" class="btn btn-sm btn-secondary mt-2" id="addNewVariationBtn">Add Variation</button>
               </div>
