@@ -88,14 +88,14 @@
 
             <div class="col-md-2 mt-3">
               <label>Min Order Qty</label>
-              <input type="number" step="any" name="min_order_qty" class="form-control"
-                    value="{{ old('min_order_qty', $product->min_order_qty) }}">
+              <input type="number" step="any" name="minimum_order_qty" class="form-control"
+                    value="{{ old('minimum_order_qty', $product->minimum_order_qty) }}">
             </div>
 
             <div class="col-md-2 mt-3">
               <label>Max Order Qty</label>
-              <input type="number" step="any" name="max_order_qty" class="form-control"
-                    value="{{ old('max_order_qty', $product->max_order_qty) }}">
+              <input type="number" step="any" name="max_stock_level" class="form-control"
+                    value="{{ old('max_stock_level', $product->max_stock_level) }}">
             </div>
 
             <div class="col-md-2 mt-3">

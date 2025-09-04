@@ -188,7 +188,7 @@
             <div class="text-end">  
                 <div>
                 Powered By
-                <a target="_blank" href="#">Yousuf Machiyara</a> 
+                <a target="_blank" href="https://syitrix.com/">SyiTrix</a> 
                 </div>
             </div>
         </footer>
