@@ -82,7 +82,7 @@
                   </select>
                 </td>
                 <td>
-                  <select name="items[0][variation_id]" class="form-control select2-js variation-select" required>
+                  <select name="items[0][variation_id]" class="form-control select2-js variation-select">
                     <option value="">Select Variation</option>
                   </select>
                 </td>
@@ -108,6 +108,7 @@
   $(document).ready(function () {
     $('.select2-js').select2({ width: '100%', dropdownAutoWidth: true });
 
+    // 🔹 Manual Product selection flow
     $(document).on('change', '.product-select', function () {
       const row = $(this).closest('tr');
       const productId = $(this).val();
@@ -117,37 +118,92 @@
       if (productId) {
         loadVariations(row, productId, preselectVariationId);
       } else {
-        const $variationSelect = row.find('.variation-select');
-        $variationSelect.html('<option value="">Select Variation</option>').trigger('change');
+        row.find('.variation-select')
+          .html('<option value="">Select Variation</option>')
+          .prop('disabled', false)
+          .trigger('change');
       }
     });
 
+    // 🔹 Barcode scanning flow
     $(document).on('blur', '.product-code', function () {
       const row = $(this).closest('tr');
       const barcode = $(this).val().trim();
       if (!barcode) return;
 
       $.ajax({
-        url: '/get-variation-by-code/' + encodeURIComponent(barcode),
+        url: '/get-product-by-code/' + encodeURIComponent(barcode),
         method: 'GET',
         success: function (res) {
-          if (res.success && res.variation) {
-            const variation = res.variation;
-            const $productSelect = row.find('.product-select');
-            $productSelect.data('preselectVariationId', variation.id);
-            $productSelect.val(variation.product_id).trigger('change');
-          } else {
-            alert(res.message || ('No variation found for code: ' + barcode));
+          if (!res.success) {
+            alert(res.message || 'Not found');
             row.find('.product-code').val('').focus();
+            return;
+          }
+
+          const $productSelect = row.find('.product-select');
+          const $variationSelect = row.find('.variation-select');
+
+          if (res.type === 'variation') {
+            const variation = res.variation;
+
+            // ✅ Set product
+            $productSelect.val(variation.product_id).trigger('change.select2');
+
+            // ✅ Directly set variation
+            $variationSelect.html(`<option value="${variation.id}" selected>${variation.sku}</option>`)
+                            .prop('disabled', false)
+                            .trigger('change');
+
+            // ✅ Focus Qty field
+            row.find('.quantity').focus();
+          }
+
+          if (res.type === 'product') {
+            const product = res.product;
+
+            // ✅ Set product
+            $productSelect.val(product.id).trigger('change.select2');
+
+            // ✅ Load variations normally
+            loadVariations(row, product.id);
+
+            // focus on variation after loading
+            setTimeout(() => {
+              $variationSelect.focus();
+            }, 300);
           }
         },
         error: function () {
-          alert('Error fetching variation details.');
+          alert('Error fetching product details.');
         }
       });
     });
+
+    // 🔹 POS: Auto-add row when user presses Enter on Qty
+    $(document).on('keypress', '.quantity', function (e) {
+      if (e.which === 13) { // Enter key
+        e.preventDefault();
+        const row = $(this).closest('tr');
+        const qty = $(this).val().trim();
+
+        if (qty !== '') {
+          // Add new row
+          addRow();
+
+          // Focus on new row's barcode
+          const $newRow = $('#itemTable tbody tr').last();
+          $newRow.find('.product-code').focus();
+        } else {
+          alert("Please enter quantity first.");
+          $(this).focus();
+        }
+      }
+    });
+
   });
 
+  // 🔹 Add Row
   function addRow() {
     const idx = rowIndex++;
     const rowHtml = `
@@ -162,7 +218,7 @@
           </select>
         </td>
         <td>
-          <select name="items[${idx}][variation_id]" class="form-control select2-js variation-select" required>
+          <select name="items[${idx}][variation_id]" class="form-control select2-js variation-select">
             <option value="">Select Variation</option>
           </select>
         </td>
@@ -173,23 +229,24 @@
     $('#itemTable tbody').append(rowHtml);
     const $newRow = $('#itemTable tbody tr').last();
     $newRow.find('.select2-js').select2({ width: '100%', dropdownAutoWidth: true });
-    $newRow.find('.product-code').focus();
   }
 
+  // 🔹 Remove Row
   function removeRow(btn) {
     $(btn).closest('tr').remove();
   }
 
+  // 🔹 Load Variations
   function loadVariations(row, productId, preselectVariationId = null) {
     const $variationSelect = row.find('.variation-select');
-    $variationSelect.html('<option value="">Loading...</option>');
+    $variationSelect.html('<option value="">Loading...</option>').prop('disabled', false);
 
     $.get(`/product/${productId}/variations`, function (data) {
       let options = '<option value="">Select Variation</option>';
       (data.variation || []).forEach(v => {
         options += `<option value="${v.id}">${v.sku}</option>`;
       });
-      $variationSelect.html(options);
+      $variationSelect.html(options).prop('disabled', false);
 
       if ($variationSelect.hasClass('select2-hidden-accessible')) {
         $variationSelect.select2('destroy');
@@ -201,7 +258,7 @@
       }
     });
   }
-  
 </script>
+
 
 @endsection

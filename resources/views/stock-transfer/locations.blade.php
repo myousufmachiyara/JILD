@@ -6,6 +6,11 @@
 <div class="row">
   <div class="col">
     <section class="card">
+      @if (session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+      @elseif (session('error'))
+        <div class="alert alert-danger">{{ session('error') }}</div>
+      @endif
       <header class="card-header">
         <div style="display: flex; justify-content: space-between;">
           <h2 class="card-title">All Locations</h2>

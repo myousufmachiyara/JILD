@@ -35,11 +35,11 @@ Route::middleware(['auth'])->group(function () {
 
     // Product Helpers
     Route::get('/products/details', [ProductController::class, 'details'])->name('products.receiving');
-    Route::get('/product/{id}/variations', [ProductController::class, 'getVariations']);
     Route::get('/products/barcode-selection', [ProductController::class, 'barcodeSelection'])->name('products.barcode.selection');
     Route::post('/products/generate-multiple-barcodes', [ProductController::class, 'generateMultipleBarcodes'])->name('products.generateBarcodes');
-    Route::get('/get-variation-by-code/{code}', [ProductController::class, 'getVariationByCode'])->name('variation.by.code');
-
+    Route::get('/get-product-by-code/{barcode}', [ProductController::class, 'getByBarcode'])->name('product.byBarcode');
+    Route::get('/product/{product}/variations', [ProductController::class, 'getVariations'])->name('product.variations');
+    
     // Production Receiving
     Route::prefix('production_receiving')->name('production.receiving.')->group(function () {
         Route::get('/', [ProductionReceivingController::class, 'index'])->middleware('check.permission:production_receiving.index')->name('index');

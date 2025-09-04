@@ -23,14 +23,12 @@ class ProductVariation extends Model
         static::creating(function ($variation) {
             $product = $variation->product;
 
-            // Only for FG variations
+            // Only FG variations generate barcode
             if ($product && $product->item_type === 'fg' && empty($variation->barcode)) {
-                $lastId = ProductVariation::max('id') + 1;
-                $variation->barcode = 'FG-' . str_pad($lastId, 6, '0', STR_PAD_LEFT);
+                $variation->barcode = generateFgBarcode();
             }
         });
     }
-
     
     /* ----------------- Relationships ----------------- */
 

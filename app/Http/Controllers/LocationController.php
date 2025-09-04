@@ -18,16 +18,21 @@ class LocationController extends Controller
     // Store a new location
     public function store(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'code' => 'nullable|string|max:50',
-        ]);
+        try {
 
-        $location = Location::create($request->only('name', 'code'));
+            $request->validate([
+                'name' => 'required|string|max:255|unique:locations,name',
+                'code' => 'nullable|string|max:50',
+            ]);
 
-        Log::info('Location created', ['location' => $location->toArray()]);
+            $location = Location::create($request->only('name', 'code'));
+            Log::info('Location created', ['location' => $location->toArray()]);
 
-        return redirect()->route('locations.index')->with('success', 'Location created successfully.');
+            return redirect()->route('locations.index')->with('success', 'Location created successfully.');
+        } catch (\Throwable $e) {
+            Log::error('[Location Store] Failed', ['error' => $e->getMessage()]);
+            return redirect()->back()->withInput()->with('error', 'Failed to create location. Please try again.');
+        }
     }
 
     // Update an existing location
@@ -35,14 +40,34 @@ class LocationController extends Controller
     {
         $location = Location::findOrFail($id);
 
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'code' => 'nullable|string|max:50',
-        ]);
+        try {
+            
+            // Validate request
+            $request->validate([
+                'name' => 'required|string|max:255|unique:locations,name',
+                'code' => 'nullable|string|max:50',
+            ]);
 
-        $location->update($request->only('name', 'code'));
+            $location->update($request->only('name', 'code'));
 
-        return redirect()->route('locations.index')->with('success', 'Location updated successfully.');
+            Log::info('[Location Update] Success', [
+                'location_id' => $location->id,
+                'data' => $request->only('name', 'code')
+            ]);
+
+            return redirect()->route('locations.index')
+                            ->with('success', 'Location updated successfully.');
+        } catch (\Throwable $e) {
+            // Log the error for debugging
+            Log::error('[Location Update] Failed', [
+                'location_id' => $location->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return redirect()->back()
+                            ->withInput()
+                            ->with('error', 'Failed to update location. Please try again.');
+        }
     }
 
     // Delete a location

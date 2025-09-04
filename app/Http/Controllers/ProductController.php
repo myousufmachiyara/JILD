@@ -118,18 +118,22 @@ class ProductController extends Controller
 
         try {
             // ✅ Create Product
-            $product = Product::create($request->only([
+            $productData = $request->only([
                 'name', 'category_id', 'sku', 'barcode', 'description',
                 'measurement_unit', 'item_type', 'manufacturing_cost',
                 'opening_stock', 'selling_price', 'consumption',
                 'reorder_level', 'max_stock_level', 'minimum_order_qty', 'is_active'
-            ]));
+            ]);
+
+            $product = Product::create($productData);
+            Log::info('[Product Store] Product created', ['product_id' => $product->id, 'data' => $productData]);
 
             // ✅ Upload Images
             if ($request->hasFile('prod_att')) {
                 foreach ($request->file('prod_att') as $image) {
                     $path = $image->store('products', 'public');
                     $product->images()->create(['image_path' => $path]);
+                    Log::info('[Product Store] Image uploaded', ['product_id' => $product->id, 'path' => $path]);
                 }
             }
 
@@ -142,10 +146,15 @@ class ProductController extends Controller
                         'stock_quantity' => $variationData['stock_quantity'] ?? 0,
                         'selling_price' => $variationData['selling_price'] ?? 0,
                     ]);
+                    Log::info('[Product Store] Variation created', ['variation_id' => $variation->id, 'product_id' => $product->id, 'data' => $variationData]);
 
                     // Attribute Values
                     if (!empty($variationData['attributes'])) {
                         $variation->attributeValues()->sync($variationData['attributes']);
+                        Log::info('[Product Store] Variation attributes synced', [
+                            'variation_id' => $variation->id,
+                            'attributes' => $variationData['attributes']
+                        ]);
                     }
                 }
             }
@@ -154,8 +163,12 @@ class ProductController extends Controller
             return redirect()->route('products.index')->with('success', 'Product created successfully.');
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('[Product Store] Failed', ['error' => $e->getMessage()]);
-            return back()->withInput()->with('error', 'Product creation failed. Try again.');
+            Log::error('[Product Store] Failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'input' => $request->all()
+            ]);
+            return back()->withInput()->with('error', 'Product creation failed. Check logs for details.');
         }
     }
 
@@ -298,55 +311,79 @@ class ProductController extends Controller
         return redirect()->route('products.index')->with('success', 'Product deleted successfully.');
     }
 
-    public function getVariationByCode($code)
+    public function getByBarcode($barcode)
     {
-        $variation = ProductVariation::with('product')
-        ->where('barcode', $code)
-        ->first();
+        try {
+            // 1️⃣ Check in ProductVariation
+            $variation = ProductVariation::with('product')
+                ->where('barcode', $barcode)
+                ->first();
 
-        if (!$variation) {
-            return response()->json(['success' => false, 'message' => 'Variation not found']);
+            if ($variation) {
+                return response()->json([
+                    'success' => true,
+                    'type' => 'variation',
+                    'variation' => [
+                        'id' => $variation->id,
+                        'product_id' => $variation->product_id,
+                        'sku' => $variation->sku,
+                        'barcode' => $variation->barcode,
+                        'name' => $variation->product->name,
+                    ]
+                ]);
+            }
+
+            // 2️⃣ Check in Product (raw, service, FG without variations)
+            $product = Product::where('barcode', $barcode)->first();
+
+            if ($product) {
+                return response()->json([
+                    'success' => true,
+                    'type' => 'product',
+                    'product' => [
+                        'id' => $product->id,
+                        'name' => $product->name,
+                        'barcode' => $product->barcode,
+                        'sku' => $product->sku,
+                    ]
+                ]);
+            }
+
+            // 3️⃣ Not found
+            return response()->json([
+                'success' => false,
+                'message' => 'No product or variation found for this barcode'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Barcode lookup failed: '.$e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error occurred while searching barcode'
+            ]);
         }
-
-        return response()->json([
-            'success' => true,
-            'variation' => [
-                'id' => $variation->id,                // variation id
-                'sku' => $variation->sku,
-                'barcode' => $variation->barcode,
-                'product_id' => $variation->product_id, // parent product
-                'product_name' => $variation->product->name,
-            ]
-        ]);
     }
 
     public function getVariations($productId)
     {
-        $variations = ProductVariation::where('product_id', $productId)->get();
+        $product = Product::with('variations')->find($productId);
 
-        if ($variations->isEmpty()) {
+        if (!$product) {
             return response()->json([
                 'success' => false,
                 'variation' => [],
-                'message' => 'No variations found for this product.'
             ]);
         }
 
-        $variationArray = $variations->map(function($v) {
-            return [
-                'id' => $v->id,
-                'sku' => $v->sku,
-                'barcode' => $v->barcode,
-                'product_id' => $v->product_id,
-                'product_name' => $v->product->name ?? '',
-            ];
-        });
-
         return response()->json([
-            'success' => true,
-            'variation' => $variationArray
+            'success'   => true,
+            'variation' => $product->variations->map(function ($v) {
+                return [
+                    'id'  => $v->id,
+                    'sku' => $v->sku,
+                ];
+            }),
         ]);
     }
-
-
 }
+

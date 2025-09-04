@@ -30,33 +30,23 @@ class Product extends Model
     protected static function booted()
     {
         static::creating(function ($product) {
-            if (empty($product->barcode)) {
+            // Only generate FG barcode if it's FG type and empty
+            if ($product->item_type === 'fg' && empty($product->barcode)) {
+                $product->barcode = generateFgBarcode();
+            } 
+            // For raw/service types, you can keep your existing prefix logic
+            elseif (empty($product->barcode)) {
+                $prefix = match($product->item_type) {
+                    'raw' => 'RAW-',
+                    'service' => 'SRV-',
+                    default => 'PRD-',
+                };
                 $lastId = Product::max('id') + 1;
-
-                // Prefix based on type
-                switch ($product->item_type) {
-                    case 'raw':
-                        $prefix = 'RAW-';
-                        break;
-                    case 'service':
-                        $prefix = 'SRV-';
-                        break;
-                    case 'fg':
-                        // Only assign barcode if no variations exist
-                        // (For new create we don't know yet, so we can assign by default and remove later if variations are added)
-                        $prefix = 'FG-';
-                        break;
-                    default:
-                        $prefix = 'PRD-';
-                }
-
-                if ($prefix) {
-                    $product->barcode = $prefix . str_pad($lastId, 6, '0', STR_PAD_LEFT);
-                }
+                $product->barcode = $prefix . str_pad($lastId, 6, '0', STR_PAD_LEFT);
             }
         });
 
-        // After product is saved, if it has variations, clear product-level barcode
+        // Remove product-level barcode if FG variations exist
         static::created(function ($product) {
             if ($product->item_type === 'fg' && $product->variations()->exists()) {
                 $product->updateQuietly(['barcode' => null]);

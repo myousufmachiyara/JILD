@@ -185,21 +185,6 @@ class ProductionReceivingController extends Controller
         }
     }
     
-    public function getVariations($id)
-    {
-        $product = Product::with('variations')->findOrFail($id);
-        
-        $variations = $product->variations->map(function ($variation) use ($product) {
-            return [
-                'id' => $variation->id,
-                'sku' => $variation->sku,
-                'manufacturing_cost' => $product->manufacturing_cost
-            ];
-        });
-
-        return response()->json($variations);
-    }
-
     public function print($id)
     {
         $receiving = ProductionReceiving::with(['production.vendor', 'details.product', 'details.variation'])

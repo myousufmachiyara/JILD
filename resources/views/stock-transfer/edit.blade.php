@@ -84,7 +84,7 @@
                   </select>
                 </td>
                 <td>
-                  <select name="items[{{ $idx }}][variation_id]" class="form-control select2-js variation-select" required>
+                  <select name="items[{{ $idx }}][variation_id]" class="form-control select2-js variation-select">
                     <option value="{{ $item->variation_id }}" selected>{{ $item->variation->sku ?? 'Select Variation' }}</option>
                   </select>
                 </td>
@@ -170,7 +170,7 @@
           </select>
         </td>
         <td>
-          <select name="items[${idx}][variation_id]" class="form-control select2-js variation-select" required>
+          <select name="items[${idx}][variation_id]" class="form-control select2-js variation-select">
             <option value="" disabled>Select Variation</option>
           </select>
         </td>

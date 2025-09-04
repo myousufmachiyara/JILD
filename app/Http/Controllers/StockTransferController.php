@@ -48,6 +48,7 @@ class StockTransferController extends Controller
             'date' => 'required|date',
             'from_location_id' => 'required|exists:locations,id',
             'to_location_id' => 'required|exists:locations,id',
+            'remarks' => 'nullable|string|max:500',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|numeric|min:0.01',
@@ -58,7 +59,9 @@ class StockTransferController extends Controller
 
             $transfer = StockTransfer::create([
                 'date' => $request->date,
+                'remarks' => $request->remarks,
                 'from_location_id' => $request->from_location_id,
+                'to_location_id' => $request->to_location_id,
                 'to_location_id' => $request->to_location_id,
                 'created_by' => Auth::id(),
             ]);
@@ -102,6 +105,7 @@ class StockTransferController extends Controller
             'date' => 'required|date',
             'from_location_id' => 'required|exists:locations,id',
             'to_location_id' => 'required|exists:locations,id',
+            'remarks' => 'nullable|string|max:500',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|numeric|min:0.01',
@@ -115,6 +119,7 @@ class StockTransferController extends Controller
                 'date' => $request->date,
                 'from_location_id' => $request->from_location_id,
                 'to_location_id' => $request->to_location_id,
+                'remarks' => $request->remarks,
             ]);
 
             // Delete old details and insert new
