@@ -15,12 +15,6 @@
             <section class="card">
                 <header class="card-header d-flex justify-content-between align-items-center">
                     <h2 class="card-title mb-0">{{ $role ? 'Edit Role' : 'Add New Role' }}</h2>
-                    <div class="form-check ms-2">
-                        <input type="checkbox" id="masterCheckAll" class="form-check-input">
-                        <label for="masterCheckAll" class="form-check-label">
-                            <strong>Select / Deselect All</strong>
-                        </label>
-                    </div>
                 </header>
 
                 <div class="card-body">
@@ -44,11 +38,15 @@
             <section class="card mt-3">
                 <header class="card-header d-flex justify-content-between">
                     <h2 class="card-title mb-0">Assign Module Permissions</h2>
+                    <div class="checkbox-default mt-3">
+                        <input type="checkbox" id="masterCheckAll" class="check-all ">
+                        <label class="text-dark"> Select All </label>
+                    </div>
                 </header>
 
                 <div class="card-body" style="max-height:600px; overflow-y:auto; padding:0rem 0.6rem 0.6rem 0rem!important">
                     <table class="table table-bordered" id="permissionsTable">
-                        <thead class="bg-primary text-white text-center sticky-top">
+                        <thead class="bg-primary text-white text-center sticky-top" style="z-index:1">
                             <tr>
                                 <th>Module</th>
                                 @php 

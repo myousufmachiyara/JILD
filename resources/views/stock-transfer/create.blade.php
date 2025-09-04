@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Create Stock Transfer')
+@section('title', 'Stock Transfer | Create')
 
 @section('content')
 <div class="row">

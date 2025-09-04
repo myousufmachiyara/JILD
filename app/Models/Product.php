@@ -41,8 +41,10 @@ class Product extends Model
                     case 'service':
                         $prefix = 'SRV-';
                         break;
-                    case 'fg': // FG products don’t use product-level barcode, only variations
-                        $prefix = null;
+                    case 'fg':
+                        // Only assign barcode if no variations exist
+                        // (For new create we don't know yet, so we can assign by default and remove later if variations are added)
+                        $prefix = 'FG-';
                         break;
                     default:
                         $prefix = 'PRD-';
@@ -53,7 +55,15 @@ class Product extends Model
                 }
             }
         });
+
+        // After product is saved, if it has variations, clear product-level barcode
+        static::created(function ($product) {
+            if ($product->item_type === 'fg' && $product->variations()->exists()) {
+                $product->updateQuietly(['barcode' => null]);
+            }
+        });
     }
+
     /* ----------------- Relationships ----------------- */
 
     // Belongs to category
