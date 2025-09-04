@@ -39,16 +39,19 @@
                 <tbody>
                     @forelse($itemLedger as $tx)
                         <tr>
-                            <td>{{ $tx->date }}</td>
-                            <td>{{ $tx->type }}</td>
-                            <td>{{ $tx->description }}</td>
-                            <td>{{ $tx->qty_in }}</td>
-                            <td>{{ $tx->qty_out }}</td>
-                            <td>{{ $tx->balance }}</td>
+                            <td>{{ is_array($tx) ? $tx['date'] : $tx->date }}</td>
+                            <td>{{ is_array($tx) ? $tx['description'] : $tx->description }}</td>
+                            <td>{{ is_array($tx) ? $tx['amount'] : $tx->amount }}</td>
+                            <td>{{ is_array($tx) ? $tx['qty_in'] : $tx->qty_in }}</td>
+                            <td>{{ is_array($tx) ? $tx['qty_out'] : $tx->qty_out }}</td>
+                            <td>{{ is_array($tx) ? $tx['balance'] : $tx->balance }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="text-center text-muted">No transactions found.</td></tr>
+                        <tr>
+                            <td colspan="6">No records found</td>
+                        </tr>
                     @endforelse
+
                 </tbody>
             </table>
         </div>

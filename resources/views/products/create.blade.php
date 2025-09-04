@@ -88,23 +88,49 @@
               @error('opening_stock')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
 
+            <div class="col-md-2 mt-3">
+              <label>Reorder Level</label>
+              <input type="number" step="any" name="reorder_level" class="form-control" value="{{ old('reorder_level', '0') }}">
+            </div>
+
+            <div class="col-md-2 mt-3">
+              <label>Max Stock Level</label>
+              <input type="number" step="any" name="max_stock_level" class="form-control" value="{{ old('max_stock_level', '0') }}">
+            </div>
+
+            <div class="col-md-2 mt-3">
+              <label>Minimum Order Qty</label>
+              <input type="number" step="any" name="minimum_order_qty" class="form-control" value="{{ old('minimum_order_qty', '0') }}">
+            </div>
+
+            <div class="col-md-2 mt-3">
+              <label>Status</label>
+              <select name="is_active" class="form-control">
+                <option value="1" {{ old('is_active',1) == 1 ? 'selected' : '' }}>Active</option>
+                <option value="0" {{ old('is_active') == 0 ? 'selected' : '' }}>Inactive</option>
+              </select>
+            </div>
+
             <div class="col-md-4 mt-3">
               <label>Description</label>
               <textarea name="description" class="form-control">{{ old('description') }}</textarea>
               @error('description')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
 
-            <div class="col-md-3 mt-3">
+            <div class="col-md-6 mt-3">
               <label>Product Images</label>
-              <input type="file" name="prod_att[]" multiple class="form-control">
+              <input type="file" name="prod_att[]" multiple class="form-control" id="imageUpload">
               @error('prod_att')<div class="text-danger">{{ $message }}</div>@enderror
+
+              <!-- 👇 Place preview container right under input -->
+              <div id="previewContainer" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;"></div>
             </div>
           </div>
 
           {{-- Attribute Selection --}}
           <div class="row mt-4">
             <div class="col-md-12">
-              <h5>Product Variations</h5>
+              <h2 class="card-title">Product Variations</h2>
               <div class="row">
                 @foreach($attributes as $attribute)
                   <div class="col-md-6">
@@ -206,6 +232,60 @@
       let rest = buildCombinations(arr, index + 1);
       return values.flatMap(v => rest.map(r => [v, ...r]));
     }
+
+    document.getElementById("imageUpload").addEventListener("change", function(event) {
+        const files = event.target.files;
+        const previewContainer = document.getElementById("previewContainer");
+
+        Array.from(files).forEach((file, index) => {
+            if (file && file.type.startsWith("image/")) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    // wrapper div
+                    const wrapper = document.createElement("div");
+                    wrapper.style.position = "relative";
+                    wrapper.style.display = "inline-block";
+
+                    // image element
+                    const img = document.createElement("img");
+                    img.src = e.target.result;
+                    img.style.maxWidth = "150px";
+                    img.style.maxHeight = "150px";
+                    img.style.border = "1px solid #ddd";
+                    img.style.borderRadius = "5px";
+                    img.style.padding = "5px";
+
+                    // remove button
+                    const removeBtn = document.createElement("span");
+                    removeBtn.innerHTML = "&times;";
+                    removeBtn.style.position = "absolute";
+                    removeBtn.style.top = "2px";
+                    removeBtn.style.right = "6px";
+                    removeBtn.style.cursor = "pointer";
+                    removeBtn.style.color = "red";
+                    removeBtn.style.fontSize = "20px";
+                    removeBtn.style.fontWeight = "bold";
+                    removeBtn.title = "Remove";
+
+                    // remove handler
+                    removeBtn.addEventListener("click", function() {
+                        wrapper.remove();
+
+                        // 👇 clear the input if all images removed
+                        if (previewContainer.children.length === 0) {
+                            document.getElementById("imageUpload").value = "";
+                        }
+                    });
+
+                    // append
+                    wrapper.appendChild(img);
+                    wrapper.appendChild(removeBtn);
+                    previewContainer.appendChild(wrapper);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    });
   });
 </script>
 @endsection

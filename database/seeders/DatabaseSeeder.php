@@ -99,6 +99,158 @@ class DatabaseSeeder extends Seeder
             ['id' => 5, 'name' => 'Equity'],
         ]);
 
+        // 📊 Seed Subheads
+        SubHeadOfAccounts::insert([
+            ['id' => 1, 'hoa_id' => 1, 'name' => "Current Assets"],      // 101
+            ['id' => 2, 'hoa_id' => 1, 'name' => "Inventory"],           // 102
+            ['id' => 3, 'hoa_id' => 2, 'name' => "Current Liabilities"], // 201
+            ['id' => 4, 'hoa_id' => 2, 'name' => "Long-Term Liabilities"], // 202
+            ['id' => 5, 'hoa_id' => 4, 'name' => "Sales"],               // 401
+            ['id' => 6, 'hoa_id' => 3, 'name' => "Expenses"],            // 301
+            ['id' => 7, 'hoa_id' => 5, 'name' => "Equity"],              // 501
+        ]);
+
+        ChartOfAccounts::insert([
+            [
+                'id' => 1,
+                'shoa_id' => 1,
+                'account_code' => '101001',
+                'name' => "Cash",
+                'account_type' => "asset",
+                'receivables' => 0,
+                'payables' => 0,
+                'opening_date' => '2025-01-01',
+                'remarks' => "Asset",
+                'address' => "",
+                'phone_no' => "",
+                'created_by' => 1, // ✅ system/admin user
+                'updated_by' => 1, // ✅ same on initial seed
+                'created_at' => $now,
+                'updated_at' => $now
+            ],
+            [
+                'id' => 2,
+                'shoa_id' => 1,
+                'account_code' => '101002',
+                'name' => "Bank",
+                'account_type' => "asset",
+                'receivables' => 0,
+                'payables' => 0,
+                'opening_date' => '2025-01-01',
+                'remarks' => "Asset",
+                'address' => "",
+                'phone_no' => "",
+                'created_by' => 1,
+                'updated_by' => 1,
+                'created_at' => $now,
+                'updated_at' => $now
+            ],
+            [
+                'id' => 3,
+                'shoa_id' => 1,
+                'account_code' => '101003',
+                'name' => "Accounts Receivable",
+                'account_type' => "asset",
+                'receivables' => 0,
+                'payables' => 0,
+                'opening_date' => '2025-01-01',
+                'remarks' => "Customer Accounts",
+                'address' => "",
+                'phone_no' => "",
+                'created_by' => 1,
+                'updated_by' => 1,
+                'created_at' => $now,
+                'updated_at' => $now
+            ],
+            [
+                'id' => 4,
+                'shoa_id' => 3,
+                'account_code' => '201001',
+                'name' => "Accounts Payable",
+                'account_type' => "liability",
+                'receivables' => 0,
+                'payables' => 0,
+                'opening_date' => '2025-01-01',
+                'remarks' => "Supplier Accounts",
+                'address' => "",
+                'phone_no' => "",
+                'created_by' => 1,
+                'updated_by' => 1,
+                'created_at' => $now,
+                'updated_at' => $now
+            ],
+            [
+                'id' => 5,
+                'shoa_id' => 2,
+                'account_code' => '102001',
+                'name' => "Raw Material Inventory",
+                'account_type' => "asset",
+                'receivables' => 0,
+                'payables' => 0,
+                'opening_date' => '2025-01-01',
+                'remarks' => "Inventory",
+                'address' => "",
+                'phone_no' => "",
+                'created_by' => 1,
+                'updated_by' => 1,
+                'created_at' => $now,
+                'updated_at' => $now
+            ],
+            [
+                'id' => 6,
+                'shoa_id' => 6,
+                'account_code' => '301001',
+                'name' => "Expense Account",
+                'account_type' => "expense",
+                'receivables' => 0,
+                'payables' => 0,
+                'opening_date' => '2025-01-01',
+                'remarks' => "Expense",
+                'address' => "",
+                'phone_no' => "",
+                'created_by' => 1,
+                'updated_by' => 1,
+                'created_at' => $now,
+                'updated_at' => $now
+            ],
+            [
+                'id' => 7,
+                'shoa_id' => 1,
+                'account_code' => '101004',
+                'name' => "Test Customer",
+                'account_type' => "customer",
+                'receivables' => 0,
+                'payables' => 0,
+                'opening_date' => '2025-01-01',
+                'remarks' => "Customer",
+                'address' => "",
+                'phone_no' => "",
+                'created_by' => 1,
+                'updated_by' => 1,
+                'created_at' => $now,
+                'updated_at' => $now
+            ],
+            [
+                'id' => 8,
+                'shoa_id' => 3,
+                'account_code' => '201002',
+                'name' => "Test Vendor",
+                'account_type' => "vendor",
+                'receivables' => 0,
+                'payables' => 0,
+                'opening_date' => '2025-01-01',
+                'remarks' => "Vendor",
+                'address' => "",
+                'phone_no' => "",
+                'created_by' => 1,
+                'updated_by' => 1,
+                'created_at' => $now,
+                'updated_at' => $now
+            ],
+        ]);
+
+
+
         // 🏷️ Seed Attributes
         Attribute::insert([
             ['id' => 1, 'name' => 'SIZE', 'slug' => 'SIZE', 'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
@@ -134,17 +286,6 @@ class DatabaseSeeder extends Seeder
             ['id' => 23, 'attribute_id' => 2, 'value' => 'YELLOW',   'created_at' => '2025-07-11 19:16:09', 'updated_at' => '2025-07-11 19:16:09'],
         ]);
 
-        // 📊 Seed Subheads
-        SubHeadOfAccounts::insert([
-            ['id' => 1, 'hoa_id' => 1, 'name' => "Current Assets"],
-            ['id' => 2, 'hoa_id' => 1, 'name' => "Inventory"],
-            ['id' => 3, 'hoa_id' => 2, 'name' => "Current Liabilities"],
-            ['id' => 4, 'hoa_id' => 2, 'name' => "Long-Term Liabilities"],
-            ['id' => 5, 'hoa_id' => 4, 'name' => "Sales"],
-            ['id' => 6, 'hoa_id' => 3, 'name' => "Expenses"],
-            ['id' => 7, 'hoa_id' => 5, 'name' => "Equity"],
-        ]);
-
         // 📦 Product Categories
         ProductCategory::insert([
             ['id' => 1, 'name' => 'Raw Leather', 'description' => null, 'status' => 'active', 'created_at' => '2025-07-11 18:04:58', 'updated_at' => '2025-07-11 18:04:58'],
@@ -163,18 +304,6 @@ class DatabaseSeeder extends Seeder
             ['id' => 2, 'name' => 'Meter', 'shortcode' => 'm'],
             ['id' => 3, 'name' => 'Square Feet', 'shortcode' => 'sq.ft'],
             ['id' => 4, 'name' => 'Yards', 'shortcode' => 'yrds'],
-        ]);
-
-        // 💰 Chart of Accounts
-        ChartOfAccounts::insert([
-            ['id' => 1, 'shoa_id' => 1, 'name' => "Cash", 'account_type'=> "", 'receivables' => 0, 'payables' => 0, 'opening_date' => '2025-01-01', 'remarks' => "Asset", 'address' => "", 'phone_no' => "", 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 2, 'shoa_id' => 1, 'name' => "Bank", 'account_type'=> "", 'receivables' => 0, 'payables' => 0, 'opening_date' => '2025-01-01', 'remarks' => "Asset", 'address' => "", 'phone_no' => "", 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 3, 'shoa_id' => 1, 'name' => "Accounts Receivable", 'account_type'=> "", 'receivables' => 0, 'payables' => 0, 'opening_date' => '2025-01-01', 'remarks' => "Customer Accounts", 'address' => "", 'phone_no' => "", 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 4, 'shoa_id' => 3, 'name' => "Accounts Payable", 'account_type'=> "", 'receivables' => 0, 'payables' => 0, 'opening_date' => '2025-01-01', 'remarks' => "Supplier Accounts", 'address' => "", 'phone_no' => "", 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 5, 'shoa_id' => 2, 'name' => "Raw Material Inventory", 'account_type'=> "", 'receivables' => 0, 'payables' => 0, 'opening_date' => '2025-01-01', 'remarks' => "Inventory", 'address' => "", 'phone_no' => "", 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 6, 'shoa_id' => 6, 'name' => "Expense Account", 'account_type'=> "", 'receivables' => 0, 'payables' => 0, 'opening_date' => '2025-01-01', 'remarks' => "Expense", 'address' => "", 'phone_no' => "", 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 7, 'shoa_id' => 1, 'name' => "Test Customer", 'account_type'=> "customer", 'receivables' => 0, 'payables' => 0, 'opening_date' => '2025-01-01', 'remarks' => "Customer", 'address' => "", 'phone_no' => "", 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 8, 'shoa_id' => 3, 'name' => "Test Vendor", 'account_type'=> "vendor", 'receivables' => 0, 'payables' => 0, 'opening_date' => '2025-01-01', 'remarks' => "Vendor", 'address' => "", 'phone_no' => "", 'created_at' => $now, 'updated_at' => $now],
         ]);
     }
 }

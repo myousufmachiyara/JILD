@@ -86,15 +86,58 @@
               <input type="number" step="any" name="opening_stock" class="form-control" value="{{ old('opening_stock', $product->opening_stock) }}">
             </div>
 
+            <div class="col-md-2 mt-3">
+              <label>Min Order Qty</label>
+              <input type="number" step="any" name="min_order_qty" class="form-control"
+                    value="{{ old('min_order_qty', $product->min_order_qty) }}">
+            </div>
+
+            <div class="col-md-2 mt-3">
+              <label>Max Order Qty</label>
+              <input type="number" step="any" name="max_order_qty" class="form-control"
+                    value="{{ old('max_order_qty', $product->max_order_qty) }}">
+            </div>
+
+            <div class="col-md-2 mt-3">
+              <label>Reorder Level</label>
+              <input type="number" step="any" name="reorder_level" class="form-control"
+                    value="{{ old('reorder_level', $product->reorder_level) }}">
+            </div>
+
+            <div class="col-md-2 mt-3">
+              <label>Status</label>
+              <select name="is_active" class="form-control">
+                <option value="1" {{ old('is_active', $product->is_active) == 1 ? 'selected' : '' }}>Active</option>
+                <option value="0" {{ old('is_active', $product->is_active) == 0 ? 'selected' : '' }}>Inactive</option>
+              </select>
+            </div>
+
+
             <div class="col-md-4 mt-3">
               <label>Description</label>
               <textarea name="description" class="form-control">{{ old('description', $product->description) }}</textarea>
             </div>
 
-            <div class="col-md-4 mt-3">
+            <div class="col-md-6 mt-3">
               <label>Product Images</label>
-              <input type="file" name="prod_att[]" multiple class="form-control">
+              <input type="file" id="imageUpload" name="prod_att[]" multiple class="form-control">
               <small class="text-danger">Leave empty if you don't want to update images.</small>
+
+              {{-- Existing images --}}
+              <div id="existingImages" class="mt-2 d-flex flex-wrap">
+                @foreach($product->images as $img)
+                  <div class="position-relative me-2 mb-2">
+                    <img src="{{ asset('storage/' . $img->image_path) }}" width="120" height="120" style="object-fit:cover;border-radius:5px;" class="img-thumbnail">
+                    <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 remove-existing-image" data-id="{{ $img->id }}">
+                      &times;
+                    </button>
+                    <input type="hidden" name="keep_images[]" value="{{ $img->id }}">
+                  </div>
+                @endforeach
+              </div>
+
+              {{-- Preview newly selected images --}}
+              <div id="previewContainer" class="mt-2 d-flex flex-wrap"></div>
             </div>
           </div>
 
@@ -237,7 +280,55 @@ $(document).ready(function () {
     block.show();
     alertBox.remove();
   });
-  
+
+  document.getElementById("imageUpload").addEventListener("change", function(event) {
+    const files = event.target.files;
+    const previewContainer = document.getElementById("previewContainer");
+    previewContainer.innerHTML = ""; // clear old previews
+
+    Array.from(files).forEach((file) => {
+        if (file && file.type.startsWith("image/")) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const wrapper = document.createElement("div");
+                wrapper.classList.add("position-relative", "me-2", "mb-2");
+
+                const img = document.createElement("img");
+                img.src = e.target.result;
+                img.classList.add("img-thumbnail");
+                img.style.width = "120px";
+                img.style.height = "120px";
+                img.style.objectFit = "cover";
+
+                const removeBtn = document.createElement("button");
+                removeBtn.type = "button";
+                removeBtn.classList.add("btn", "btn-sm", "btn-danger", "position-absolute", "top-0", "end-0");
+                removeBtn.innerHTML = "&times;";
+                removeBtn.onclick = () => wrapper.remove();
+
+                wrapper.appendChild(img);
+                wrapper.appendChild(removeBtn);
+                previewContainer.appendChild(wrapper);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+  });
+
+  // Handle removing existing images
+  document.querySelectorAll(".remove-existing-image").forEach((btn) => {
+      btn.addEventListener("click", function() {
+          const id = this.dataset.id;
+          this.closest("div").style.display = "none";
+          // mark this image as removed
+          const input = document.createElement("input");
+          input.type = "hidden";
+          input.name = "removed_images[]";
+          input.value = id;
+          document.querySelector("form").appendChild(input);
+      });
+  });
+
 });
 </script>
 @endsection

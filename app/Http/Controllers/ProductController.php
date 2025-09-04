@@ -96,111 +96,66 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:products,name',
             'category_id' => 'required|exists:product_categories,id',
             'sku' => 'required|string|unique:products,sku',
             'barcode' => 'nullable|string',
             'description' => 'nullable|string',
             'measurement_unit' => 'required|exists:measurement_units,id',
-            'item_type' => 'required|in:fg,raw',
+            'item_type' => 'required|in:fg,raw,service',
             'manufacturing_cost' => 'nullable|numeric',
             'consumption' => 'nullable|numeric',
             'selling_price' => 'nullable|numeric',
             'opening_stock' => 'required|numeric',
+            'reorder_level' => 'nullable|numeric',
+            'max_stock_level' => 'nullable|numeric',
+            'minimum_order_qty' => 'nullable|numeric',
+            'is_active' => 'boolean',
             'prod_att.*' => 'nullable|image|mimes:jpeg,png,jpg,webp',
         ]);
 
         DB::beginTransaction();
 
         try {
-            // Create Product
-            $product = Product::create([
-                'name' => $request->name,
-                'category_id' => $request->category_id,
-                'sku' => $request->sku,
-                'barcode' => $request->barcode,
-                'description' => $request->description,
-                'measurement_unit' => $request->measurement_unit,
-                'selling_price' => $request->selling_price,
-                'consumption' => $request->consumption,
-                'item_type' => $request->item_type,
-                'manufacturing_cost' => $request->manufacturing_cost,
-                'opening_stock' => $request->opening_stock,
-            ]);
+            // ✅ Create Product
+            $product = Product::create($request->only([
+                'name', 'category_id', 'sku', 'barcode', 'description',
+                'measurement_unit', 'item_type', 'manufacturing_cost',
+                'opening_stock', 'selling_price', 'consumption',
+                'reorder_level', 'max_stock_level', 'minimum_order_qty', 'is_active'
+            ]));
 
-            Log::info('[Product Store] Product created', [
-                'product_id' => $product->id,
-                'name' => $product->name,
-                'sku' => $product->sku,
-            ]);
-
-            // Upload Images
+            // ✅ Upload Images
             if ($request->hasFile('prod_att')) {
                 foreach ($request->file('prod_att') as $image) {
                     $path = $image->store('products', 'public');
                     $product->images()->create(['image_path' => $path]);
-
-                    Log::info('[Product Store] Image uploaded', [
-                        'product_id' => $product->id,
-                        'file_path' => $path
-                    ]);
                 }
             }
 
-            // Handle Variations
+            // ✅ Variations (FG only)
             if ($request->has('variations')) {
-                foreach ($request->variations as $index => $variationData) {
+                foreach ($request->variations as $variationData) {
                     $variation = $product->variations()->create([
                         'sku' => $variationData['sku'] ?? null,
                         'manufacturing_cost' => $variationData['manufacturing_cost'] ?? 0,
-                        'stock_quantity' => $variationData['stock_quantity'] ?? 0,                     
-                    ]);
-
-                    $variation->barcode = 'VAR-' . str_pad($variation->id, 6, '0', STR_PAD_LEFT);
-                    $variation->save();
-
-                    Log::info('[Product Store] Variation created', [
-                        'variation_id' => $variation->id,
-                        'product_id' => $product->id,
+                        'stock_quantity' => $variationData['stock_quantity'] ?? 0,
+                        'selling_price' => $variationData['selling_price'] ?? 0,
                     ]);
 
                     // Attribute Values
                     if (!empty($variationData['attributes'])) {
-                        foreach ($variationData['attributes'] as $attr) {
-                            $variation->values()->create([
-                                'attribute_value_id' => $attr['attribute_value_id'],
-                            ]);
-
-                            Log::info('[Product Store] Variation attribute linked', [
-                                'variation_id' => $variation->id,
-                                'attribute_value_id' => $attr['attribute_value_id'],
-                            ]);
-                        }
-                    } else {
-                        Log::warning('[Product Store] Variation created without attributes', [
-                            'variation_id' => $variation->id,
-                        ]);
+                        $variation->attributeValues()->sync($variationData['attributes']);
                     }
                 }
-            } else {
-                Log::warning('[Product Store] No variations submitted', ['product_id' => $product->id]);
             }
 
             DB::commit();
-
             return redirect()->route('products.index')->with('success', 'Product created successfully.');
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
-
-            Log::error('[Product Store] Failed to create product', [
-                'error_message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'request_data' => $request->except(['prod_att', '_token']),
-            ]);
-
-            return redirect()->back()
-                ->withInput()
-                ->with('error', 'Product creation failed. Please try again or contact support.');
+            Log::error('[Product Store] Failed', ['error' => $e->getMessage()]);
+            return back()->withInput()->with('error', 'Product creation failed. Try again.');
         }
     }
 
@@ -208,7 +163,6 @@ class ProductController extends Controller
     {
         return redirect()->route('products.index');
     }
-    
     
     public function details(Request $request)
     {
@@ -255,132 +209,82 @@ class ProductController extends Controller
         try {
             $product = Product::findOrFail($id);
 
-            // ✅ Update product itself
+            // ✅ Update product
             $product->update($request->only([
                 'name', 'category_id', 'sku', 'measurement_unit', 'item_type',
-                'manufacturing_cost', 'opening_stock', 'description', 'selling_price', 'consumption'
+                'manufacturing_cost', 'opening_stock', 'description', 'selling_price',
+                'consumption', 'reorder_level', 'max_stock_level', 'minimum_order_qty', 'is_active'
             ]));
 
-            Log::info('[Product Update] Product updated successfully', [
-                'product_id' => $product->id,
-            ]);
-
-            $existingVariationIds = $product->variations()->pluck('id')->toArray();
             $handledVariationIds = [];
 
-            // ✅ Handle existing variations (update only, don't touch barcode)
+            // ✅ Update existing variations
             if (is_array($request->variations)) {
-                foreach ($request->variations as $index => $variationData) {
-                    $variationId = $variationData['id'] ?? null;
+                foreach ($request->variations as $variationData) {
+                    $variation = ProductVariation::findOrFail($variationData['id']);
+                    $variation->update([
+                        'sku' => $variationData['sku'],
+                        'manufacturing_cost' => $variationData['manufacturing_cost'] ?? 0,
+                        'stock_quantity' => $variationData['stock_quantity'] ?? 0,
+                        'selling_price' => $variationData['selling_price'] ?? 0,
+                    ]);
 
-                    if (empty($variationData['sku'])) {
-                        Log::warning('[Product Update] Missing SKU in existing variation', [
-                            'product_id' => $product->id,
-                            'variation_index' => $index,
-                            'variation_id' => $variationId,
-                        ]);
-                        return back()->withInput()->with('error', "Variation at row {$index} is missing SKU.");
+                    if (!empty($variationData['attributes'])) {
+                        $variation->attributeValues()->sync($variationData['attributes']);
                     }
 
-                    try {
-                        $variation = ProductVariation::findOrFail($variationId);
-                        $variation->update([
-                            'sku'                => $variationData['sku'],
-                            'manufacturing_cost' => $variationData['manufacturing_cost'] ?? 0,
-                            'stock_quantity'     => $variationData['stock_quantity'] ?? 0,
-                        ]);
-
-                        if (!empty($variationData['attributes']) && is_array($variationData['attributes'])) {
-                            $variation->attributeValues()->sync($variationData['attributes']);
-                        }
-
-                        $handledVariationIds[] = $variation->id;
-
-                        Log::info('[Product Update] Variation updated', [
-                            'product_id'   => $product->id,
-                            'variation_id' => $variation->id,
-                        ]);
-
-                    } catch (\Throwable $ve) {
-                        Log::error('[Product Update] Variation update failed', [
-                            'product_id' => $product->id,
-                            'variation_data' => $variationData,
-                            'error' => $ve->getMessage(),
-                        ]);
-                        return back()->withInput()->with('error', 'Error updating variation: ' . $ve->getMessage());
-                    }
+                    $handledVariationIds[] = $variation->id;
                 }
             }
 
-            // ✅ Handle new variations (generate barcode for these only)
+            // ✅ Add new variations
             if (is_array($request->new_variations)) {
-                foreach ($request->new_variations as $index => $newVar) {
-                    if (empty($newVar['sku'])) {
-                        Log::warning('[Product Update] Missing SKU in new variation', [
-                            'product_id' => $product->id,
-                            'variation_index' => $index,
-                            'variation_data' => $newVar,
-                        ]);
-                        return back()->withInput()->with('error', "New variation at row {$index} is missing SKU.");
+                foreach ($request->new_variations as $newVar) {
+                    $variation = $product->variations()->create([
+                        'sku' => $newVar['sku'],
+                        'manufacturing_cost' => $newVar['manufacturing_cost'] ?? 0,
+                        'stock_quantity' => $newVar['stock_quantity'] ?? 0,
+                        'selling_price' => $newVar['selling_price'] ?? 0,
+                    ]);
+
+                    if (!empty($newVar['attributes'])) {
+                        $variation->attributeValues()->sync($newVar['attributes']);
                     }
 
-                    try {
-                        $variation = $product->variations()->create([
-                            'sku'                => $newVar['sku'],
-                            'manufacturing_cost' => $newVar['manufacturing_cost'] ?? 0,
-                            'stock_quantity'     => $newVar['stock_quantity'] ?? 0,
-                        ]);
-
-                        // ✅ Generate barcode only for newly added variations
-                        $variation->barcode = 'VAR-' . str_pad($variation->id, 6, '0', STR_PAD_LEFT);
-                        $variation->save();
-
-                        if (!empty($newVar['attributes']) && is_array($newVar['attributes'])) {
-                            $variation->attributeValues()->sync($newVar['attributes']);
-                        }
-
-                        $handledVariationIds[] = $variation->id;
-
-                        Log::info('[Product Update] New variation created', [
-                            'product_id'   => $product->id,
-                            'variation_id' => $variation->id,
-                        ]);
-
-                    } catch (\Throwable $ne) {
-                        Log::error('[Product Update] New variation create error', [
-                            'product_id'    => $product->id,
-                            'variation_data'=> $newVar,
-                            'error'         => $ne->getMessage(),
-                        ]);
-                        return back()->withInput()->with('error', 'Error saving new variation: ' . $ne->getMessage());
-                    }
+                    $handledVariationIds[] = $variation->id;
                 }
             }
 
-            // ✅ Handle explicit removals
+            // ✅ Remove deleted variations
             if ($request->filled('removed_variations')) {
-                $toRemove = $request->removed_variations;
-                ProductVariation::whereIn('id', $toRemove)->delete();
+                ProductVariation::whereIn('id', $request->removed_variations)->delete();
+            }
 
-                Log::info('[Product Update] Variations soft deleted by request', [
-                    'product_id' => $product->id,
-                    'deleted_ids'=> $toRemove,
-                ]);
+            // ✅ Upload new images
+            if ($request->hasFile('prod_att')) {
+                foreach ($request->file('prod_att') as $file) {
+                    $path = $file->store('products', 'public');
+                    $product->images()->create(['image_path' => $path]);
+                }
+            }
+
+            // ✅ Remove images
+            if ($request->filled('removed_images')) {
+                $images = $product->images()->whereIn('id', $request->removed_images)->get();
+                foreach ($images as $img) {
+                    if (\Storage::disk('public')->exists($img->image_path)) {
+                        \Storage::disk('public')->delete($img->image_path);
+                    }
+                    $img->delete();
+                }
             }
 
             DB::commit();
-
             return redirect()->route('products.index')->with('success', 'Product updated successfully.');
         } catch (\Throwable $e) {
             DB::rollBack();
-
-            Log::error('[Product Update] Transaction failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'product_id' => $id,
-            ]);
-
-            return back()->withInput()->with('error', 'Product update failed. Please try again.');
+            Log::error('[Product Update] Failed', ['error' => $e->getMessage()]);
+            return back()->withInput()->with('error', 'Product update failed. Try again.');
         }
     }
 

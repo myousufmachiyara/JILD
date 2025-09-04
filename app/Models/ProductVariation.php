@@ -14,29 +14,46 @@ class ProductVariation extends Model
         'sku',
         'barcode',
         'manufacturing_cost',
-        'stock_quantity',
         'selling_price',
+        'stock_quantity',
     ];
 
-    // Parent Product
+    protected static function booted()
+    {
+        static::creating(function ($variation) {
+            $product = $variation->product;
+
+            // Only for FG variations
+            if ($product && $product->item_type === 'fg' && empty($variation->barcode)) {
+                $lastId = ProductVariation::max('id') + 1;
+                $variation->barcode = 'FG-' . str_pad($lastId, 6, '0', STR_PAD_LEFT);
+            }
+        });
+    }
+
+    
+    /* ----------------- Relationships ----------------- */
+
+    // Belongs to main product
     public function product()
     {
         return $this->belongsTo(Product::class);
     }
 
-    // Many-to-Many: Variations can have multiple attribute values
+    // Belongs to many attribute values (e.g. color, size)
     public function attributeValues()
     {
-        return $this->belongsToMany(AttributeValue::class, 'product_variation_attribute_values');
+        return $this->belongsToMany(AttributeValue::class, 'product_variation_attribute_values')
+                    ->withTimestamps();
     }
 
-    // If you have a pivot table model (one-to-many relationship)
+    // Pivot model for extra handling (if needed)
     public function values()
     {
         return $this->hasMany(ProductVariationAttributeValue::class);
     }
 
-    // Optional: Receivings related to this variation
+    // Production Receivings
     public function receivings()
     {
         return $this->hasMany(ProductionReceivingDetail::class, 'variation_id');

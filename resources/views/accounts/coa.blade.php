@@ -43,12 +43,11 @@
                             <thead>
                                 <tr>
                                     <th>S.NO</th>
-                                    <th>Account Name</th>
+                                    <th>Code</th>
+                                    <th>A/C Name</th>
                                     <th>SubHead</th>
-                                    <th>Account Type</th>
-                                    <th>Address-Phone</th>
-                                    <th>Receivable</th>
-                                    <th>Payable</th>
+                                    <th>A/C Type</th>
+                                    <th>Phone</th>
                                     <th>Date</th>
                                     <th>Remarks</th>
                                     <th>Action</th>
@@ -58,20 +57,11 @@
                                 @foreach ($chartOfAccounts as $item)
                                 <tr>
                                     <td>{{ $loop->iteration }}</td>
+                                    <td>{{ $item->account_code }}</td>
                                     <td><strong>{{ $item->name }}</strong></td>
                                     <td>{{ $item->subHeadOfAccount->name }}</td>
                                     <td><strong>{{ $item->account_type }}</strong></td>
-                                    <td>{{ $item->address }} {{ $item->phone_no }}</td>
-                                    @if (substr(strval($item->receivables), strpos(strval($item->receivables), '.') + 1) > 0)
-                                        <td>{{ rtrim(rtrim(number_format($item->receivables, 10, '.', ','), '0'), '.') }}</td>
-                                    @else
-                                        <td>{{ number_format(intval($item->receivables)) }}</td>
-                                    @endif
-                                    @if (substr(strval($item->payables), strpos(strval($item->payables), '.') + 1) > 0)
-                                        <td>{{ rtrim(rtrim(number_format($item->payables, 10, '.', ','), '0'), '.') }}</td>
-                                    @else
-                                        <td>{{ number_format(intval($item->payables)) }}</td>
-                                    @endif
+                                    <td>{{ $item->phone_no }}</td>
                                     <td>{{ \Carbon\Carbon::parse($item->opening_date)->format('d-m-y') }}</td>
                                     <td>{{ $item->remarks }}</td>
                                     <td>

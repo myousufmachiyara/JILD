@@ -38,9 +38,37 @@ class COAController extends Controller
                 'address' => 'nullable|string|max:250',
                 'phone_no' => 'nullable|string|max:250',
             ]);
-        
-            ChartOfAccounts::create($request->all());
-        
+
+            // Generate professional account code
+            $subHead = SubHeadOfAccounts::findOrFail($request->shoa_id);
+            $hoaCode = $subHead->hoa_id;
+            $shoaCode = str_pad($subHead->id, 2, '0', STR_PAD_LEFT);
+
+            $prefix = $hoaCode . $shoaCode;
+
+            $lastAccount = ChartOfAccounts::where('shoa_id', $request->shoa_id)
+                ->orderBy('account_code', 'desc')
+                ->first();
+
+            $lastNumber = $lastAccount ? intval(substr($lastAccount->account_code, -3)) : 0;
+            $coaCode = str_pad($lastNumber + 1, 3, '0', STR_PAD_LEFT);
+
+            $accountCode = $prefix . $coaCode;
+
+            ChartOfAccounts::create([
+                'shoa_id' => $request->shoa_id,
+                'account_code' => $accountCode,
+                'name' => $request->name,
+                'account_type' => $request->account_type,
+                'receivables' => $request->receivables,
+                'payables' => $request->payables,
+                'opening_date' => $request->opening_date,
+                'remarks' => $request->remarks,
+                'address' => $request->address,
+                'phone_no' => $request->phone_no,
+                'created_by'    => auth()->id(), // ✅ save logged in user
+            ]);
+
             return redirect()->route('coa.index')->with('success', 'Chart of Account created successfully.');
 
         } catch (\Exception $e) {
@@ -60,7 +88,7 @@ class COAController extends Controller
             $request->validate([
                 'shoa_id' => 'required|exists:sub_head_of_accounts,id',
                 'name' => 'required|string|max:255|unique:chart_of_accounts,name,' . $id,
-                'account_type' => 'nullable|string|max:255',
+                'account_type' => 'required|string|max:255',
                 'receivables' => 'required|numeric',
                 'payables' => 'required|numeric',
                 'opening_date' => 'required|date',
@@ -70,7 +98,30 @@ class COAController extends Controller
             ]);
 
             $account = ChartOfAccounts::findOrFail($id);
-            $account->update($request->all());
+
+            // ✅ Prevent changing account type if transactions exist
+            if ($account->account_type !== $request->account_type) {
+                $hasTransactions = $account->transactions()->exists(); // assuming relation
+                if ($hasTransactions) {
+                    return back()->withErrors([
+                        'error' => 'Account type cannot be changed because transactions are already recorded.'
+                    ]);
+                }
+            }
+
+            // ✅ Update fields safely
+            $account->update([
+                'shoa_id'      => $request->shoa_id,
+                'name'         => $request->name,
+                'account_type' => $request->account_type,
+                'receivables'  => $request->receivables,
+                'payables'     => $request->payables,
+                'opening_date' => $request->opening_date,
+                'remarks'      => $request->remarks,
+                'address'      => $request->address,
+                'phone_no'     => $request->phone_no,
+                'updated_by'   => auth()->id(), // ✅ log who updated
+            ]);
 
             return redirect()->route('coa.index')->with('success', 'Chart of Account updated successfully.');
         } catch (\Exception $e) {
