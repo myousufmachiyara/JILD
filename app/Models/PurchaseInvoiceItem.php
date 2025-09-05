@@ -9,11 +9,12 @@ class PurchaseInvoiceItem extends Model
     protected $fillable = [
         'purchase_invoice_id',
         'item_id',
-        'bundle',
+        'variation_id',   // 🔹 add this
         'quantity',
         'unit',
         'price',
         'remarks',
+        
     ];
 
     public function invoice()

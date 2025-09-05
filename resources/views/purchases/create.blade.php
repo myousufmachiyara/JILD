@@ -63,7 +63,7 @@
                 <tr>
                   <th>Item Code</th>
                   <th>Item Name</th>
-                  <th>Bundle</th>
+                  <th>Variation</th>
                   <th>Quantity</th>
                   <th>Unit</th>
                   <th>Price</th>
@@ -73,30 +73,43 @@
               </thead>
               <tbody id="Purchase1Table">
                 <tr>
-                  <td><input type="text" name="item_cod[]" id="item_cod1" class="form-control" onblur="fetchByCode(1)"></td>
+                  <td><input type="text" name="items[0][item_code]" id="item_cod1" class="form-control product-code"></td>
+
                   <td>
-                    <select name="item_name[]" id="item_name1" class="form-control select2-js" onchange="onItemNameChange(this)">
+                    <select name="items[0][item_id]" id="item_name1" class="form-control select2-js product-select" onchange="onItemNameChange(this)">
                       <option value="">Select Item</option>
                       @foreach ($products as $product)
-                        <option value="{{ $product->id }}" data-barcode="{{ $product->barcode }}" data-unit-id="{{ $product->measurement_unit }}">{{ $product->name }}</option>
+                        <option value="{{ $product->id }}" 
+                                data-barcode="{{ $product->barcode }}" 
+                                data-unit-id="{{ $product->measurement_unit }}">
+                          {{ $product->name }}
+                        </option>
                       @endforeach
                     </select>
                   </td>
-                  <td><input type="text" name="bundle[]" id="pur_qty2_1" class="form-control" value="0" onchange="rowTotal(1)"></td>
-                  <td><input type="number" name="quantity[]" id="pur_qty1" class="form-control" value="0" step="any" onchange="rowTotal(1)"></td>
+
                   <td>
-                    <select name="unit[]" id="unit1" class="form-control" required>
+                    <select name="items[0][variation_id]" class="form-control select2-js variation-select">
+                      <option value="">Select Variation</option>
+                    </select>
+                  </td>                  
+
+                  <td><input type="number" name="items[0][quantity]" id="pur_qty1" class="form-control quantity" value="0" step="any" onchange="rowTotal(1)"></td>
+
+                  <td>
+                    <select name="items[0][unit]" id="unit1" class="form-control" required>
                       <option value="">-- Select --</option>
                       @foreach ($units as $unit)
                         <option value="{{ $unit->id }}">{{ $unit->name }} ({{ $unit->shortcode }})</option>
                       @endforeach
                     </select>
                   </td>
-                  <td><input type="number" name="price[]" id="pur_price1" class="form-control" value="0" step="any" onchange="rowTotal(1)"></td>
+
+                  <td><input type="number" name="items[0][price]" id="pur_price1" class="form-control" value="0" step="any" onchange="rowTotal(1)"></td>
                   <td><input type="number" id="amount1" class="form-control" value="0" step="any" disabled></td>
                   <td>
                     <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button>
-                    <input type="hidden" name="barcode[]" id="barcode1">
+                    <input type="hidden" name="items[0][barcode]" id="barcode1">
                   </td>
                 </tr>
               </tbody>
@@ -109,11 +122,6 @@
               <label>Total Amount</label>
               <input type="text" id="totalAmount" class="form-control" disabled>
               <input type="hidden" name="total_amount" id="total_amount_show">
-            </div>
-            <div class="col-md-2">
-              <label>Total Bundle</label>
-              <input type="text" id="total_weight" class="form-control" disabled>
-              <input type="hidden" name="total_weight" id="total_weight_show">
             </div>
             <div class="col-md-2">
               <label>Total Quantity</label>
@@ -155,46 +163,124 @@
   var index = 2;
 
   $(document).ready(function () {
-    $('.select2-js').select2();
-    $(window).keydown(function (event) {
-      if (event.keyCode == 13) {
-        event.preventDefault();
-        return false;
+    $('.select2-js').select2({ width: '100%', dropdownAutoWidth: true });
+
+    // 🔹 Manual Product selection flow
+    $(document).on('change', '.product-select', function () {
+      const row = $(this).closest('tr');
+      const productId = $(this).val();
+      const preselectVariationId = $(this).data('preselectVariationId') || null;
+      $(this).removeData('preselectVariationId');
+
+      if (productId) {
+        loadVariations(row, productId, preselectVariationId);
+      } else {
+        row.find('.variation-select')
+          .html('<option value="">Select Variation</option>')
+          .prop('disabled', false)
+          .trigger('change');
+      }
+    });
+
+    // 🔹 Barcode scanning flow
+    $(document).on('blur', '.product-code', function () {
+      const row = $(this).closest('tr');
+      const barcode = $(this).val().trim();
+      if (!barcode) return;
+
+      $.ajax({
+        url: '/get-product-by-code/' + encodeURIComponent(barcode),
+        method: 'GET',
+        success: function (res) {
+          if (!res || !res.success) {
+            alert(res.message || 'Product not found');
+            row.find('.product-code').val('').focus();
+            row.find('.product-select').val('').trigger('change.select2');
+            row.find('.variation-select').html('<option value="">Select Variation</option>')
+               .prop('disabled', false)
+               .trigger('change');
+            return;
+          }
+
+          const $productSelect = row.find('.product-select');
+          const $variationSelect = row.find('.variation-select');
+
+          if (res.type === 'variation') {
+            const variation = res.variation;
+
+            // ✅ Set product
+            $productSelect.val(variation.product_id).trigger('change.select2');
+
+            // ✅ Directly set variation
+            $variationSelect.html(`<option value="${variation.id}" selected>${variation.sku}</option>`)
+                            .prop('disabled', false)
+                            .trigger('change');
+
+            // ✅ Update barcode fields
+            row.find('.product-code').val(variation.barcode);
+            row.find('input[name*="[barcode]"]').val(variation.barcode);
+
+            // ✅ Focus Qty field
+            row.find('.quantity').focus();
+          }
+
+          if (res.type === 'product') {
+            const product = res.product;
+
+            // ✅ Only select if it exists in dropdown
+            if ($productSelect.find(`option[value="${product.id}"]`).length) {
+              $productSelect.val(product.id).trigger('change.select2');
+
+              // ✅ Update barcode fields
+              row.find('.product-code').val(product.barcode);
+              row.find('input[name*="[barcode]"]').val(product.barcode);
+
+              // ✅ Load variations normally
+              loadVariations(row, product.id);
+
+              // focus on variation after loading
+              setTimeout(() => {
+                $variationSelect.select2('open');
+              }, 300);
+            } else {
+              alert("Product found but not in dropdown list.");
+              row.find('.product-code').val('').focus();
+              row.find('.product-select').val('').trigger('change.select2');
+              row.find('.variation-select').html('<option value="">Select Variation</option>')
+                 .prop('disabled', false)
+                 .trigger('change');
+            }
+          }
+        },
+        error: function () {
+          alert('Error fetching product details.');
+        }
+      });
+    });
+
+    // 🔹 POS: Auto-add row when user presses Enter on Qty
+    $(document).on('keypress', '.quantity', function (e) {
+      if (e.which === 13) { // Enter key
+        e.preventDefault();
+        const row = $(this).closest('tr');
+        const qty = $(this).val().trim();
+
+        if (qty !== '') {
+          // Add new row
+          addNewRow();
+
+          // Focus on new row's barcode
+          const $newRow = $('#Purchase1Table tbody tr').last();
+          $newRow.find('.product-code').focus();
+        } else {
+          alert("Please enter quantity first.");
+          $(this).focus();
+        }
       }
     });
   });
 
-  function fetchByCode(index) {
-    const codeInput = document.getElementById(`item_cod${index}`);
-    const itemSelect = document.getElementById(`item_name${index}`);
-    const unitSelect = document.getElementById(`unit${index}`);
-    const barcodeInput = document.getElementById(`barcode${index}`);
-    const enteredCode = codeInput.value.trim();
-
-    if (!enteredCode) return;
-
-    // Find option by product ID (enteredCode)
-    let matched = false;
-    for (let option of itemSelect.options) {
-      if (option.value === enteredCode) {
-        option.selected = true;
-        const unitId = option.getAttribute('data-unit-id');
-        const barcode = option.getAttribute('data-barcode');
-        unitSelect.value = unitId;
-        barcodeInput.value = barcode;
-        $(itemSelect).trigger('change');
-        $(unitSelect).trigger('change');
-
-        matched = true;
-        break;
-      }
-    }
-
-    if (!matched) {
-      alert('No matching product found for this Item Code.');
-    }
-  }
-
+  // 🔹 Keep all your existing functions exactly as they are
   function onItemNameChange(selectElement) {
     const row = selectElement.closest('tr');
     const selectedOption = selectElement.options[selectElement.selectedIndex];
@@ -204,21 +290,17 @@
 
     const barcode = selectedOption.getAttribute('data-barcode');
 
-    // Extract index from the select element ID
     const idMatch = selectElement.id.match(/\d+$/);
     if (!idMatch) return;
 
     const index = idMatch[0];
 
-    // Update item code and barcode
-    document.getElementById(`item_cod${index}`).value = itemId;
+    document.getElementById(`item_cod${index}`).value = barcode;
     document.getElementById(`barcode${index}`).value = barcode;
 
-    // ⚠️ Convert unitId to string before setting it to dropdown
     const unitSelector = $(`#unit${index}`);
     unitSelector.val(String(unitId)).trigger('change.select2');
   }
-
 
   function removeRow(button) {
     let rows = $('#Purchase1Table tr').length;
@@ -236,11 +318,14 @@
 
   function addNewRow() {
     let table = $('#Purchase1Table');
+    let rowIndex = index - 1;
+
     let newRow = `
       <tr>
-        <td><input type="text" name="item_cod[]" id="item_cod${index}" class="form-control" onblur="fetchByCode(${index})"></td>
+        <td><input type="text" name="items[${rowIndex}][item_code]" id="item_cod${index}" class="form-control product-code"></td>
+
         <td>
-          <select name="item_name[]" id="item_name${index}" class="form-control select2-js" onchange="onItemNameChange(this)">
+          <select name="items[${rowIndex}][item_id]" id="item_name${index}" class="form-control select2-js product-select" onchange="onItemNameChange(this)">
             <option value="">Select Item</option>
             ${products.map(product => 
               `<option value="${product.id}" data-barcode="${product.barcode}" data-unit-id="${product.measurement_unit}">
@@ -248,21 +333,29 @@
               </option>`).join('')}
           </select>
         </td>
-        <td><input type="text" name="bundle[]" id="pur_qty2_${index}" class="form-control" value="0" onchange="rowTotal(${index})"></td>
-        <td><input type="number" name="quantity[]" id="pur_qty${index}" class="form-control" value="0" step="any" onchange="rowTotal(${index})"></td>
+
         <td>
-          <select name="unit[]" id="unit${index}" class="form-control" required>
+          <select name="items[${rowIndex}][variation_id]" class="form-control select2-js variation-select">
+            <option value="">Select Variation</option>
+          </select>
+        </td>
+
+        <td><input type="number" name="items[${rowIndex}][quantity]" id="pur_qty${index}" class="form-control quantity" value="0" step="any" onchange="rowTotal(${index})"></td>
+
+        <td>
+          <select name="items[${rowIndex}][unit]" id="unit${index}" class="form-control" required>
             <option value="">-- Select --</option>
             @foreach ($units as $unit)
               <option value="{{ $unit->id }}">{{ $unit->name }} ({{ $unit->shortcode }})</option>
             @endforeach
           </select>
         </td>
-        <td><input type="number" name="price[]" id="pur_price${index}" class="form-control" value="0" step="any" onchange="rowTotal(${index})"></td>
+
+        <td><input type="number" name="items[${rowIndex}][price]" id="pur_price${index}" class="form-control" value="0" step="any" onchange="rowTotal(${index})"></td>
         <td><input type="number" id="amount${index}" class="form-control" value="0" step="any" disabled></td>
         <td>
           <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button>
-          <input type="hidden" name="barcode[]" id="barcode${index}">
+          <input type="hidden" name="items[${rowIndex}][barcode]" id="barcode${index}">
         </td>
       </tr>
     `;
@@ -281,16 +374,13 @@
   }
 
   function tableTotal() {
-    let total = 0, bundle = 0, qty = 0;
+    let total = 0, qty = 0;
     $('#Purchase1Table tr').each(function () {
       total += parseFloat($(this).find('input[id^="amount"]').val()) || 0;
-      bundle += parseFloat($(this).find('input[name="bundle[]"]').val()) || 0;
       qty += parseFloat($(this).find('input[name="quantity[]"]').val()) || 0;
     });
     $('#totalAmount').val(total.toFixed(2));
     $('#total_amount_show').val(total.toFixed(2));
-    $('#total_weight').val(bundle.toFixed(2));
-    $('#total_weight_show').val(bundle.toFixed(2));
     $('#total_quantity').val(qty.toFixed(2));
     $('#total_quantity_show').val(qty.toFixed(2));
     netTotal();
@@ -309,5 +399,33 @@
   function formatNumberWithCommas(x) {
     return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   }
+
+  // 🔹 Load Variations
+  function loadVariations(row, productId, preselectVariationId = null) {
+    const $variationSelect = row.find('.variation-select');
+    $variationSelect.html('<option value="">Loading...</option>').prop('disabled', false);
+
+    $.get(`/product/${productId}/variations`, function (data) {
+      let options = '<option value="">Select Variation</option>';
+      (data.variation || []).forEach(v => {
+        options += `<option value="${v.id}">${v.sku}</option>`;
+      });
+      $variationSelect.html(options).prop('disabled', false);
+
+      if ($variationSelect.hasClass('select2-hidden-accessible')) {
+        $variationSelect.select2('destroy');
+      }
+      $variationSelect.select2({ width: '100%', dropdownAutoWidth: true });
+
+      if (preselectVariationId) {
+        $variationSelect.val(String(preselectVariationId)).trigger('change');
+      } else {
+        setTimeout(() => {
+          $variationSelect.select2('open');
+        }, 300);
+      }
+    });
+  }
 </script>
+
 @endsection

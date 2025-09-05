@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Location;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 class LocationController extends Controller
 {
@@ -44,7 +45,12 @@ class LocationController extends Controller
             
             // Validate request
             $request->validate([
-                'name' => 'required|string|max:255|unique:locations,name',
+                'name' => [
+                    'required',
+                    'string',
+                    'max:255',
+                    Rule::unique('locations', 'name')->ignore($location->id),
+                ],
                 'code' => 'nullable|string|max:50',
             ]);
 

@@ -14,6 +14,7 @@ use App\Models\MeasurementUnit;
 use App\Models\ProductCategory;
 use App\Models\Attribute;
 use App\Models\AttributeValue;
+use App\Models\BarcodeSequence;
 
 class DatabaseSeeder extends Seeder
 {
@@ -249,8 +250,6 @@ class DatabaseSeeder extends Seeder
             ],
         ]);
 
-
-
         // 🏷️ Seed Attributes
         Attribute::insert([
             ['id' => 1, 'name' => 'SIZE', 'slug' => 'SIZE', 'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
@@ -305,5 +304,21 @@ class DatabaseSeeder extends Seeder
             ['id' => 3, 'name' => 'Square Feet', 'shortcode' => 'sq.ft'],
             ['id' => 4, 'name' => 'Yards', 'shortcode' => 'yrds'],
         ]);
+
+        $sequences = [
+            ['prefix' => 'GLOBAL', 'next_number' => 1],
+            ['prefix' => 'FG', 'next_number' => 1],
+            ['prefix' => 'RAW', 'next_number' => 1],
+            ['prefix' => 'SRV', 'next_number' => 1],
+            ['prefix' => 'PRD', 'next_number' => 1],
+            ['prefix' => 'VAR', 'next_number' => 1],
+        ];
+
+        foreach ($sequences as $seq) {
+            BarcodeSequence::firstOrCreate(
+                ['prefix' => $seq['prefix']],
+                ['next_number' => $seq['next_number']]
+            );
+        }
     }
 }

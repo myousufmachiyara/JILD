@@ -18,18 +18,19 @@ class ProductVariation extends Model
         'stock_quantity',
     ];
 
+    // In ProductVariation.php
     protected static function booted()
     {
         static::creating(function ($variation) {
-            $product = $variation->product;
+            if (empty($variation->barcode)) {
+                $product = $variation->product;
+                $prefix = strtoupper($product->item_type) . '-VAR-';
 
-            // Only FG variations generate barcode
-            if ($product && $product->item_type === 'fg' && empty($variation->barcode)) {
-                $variation->barcode = generateFgBarcode();
+                $variation->barcode = generateGlobalBarcode($prefix);
             }
         });
     }
-    
+
     /* ----------------- Relationships ----------------- */
 
     // Belongs to main product

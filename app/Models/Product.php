@@ -30,29 +30,19 @@ class Product extends Model
     protected static function booted()
     {
         static::creating(function ($product) {
-            // Only generate FG barcode if it's FG type and empty
-            if ($product->item_type === 'fg' && empty($product->barcode)) {
-                $product->barcode = generateFgBarcode();
-            } 
-            // For raw/service types, you can keep your existing prefix logic
-            elseif (empty($product->barcode)) {
+            if (empty($product->barcode)) {
                 $prefix = match($product->item_type) {
-                    'raw' => 'RAW-',
+                    'fg'      => 'FG-',
+                    'raw'     => 'RAW-',
                     'service' => 'SRV-',
-                    default => 'PRD-',
+                    default   => 'PRD-',
                 };
-                $lastId = Product::max('id') + 1;
-                $product->barcode = $prefix . str_pad($lastId, 6, '0', STR_PAD_LEFT);
-            }
-        });
 
-        // Remove product-level barcode if FG variations exist
-        static::created(function ($product) {
-            if ($product->item_type === 'fg' && $product->variations()->exists()) {
-                $product->updateQuietly(['barcode' => null]);
+                $product->barcode = generateGlobalBarcode($prefix);
             }
         });
     }
+
 
     /* ----------------- Relationships ----------------- */
 
