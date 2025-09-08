@@ -41,7 +41,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/product/{product}/variations', [ProductController::class, 'getVariations'])->name('product.variations');
     
     //Purchase Helper
-    Route::get('/vendor/{vendor}/product/{product}/invoices', [PurchaseInvoiceController::class, 'getVendorProductInvoices']);
+    Route::get('/product/{product}/invoices', [PurchaseInvoiceController::class, 'getProductInvoices']);
 
     // Production Receiving
     Route::prefix('production_receiving')->name('production.receiving.')->group(function () {

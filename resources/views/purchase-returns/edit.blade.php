@@ -225,13 +225,12 @@ function loadVariations(row, productId) {
 
 // ----------------- Load invoices -----------------
 function loadInvoices(row, productId, updatePrice=false, selectedInvoiceId=null) {
-  const vendorId = $('select[name="vendor_id"]').val();
   const $invoiceSelect = row.find('.invoice-select');
   const $priceInput = row.find('.price');
 
   $invoiceSelect.html('<option>Loading...</option>');
 
-  $.get(`/vendor/${vendorId}/product/${productId}/invoices`, function(data){
+  $.get(`/product/${productId}/invoices`, function(data){
     let options = '<option value="">Select Invoice</option>';
     data.forEach(inv => {
       options += `<option value="${inv.id}" data-rate="${inv.rate}">#${inv.id}</option>`;

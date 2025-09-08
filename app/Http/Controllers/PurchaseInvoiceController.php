@@ -432,15 +432,14 @@ class PurchaseInvoiceController extends Controller
         return $pdf->Output('purchase_invoice_' . $invoice->id . '.pdf', 'I');
     }
 
-    public function getVendorProductInvoices($vendorId, $productId)
+    public function getProductInvoices($productId)
     {
         try {
             // Fetch invoices for this vendor that include this product
-            $invoices = PurchaseInvoice::where('vendor_id', $vendorId)
-                ->whereHas('items', function($q) use ($productId) {
+            $invoices = PurchaseInvoice::whereHas('items', function($q) use ($productId) {
                     $q->where('item_id', $productId);
                 })
-                ->with(['vendor', 'items' => function($q) use ($productId) {
+                ->with(['items' => function($q) use ($productId) {
                     $q->where('item_id', $productId);
                 }])
                 ->get();
@@ -450,7 +449,6 @@ class PurchaseInvoiceController extends Controller
                 return [
                     'id' => $inv->id,
                     'number' => $inv->invoice_number,
-                    'vendor' => $inv->vendor->name,
                     'rate' => $item ? $item->price : 0, // safe fallback
                 ];
             });

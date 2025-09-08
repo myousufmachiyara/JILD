@@ -81,6 +81,7 @@
                 <thead>
                   <tr>
                     <th>Raw</th>
+                    <th>Variation</th> <!-- ✅ New Column -->
                     <th>Purchase #</th>
                     <th>Rate</th>
                     <th>Qty</th>
@@ -97,6 +98,11 @@
                         @foreach($allProducts as $product)
                           <option value="{{ $product->id }}" data-unit="{{ $product->unit }}">{{ $product->name }}</option>
                         @endforeach
+                      </select>
+                    </td>
+                    <td>
+                      <select name="item_details[0][variation_id]" id="variationSelect0" class="form-control select2-js">
+                        <option value="" selected disabled>Select Variation</option>
                       </select>
                     </td>
                     <td>
@@ -232,6 +238,11 @@
             </select>
           </td>
           <td>
+            <select name="item_details[${index}][variation_id]" id="variationSelect${index}" class="form-control select2-js">
+              <option value="" selected disabled>Select Variation</option>
+            </select>
+          </td>
+          <td>
             <select name="item_details[${index}][invoice_id]" id="invoiceSelect${index}" class="form-control" onchange="onInvoiceChange(this)" required>
               <option value="" disabled selected>Select Invoice</option>
             </select>
@@ -292,67 +303,105 @@
       return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
     
-    function onItemChange(select) {
-      const row = select.closest('tr');
-      const itemId = select.value;
-      const option = select.selectedOptions?.[0];
+// 🔹 When product changes
+  function onItemChange(select) {
+    const row = select.closest('tr');
+    const itemId = select.value;
+    if (!row || !itemId) return;
 
-      if (!row || !itemId || !option) return;
+    // Reset variation dropdown
+    const variationSelect = row.querySelector(`select[id^="variationSelect"]`);
+    variationSelect.innerHTML = `<option value="" disabled selected>Loading...</option>`;
+    
+    // Reset invoice dropdown
+    const invoiceSelect = row.querySelector(`select[id^="invoiceSelect"]`);
+    invoiceSelect.innerHTML = `<option value="" disabled selected>Select Invoice</option>`;
 
-      const unit = option.getAttribute('data-unit');
+    // Reset qty, rate, total
+    row.querySelector(`input[id^="item_qty_"]`).value = '';
+    row.querySelector(`input[id^="item_rate_"]`).value = '';
+    row.querySelector(`input[id^="item_total_"]`).value = '';
 
-      // Set the unit field
-      const unitSelect = row.querySelector('select[name^="item_details"][name$="[item_unit]"]');
-      if (unitSelect && unit) unitSelect.value = unit;
+    // Fetch variations for this product
+    fetch(`/product/${itemId}/variations`)
+      .then(res => res.json())
+      .then(data => {
+        variationSelect.innerHTML = `<option value="" disabled selected>Select Variation</option>`;
+        if (data.success && data.variation.length) {
+          data.variation.forEach(v => {
+            variationSelect.innerHTML += `<option value="${v.id}" data-product-id="${itemId}">${v.sku}</option>`;
+          });
+        } else {
+          variationSelect.innerHTML = `<option value="">No Variations</option>`;
+        }
 
-      const invoiceSelect = row.querySelector('select[name^="item_details"][name$="[invoice_id]"]');
-      if (!invoiceSelect) return;
+        // Reinitialize Select2
+        $(variationSelect).select2({ width: '100%' });
+      })
+      .catch(() => {
+        variationSelect.innerHTML = `<option value="">Error loading variations</option>`;
+      });
 
-      invoiceSelect.innerHTML = '<option value="">Loading...</option>';
+    // Fetch invoices for this product (without variation)
+    fetchInvoices(itemId, row);
+  }
 
-      // Clear other fields
-      row.querySelector(`input[name^="item_details"][name$="[qty]"]`).value = '';
-      row.querySelector(`input[name^="item_details"][name$="[item_rate]"]`).value = '';
-      row.querySelector(`input[id^="item_total_"]`).value = '';
+  // 🔹 When variation changes
+  function onVariationChange(select) {
+    const row = select.closest('tr');
+    const variationId = select.value;
+    const productId = select.selectedOptions[0]?.getAttribute('data-product-id');
 
-      // Load invoice data
-      fetch(`/item/${itemId}/invoices`)
-        .then(res => res.json())
-        .then(data => {
-          invoiceSelect.innerHTML = '<option value="">Select Invoice</option>';
+    if (!variationId || !productId) return;
+
+    // Fetch invoices using variation id if selected, else product id
+    fetchInvoices(variationId, row, true);
+  }
+
+  // 🔹 Fetch invoices
+  function fetchInvoices(id, row, isVariation = false) {
+    const invoiceSelect = row.querySelector(`select[id^="invoiceSelect"]`);
+    invoiceSelect.innerHTML = `<option value="" disabled selected>Loading...</option>`;
+
+    fetch(`/product/${id}/invoices`)
+      .then(res => res.json())
+      .then(data => {
+        invoiceSelect.innerHTML = `<option value="" disabled selected>Select Invoice</option>`;
+        if (Array.isArray(data) && data.length > 0) {
           data.forEach(inv => {
-            invoiceSelect.innerHTML += `<option value="${inv.id}">#${inv.id} - ${inv.vendor}</option>`;
+            invoiceSelect.innerHTML += `<option value="${inv.id}" data-rate="${inv.rate}">${inv.id}</option>`;
           });
-        })
-        .catch(() => {
-          invoiceSelect.innerHTML = '<option value="">Error loading invoices</option>';
-        });
+        } else {
+          invoiceSelect.innerHTML = `<option value="">No Invoices Found</option>`;
+        }
+
+        $(invoiceSelect).select2({ width: '100%' });
+      })
+      .catch(() => {
+        invoiceSelect.innerHTML = `<option value="">Error loading invoices</option>`;
+      });
+  }
+
+  // 🔹 When invoice changes
+  function onInvoiceChange(select) {
+    const row = select.closest('tr');
+    const option = select.selectedOptions[0];
+    if (!row || !option) return;
+
+    const rate = option.getAttribute('data-rate') || 0;
+
+    const rateInput = row.querySelector(`input[id^="item_rate_"]`);
+    const qtyInput = row.querySelector(`input[id^="item_qty_"]`);
+    const totalInput = row.querySelector(`input[id^="item_total_"]`);
+
+    if (rateInput) rateInput.value = rate;
+    if (qtyInput && totalInput) {
+      totalInput.value = ((parseFloat(qtyInput.value) || 0) * (parseFloat(rate) || 0)).toFixed(2);
     }
 
-    function onInvoiceChange(select) {
-      const row = select.closest('tr');
-      const invoiceId = select.value;
-      const itemSelect = row.querySelector('select[name^="item_details"][name$="[product_id]"]');
-      const itemId = itemSelect?.value;
+    tableTotal();
+  }
 
-      if (!invoiceId || !itemId) return;
-
-      fetch(`/invoice-item/${invoiceId}/item/${itemId}`)
-        .then(res => res.json())
-          .then(data => {
-            if (!data.error) {
-              row.querySelector(`input[name^="item_details"][name$="[qty]"]`).value = data.quantity || 0;
-              row.querySelector(`input[name^="item_details"][name$="[item_rate]"]`).value = data.price || 0;
-
-              // Trigger row total
-              const rowIndex = row.rowIndex - 1; // Adjust index if header row exists
-              rowTotal(rowIndex);
-            }
-          })
-          .catch(() => {
-            console.warn("Failed to fetch invoice-item data.");
-          });
-    }
 
     function generateVoucher() {
       const voucherContainer = document.getElementById("voucher-container");

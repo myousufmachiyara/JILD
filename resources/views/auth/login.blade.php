@@ -85,8 +85,8 @@
 
 			<div class="col-md-6 d-none d-lg-block">
 				<div class="owl-carousel owl-theme mb-0" data-plugin-carousel data-plugin-options='{ "dots": false, "nav": true, "items": 1, "autoplay": true }'>
-					<div class="item"><img src="{{ asset('assets/img/slide1.png') }}" style="height:100vh" alt=""></div>
-					<div class="item"><img src="{{ asset('assets/img/slide2.png') }}" style="height:100vh" alt=""></div>
+					<img src="{{ asset('assets/img/slide1.png') }}" style="height:100vh; width:100%; object-fit: cover;" alt="">
+					<img src="{{ asset('assets/img/slide2.png') }}" style="height:100vh; width:100%; object-fit: cover;" alt="">
 				</div>
 			</div>
 		</div>

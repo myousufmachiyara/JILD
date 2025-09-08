@@ -85,13 +85,16 @@
           {{-- Purchase Invoices --}}
           @if(auth()->user()->can('purchase_invoices.index') || auth()->user()->can('purchase_return.index'))
           <li class="nav-parent">
-            <a class="nav-link" href="#"><i class="fa fa-shopping-cart"></i> <span>Purchase Invoices</span></a>
+            <a class="nav-link" href="#"><i class="fa fa-shopping-cart"></i> <span>Purchase</span></a>
             <ul class="nav nav-children">
+              @can('purchase_orders.index')
+                <li><a class="nav-link" href="{{ route('purchase_orders.index') }}">Orders</a></li>
+              @endcan
               @can('purchase_invoices.index')
-              <li><a class="nav-link" href="{{ route('purchase_invoices.index') }}">Purchases</a></li>
+              <li><a class="nav-link" href="{{ route('purchase_invoices.index') }}">Invoices</a></li>
               @endcan
               @can('purchase_return.index')
-              <li><a class="nav-link" href="{{ route('purchase_return.index') }}">Purchase Return</a></li>
+              <li><a class="nav-link" href="{{ route('purchase_return.index') }}">Returns</a></li>
               @endcan
             </ul>
           </li>
@@ -113,13 +116,16 @@
           {{-- Sale Invoices --}}
           @if(auth()->user()->can('sale_invoices.index') || auth()->user()->can('sale_return.index'))
           <li class="nav-parent">
-            <a class="nav-link" href="#"><i class="fa fa-cash-register"></i> <span>Sale Invoices</span></a>
+            <a class="nav-link" href="#"><i class="fa fa-cash-register"></i> <span>Sale</span></a>
             <ul class="nav nav-children">
+              @can('sale_orders.index')
+              <li><a class="nav-link" href="{{ route('sale_orders.index') }}">Order</a></li>
+              @endcan
               @can('sale_invoices.index')
-              <li><a class="nav-link" href="{{ route('sale_invoices.index') }}">Sale</a></li>
+              <li><a class="nav-link" href="{{ route('sale_invoices.index') }}">Invoices</a></li>
               @endcan
               @can('sale_return.index')
-              <li><a class="nav-link" href="{{ route('sale_return.index') }}">Sale Return</a></li>
+              <li><a class="nav-link" href="{{ route('sale_return.index') }}">Return</a></li>
               @endcan
             </ul>
           </li>
