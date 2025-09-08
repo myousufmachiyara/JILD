@@ -198,23 +198,28 @@ class StockTransferController extends Controller
             $html = '<table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
                 <tr style="background-color:#f5f5f5; font-weight:bold;">
                     <th width="8%">S.No</th>
-                    <th width="40%">Product</th>
-                    <th width="40%">Variation</th>
-                    <th width="12%">Quantity</th>
+                    <th width="38%">Product</th>
+                    <th width="38%">Variation</th>
+                    <th width="16%">Quantity</th>
                 </tr>';
 
             $count = 0;
             foreach ($transfer->details as $item) {
                 $count++;
+                $product = $item->product; // main product
+                $variation = $item->variation; // may be null
+                $unit = $product->measurementUnit->shortcode ?? '-';
+
                 $html .= '
                 <tr>
                     <td align="center">' . $count . '</td>
-                    <td>' . ($item->product->name ?? '-') . '</td>
-                    <td>' . ($item->variation->sku ?? '-') . '</td>
-                    <td align="center">' . number_format($item->quantity, 2) . '</td>
+                    <td>' . ($product->name ?? '-') . '</td>
+                    <td>' . ($variation->sku ?? '-') . '</td>
+                    <td align="center">' .number_format($item->quantity, 2).' '.$unit.'</td>
                 </tr>';
             }
             $html .= '</table>';
+
             $pdf->writeHTML($html, true, false, true, false, '');
 
             $pdf->Ln(20);

@@ -69,4 +69,9 @@ class Product extends Model
     {
         return $this->belongsTo(MeasurementUnit::class, 'measurement_unit');
     }
+
+    public function purchaseInvoices() 
+    {
+        return $this->hasMany(PurchaseInvoiceItem::class, 'item_id');
+    }
 }

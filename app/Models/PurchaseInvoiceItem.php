@@ -31,4 +31,9 @@ class PurchaseInvoiceItem extends Model
     {
         return $this->belongsTo(MeasurementUnit::class, 'unit');
     }
+
+    public function variation()
+    {
+        return $this->belongsTo(ProductVariation::class, 'variation_id');
+    }
 }

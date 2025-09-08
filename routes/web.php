@@ -40,6 +40,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/get-product-by-code/{barcode}', [ProductController::class, 'getByBarcode'])->name('product.byBarcode');
     Route::get('/product/{product}/variations', [ProductController::class, 'getVariations'])->name('product.variations');
     
+    //Purchase Helper
+    Route::get('/vendor/{vendor}/product/{product}/invoices', [PurchaseInvoiceController::class, 'getVendorProductInvoices']);
+
     // Production Receiving
     Route::prefix('production_receiving')->name('production.receiving.')->group(function () {
         Route::get('/', [ProductionReceivingController::class, 'index'])->middleware('check.permission:production_receiving.index')->name('index');

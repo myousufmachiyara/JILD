@@ -13,6 +13,7 @@ class ChartOfAccounts extends Model
     protected $fillable = [
         'shoa_id',
         'name',
+        'account_code',
         'account_type',
         'receivables',
         'payables',
@@ -20,7 +21,8 @@ class ChartOfAccounts extends Model
         'remarks',
         'address',
         'phone_no',
-        'created_by'
+        'created_by',
+        'updated_by',
     ];
 
     // Define the relationship with SubHeadOfAccounts (belongs to)

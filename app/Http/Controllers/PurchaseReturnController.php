@@ -36,7 +36,6 @@ class PurchaseReturnController extends Controller
 
     public function store(Request $request)
     {
-        // Log request input
         Log::info('Storing Purchase Return', ['request' => $request->all()]);
 
         $request->validate([
@@ -45,38 +44,39 @@ class PurchaseReturnController extends Controller
             'remarks' => 'nullable|string|max:1000',
 
             // Validate each item row
-            'item_id.*' => 'required|exists:products,id',
-            'invoice_id.*' => 'required|exists:purchase_invoices,id',
-            'quantity.*' => 'required|numeric|min:0',
-            'unit.*' => 'required|exists:measurement_units,id',
-            'price.*' => 'required|numeric|min:0',
-            'amount.*' => 'required|numeric|min:0',
+            'items.*.item_id' => 'required|exists:products,id',
+            'items.*.variation_id' => 'nullable|exists:product_variations,id',
+            'items.*.invoice_id' => 'required|exists:purchase_invoices,id',
+            'items.*.quantity' => 'required|numeric|min:0',
+            'items.*.unit' => 'required|exists:measurement_units,id',
+            'items.*.price' => 'required|numeric|min:0',
+            'items.*.amount' => 'required|numeric|min:0',
         ]);
 
         try {
             DB::beginTransaction();
 
             $purchaseReturn = PurchaseReturn::create([
-                'vendor_id'     => $request->vendor_id,
-                'return_date'   => $request->return_date,
-                'remarks'       => $request->remarks,
+                'vendor_id' => $request->vendor_id,
+                'return_date' => $request->return_date,
+                'remarks' => $request->remarks,
             ]);
 
             Log::info('Purchase Return created', ['id' => $purchaseReturn->id]);
 
-            foreach ($request->item_id as $index => $itemId) {
-                $itemData = [
-                    'purchase_return_id'   => $purchaseReturn->id,
-                    'item_id'              => $itemId,
-                    'purchase_invoice_id'  => $request->invoice_id[$index],
-                    'quantity'             => $request->quantity[$index],
-                    'unit_id'              => $request->unit[$index],
-                    'price'                => $request->price[$index],
-                ];
+            foreach ($request->items as $item) {
+                PurchaseReturnItem::create([
+                    'purchase_return_id' => $purchaseReturn->id,
+                    'item_id' => $item['item_id'],
+                    'variation_id' => $item['variation_id'] ?? null, // <- variation_id
+                    'purchase_invoice_id' => $item['invoice_id'],
+                    'quantity' => $item['quantity'],
+                    'unit_id' => $item['unit'],
+                    'price' => $item['price'],
+                    'amount' => $item['amount'],
+                ]);
 
-                PurchaseReturnItem::create($itemData);
-
-                Log::info('Purchase Return Item created', ['data' => $itemData]);
+                Log::info('Purchase Return Item created', ['data' => $item]);
             }
 
             DB::commit();
@@ -94,9 +94,17 @@ class PurchaseReturnController extends Controller
         }
     }
 
+
     public function edit($id)
     {
-        $purchaseReturn = PurchaseReturn::with('items')->findOrFail($id);
+        $purchaseReturn = PurchaseReturn::with([
+            'items',
+            'items.item.purchaseInvoices', // load invoices via product
+            'items.variation',  // load variation for each item
+            'items.invoice',    // load invoice for each item
+            'items.unit'        // load unit for each item
+        ])->findOrFail($id);
+
         $products = Product::all();
         $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
         $units = MeasurementUnit::all();
@@ -104,6 +112,7 @@ class PurchaseReturnController extends Controller
 
         return view('purchase-returns.edit', compact('purchaseReturn', 'products', 'vendors', 'units', 'invoices'));
     }
+
 
     public function update(Request $request, $id)
     {

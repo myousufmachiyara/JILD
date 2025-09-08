@@ -206,11 +206,11 @@ $(document).ready(function () {
     const selectedOptions = $(this).find('option:selected');
     const attrTexts = [];
     selectedOptions.each(function () {
-      attrTexts.push($(this).text().split(' - ')[1]);
+      attrTexts.push($(this).text().split('-')[1]);
     });
-    const variationName = attrTexts.join(' - ');
+    const variationName = attrTexts.join('-');
     const mainSku = $('#sku').val();
-    block.find('.sku-field').val(mainSku + ' - ' + variationName);
+    block.find('.sku-field').val(mainSku + '-' + variationName);
   });
 
   let newVariationIndex = 0;
@@ -236,7 +236,7 @@ $(document).ready(function () {
             <select name="new_variations[${newVariationIndex}][attributes][]" multiple class="form-control select2-js variation-attributes">
               @foreach($attributes as $attribute)
                 @foreach($attribute->values as $value)
-                  <option value="{{ $value->id }}">{{ $attribute->name }} - {{ $value->value }}</option>
+                  <option value="{{ $value->id }}">{{ $attribute->name }}-{{ $value->value }}</option>
                 @endforeach
               @endforeach
             </select>

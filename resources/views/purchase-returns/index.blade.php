@@ -26,7 +26,7 @@
               <tr>
                 <td>{{ $ret->id }}</td>
                 <td>{{ $ret->vendor->name ?? '-' }}</td>
-                <td>{{ $ret->return_date }}</td>
+                <td>{{ \Carbon\Carbon::parse($ret->return_date)->format('d-M-Y') }}</td>
                 <td>{{ number_format($ret->total_amount, 2) }}</td>
                 <td>{{ $ret->remarks }}</td>
                 <td>

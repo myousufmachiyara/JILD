@@ -1,94 +1,113 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>@yield('title', 'ERP | Login')</title>
-        <meta name="csrf-token" content="{{ csrf_token() }}">
-
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+	<head>
+		<meta charset="UTF-8">
+		<title>BillTrix | Login</title>
+		<link rel="icon" type="image/x-icon" href="{{ asset('assets/img/favicon.png') }}">
+		
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+		<meta name="csrf-token" content="{{ csrf_token() }}">
 
 		<!-- Web Fonts  -->
-		<link href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,600,700,800|Shadows+Into+Light" rel="stylesheet" type="text/css">
+		<link href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,600,700,800|Shadows+Into+Light" rel="stylesheet">
 
 		<!-- Vendor CSS -->
-        
 		<link rel="stylesheet" href="{{ asset('assets/vendor/bootstrap/css/bootstrap.css') }}" />
-		<link rel="stylesheet" href="{{ asset('/assets/vendor/animate/animate.compat.css') }}" />
-		<link rel="stylesheet" href="{{ asset('/assets/vendor/font-awesome/css/all.min.css') }}" />
-		<link rel="stylesheet" href="{{ asset('/assets/vendor/boxicons/css/boxicons.min.css') }}" />
-		<link rel="stylesheet" href="{{ asset('/assets/vendor/magnific-popup/magnific-popup.css') }}" />
-		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css" />
-		<link rel="stylesheet" href="{{ asset('/assets/vendor/datatables/media/css/dataTables.bootstrap5.css') }}" />
-		<link rel="stylesheet" href="{{ asset('/assets/vendor/select2/css/select2.css') }}" />
-		<link rel="stylesheet" href="{{ asset('/assets/vendor/select2-bootstrap-theme/select2-bootstrap.min.css') }}" />
-		<link rel="stylesheet" href="{{ asset('/assets/vendor/bootstrap-multiselect/css/bootstrap-multiselect.css') }}" />
-		<link rel="stylesheet" href="{{ asset('/assets/vendor/dropzone/basic.css') }}"/>
-		<link rel="stylesheet" href="{{ asset('/assets/vendor/dropzone/dropzone.css') }}" />
+		<link rel="stylesheet" href="{{ asset('assets/vendor/animate/animate.compat.css') }}">
+		<link rel="stylesheet" href="{{ asset('assets/vendor/font-awesome/css/all.min.css') }}" />
+		<link rel="stylesheet" href="{{ asset('assets/vendor/boxicons/css/boxicons.min.css') }}" />
+		<link rel="stylesheet" href="{{ asset('assets/vendor/magnific-popup/magnific-popup.css') }}" />
+		<link rel="stylesheet" href="{{ asset('assets/vendor/bootstrap-datepicker/css/bootstrap-datepicker3.css') }}" />
+		<link rel="stylesheet" href="{{ asset('assets/vendor/owl.carousel/assets/owl.carousel.css') }}" />
+		<link rel="stylesheet" href="{{ asset('assets/vendor/owl.carousel/assets/owl.theme.default.css') }}" />
+
 		<!-- Theme CSS -->
-        <link rel="stylesheet" href="{{ asset('/assets/css/theme.css') }}" />
-        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+		<link rel="stylesheet" href="{{ asset('assets/css/theme.css') }}" />
+		<link rel="stylesheet" href="{{ asset('assets/css/skins/default.css') }}" />
+		<link rel="stylesheet" href="{{ asset('assets/css/custom.css') }}" />
 
-		<!-- Skin CSS -->
-        <link rel="stylesheet" href="{{ asset('/assets/css/skins/default.css') }}" />
+		<script src="{{ asset('assets/vendor/modernizr/modernizr.js') }}"></script>
+		<style>
+			.resp-cont {
+				width:60%;
+			}
+			@media (max-width: 768px) {
+				.resp-cont {
+					width:80%
+				}
+			}
+		</style>
+	</head>
+	<body style="background:#fff;">
+		<div class="row">
+			<div class="col-12 col-md-6 text-center">
+				<div class="container resp-cont" style="position: relative;top: 20%;">			
+					<h2 class="mb-0 text-primary">Welcome Back</h2>
+					<p class="text-dark mb-4">Please Login To Continue</p>
 
-		<!-- Theme Custom CSS -->
-        <link rel="stylesheet" href="{{ asset('/assets/css/custom.css') }}" />
-        
-    </head>
-    
-    <body>
-        <div class="container mt-5">
-            <div class="row justify-content-center">
-                <div class="col-md-8">
-                    <div class="card">
-                        <div class="card-header">{{ __('Login') }}</div>
-
-                        <div class="card-body">
-                            <form method="POST" action="{{ route('login') }}">
-                                @csrf
-
-                                <div class="row mb-3">
-                                    <label for="email" class="col-md-4 col-form-label text-md-end">{{ __('Email Address') }}</label>
-
-                                    <div class="col-md-6">
-                                        <input id="email" type="email" class="form-control @error('email') is-invalid @enderror" name="email" value="{{ old('email') }}" required autocomplete="email" autofocus>
-
-                                        @error('email')
-                                            <span class="invalid-feedback" role="alert">
-                                                <strong>{{ $message }}</strong>
-                                            </span>
-                                        @enderror
-                                    </div>
-                                </div>
-
-                                <div class="row mb-3">
-                                    <label for="password" class="col-md-4 col-form-label text-md-end">{{ __('Password') }}</label>
-
-                                    <div class="col-md-6">
-                                        <input id="password" type="password" class="form-control @error('password') is-invalid @enderror" name="password" required autocomplete="current-password">
-
-                                        @error('password')
-                                            <span class="invalid-feedback" role="alert">
-                                                <strong>{{ $message }}</strong>
-                                            </span>
-                                        @enderror
-                                    </div>
-                                </div>
-
-                                <div class="row mb-0">
-                                    <div class="col-md-8 offset-md-4">
-                                        <button type="submit" class="btn btn-primary">
-                                            {{ __('Login') }}
-                                        </button>
-                                    </div>
-                                </div>
-                            </form>
+                    @if ($errors->any())
+                        <div class="alert alert-danger text-center" style="border-radius:10px;">
+                            {{ $errors->first() }}
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </body>
+                    @endif
+
+					<form method="POST" action="{{ route('login') }}" id="loginForm">
+						@csrf							
+						<div class="form-group">
+							<div class="input-group">
+								<span class="input-group-text bg-light text-primary" style="border-top-left-radius:15px;border-bottom-left-radius:15px;">
+									<i class="bx bx-user text-4"></i>
+								</span>
+								<input class="form-control" required name="username" placeholder="Username" type="text" value="{{ old('username') }}" style="border-top-right-radius:15px;border-bottom-right-radius:15px;"/>
+							</div>
+						</div>
+
+						<div class="form-group mb-3">
+							<div class="input-group">
+								<span class="input-group-text bg-light text-primary" style="border-top-left-radius:15px;border-bottom-left-radius:15px;">
+									<i class="bx bx-lock text-4"></i>
+								</span>
+								<input class="form-control" required name="password" placeholder="Password" type="password" id="password" autocomplete="off" style="border-top-right-radius:15px;border-bottom-right-radius:15px;" />
+							</div>
+						</div>
+
+						<div class="col-sm-12">
+							<span class="mt-3 mx-2 text-start" style="display:block"> 
+								<input type="checkbox" onclick="showPassword()"> Show Password 
+							</span>
+							<button type="submit" class="btn btn-primary mt-2" style="font-size: 0.9rem;padding: 8.52px 18px;border-radius:15px;width:100%">Continue</button>
+						</div>
+					</form>
+
+					<p class="text-center text-muted mt-3 mb-3">&copy; {{ date('Y') }}. All Rights Reserved.</p>
+				</div>
+			</div>
+
+			<div class="col-md-6 d-none d-lg-block">
+				<div class="owl-carousel owl-theme mb-0" data-plugin-carousel data-plugin-options='{ "dots": false, "nav": true, "items": 1, "autoplay": true }'>
+					<div class="item"><img src="{{ asset('assets/img/slide1.png') }}" style="height:100vh" alt=""></div>
+					<div class="item"><img src="{{ asset('assets/img/slide2.png') }}" style="height:100vh" alt=""></div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Vendor -->
+		<script src="{{ asset('assets/vendor/jquery/jquery.js') }}"></script>
+		<script src="{{ asset('assets/vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+		<script src="{{ asset('assets/vendor/owl.carousel/owl.carousel.js') }}"></script>
+		<script src="{{ asset('assets/js/theme.js') }}"></script>
+		<script src="{{ asset('assets/js/custom.js') }}"></script>
+		<script src="{{ asset('assets/js/theme.init.js') }}"></script>
+
+		<script>
+        	function showPassword() {
+				var x = document.getElementById("password");
+				if (x.type === "password") {
+					x.type = "text";
+				} else {
+					x.type = "password";
+				}
+			}
+    	</script>
+	</body>
 </html>

@@ -11,35 +11,13 @@ use Illuminate\Support\Facades\Log;
 
 class UserController extends Controller
 {
-public function index()
-{
-    $users = User::with('roles')->get();
-    
-    // Debug: Check if files exist and log the results
-    foreach ($users as $user) {
-        if ($user->signature) {
-            $storagePath = storage_path('app/public/signatures/' . $user->signature);
-            $publicPath = public_path('storage/signatures/' . $user->signature);
-            $symlinkExists = is_link(public_path('storage'));
-            
-            \Log::info('File existence check:', [
-                'user_id' => $user->id,
-                'filename' => $user->signature,
-                'storage_exists' => file_exists($storagePath),
-                'public_exists' => file_exists($publicPath),
-                'symlink_exists' => $symlinkExists,
-                'storage_path' => $storagePath,
-                'public_path' => $publicPath,
-                'asset_url' => asset('storage/signatures/' . $user->signature),
-                'public_storage_dir_exists' => file_exists(public_path('storage')),
-                'public_signatures_dir_exists' => file_exists(public_path('storage/signatures'))
-            ]);
-        }
+    public function index()
+    {
+        $users = User::with('roles')->get();
+
+        $roles = Role::all();
+        return view('users.index', compact('users', 'roles'));
     }
-    
-    $roles = Role::all();
-    return view('users.index', compact('users', 'roles'));
-}
 
     public function create()
     {
@@ -52,14 +30,14 @@ public function index()
         // Validate request
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
+            'username' => 'required|string|unique:users,username',
             'password' => 'required|min:6|confirmed',
             'role' => 'required|exists:roles,id',
             'signature' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // max 2MB
         ]);
 
         // Prepare data
-        $data = $request->only(['name', 'email']);
+        $data = $request->only(['name', 'username']);
         $data['password'] = Hash::make($request->password);
 
         // Handle signature upload
@@ -85,13 +63,13 @@ public function index()
         // Validate the request
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $user->id,
+            'username'  => 'required|string|unique:users,username,' . $user->id,
             'role' => 'required|exists:roles,id',
             'signature' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         // Get basic user data
-        $data = $request->only(['name', 'email','signature']);
+        $data = $request->only(['name', 'username','signature']);
 
         // Handle signature upload
         if ($request->hasFile('signature') && $request->file('signature')->isValid()) {

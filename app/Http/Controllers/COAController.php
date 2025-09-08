@@ -66,7 +66,9 @@ class COAController extends Controller
                 'remarks' => $request->remarks,
                 'address' => $request->address,
                 'phone_no' => $request->phone_no,
-                'created_by'    => auth()->id(), // ✅ save logged in user
+                'created_by'    => auth()->id(),
+                'updated_by' => auth()->id(), 
+
             ]);
 
             return redirect()->route('coa.index')->with('success', 'Chart of Account created successfully.');

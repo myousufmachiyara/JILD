@@ -16,10 +16,12 @@ return new class extends Migration
             $table->unsignedBigInteger('vendor_id');
             $table->date('return_date');
             $table->text('remarks')->nullable();
+            $table->unsignedBigInteger('created_by');
             $table->timestamps();
             $table->softdeletes();
 
             $table->foreign('vendor_id')->references('id')->on('chart_of_accounts')->onDelete('cascade');
+            $table->foreign('created_by')->references('id')->on('users')->onDelete('cascade');
         });
     }
 

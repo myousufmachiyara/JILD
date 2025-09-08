@@ -350,11 +350,11 @@ class PurchaseInvoiceController extends Controller
         $html = '<table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
             <tr style="background-color:#f5f5f5; font-weight:bold;">
                 <th width="8%">S.No</th>
-                <th width="32%">Item Name</th>
-                <th width="10%">Bundle</th>
+                <th width="25%">Item Name</th>
+                <th width="25%">Variation</th>
                 <th width="20%">Qty</th>
-                <th width="15%">Rate</th>
-                <th width="15%">Total</th>
+                <th width="10%">Rate</th>
+                <th width="12%">Total</th>
             </tr>';
 
         $count = 0;
@@ -369,7 +369,7 @@ class PurchaseInvoiceController extends Controller
             <tr>
                 <td align="center">' . $count . '</td>
                 <td>' . ($item->product->name ?? '-') . '</td>
-                <td align="center">' . ($item->bundle ?? '-') . '</td>
+                <td align="center">' . ($item->variation->sku ?? '-') . '</td>
                 <td align="center">' . number_format($item->quantity, 2). ' ' .$item->measurementUnit->shortcode.'</td>
                 <td align="right">' . number_format($item->price, 2) . '</td>
                 <td align="right">' . number_format($item->price * $item->quantity, 2) . '</td>
@@ -430,5 +430,36 @@ class PurchaseInvoiceController extends Controller
         $pdf->Cell($lineWidth, 6, 'Authorized By', 0, 0, 'C');
 
         return $pdf->Output('purchase_invoice_' . $invoice->id . '.pdf', 'I');
+    }
+
+    public function getVendorProductInvoices($vendorId, $productId)
+    {
+        try {
+            // Fetch invoices for this vendor that include this product
+            $invoices = PurchaseInvoice::where('vendor_id', $vendorId)
+                ->whereHas('items', function($q) use ($productId) {
+                    $q->where('item_id', $productId);
+                })
+                ->with(['vendor', 'items' => function($q) use ($productId) {
+                    $q->where('item_id', $productId);
+                }])
+                ->get();
+
+            $data = $invoices->map(function($inv) {
+                $item = $inv->items->first(); // get the first matching item
+                return [
+                    'id' => $inv->id,
+                    'number' => $inv->invoice_number,
+                    'vendor' => $inv->vendor->name,
+                    'rate' => $item ? $item->price : 0, // safe fallback
+                ];
+            });
+
+            return response()->json($data);
+
+        } catch (\Exception $e) {
+            Log::error('Invoice fetch failed: '.$e->getMessage());
+            return response()->json(['error' => 'Failed to load invoices'], 500);
+        }
     }
 }

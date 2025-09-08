@@ -215,7 +215,7 @@
             <td>${label}${inputs}</td>
             <td><input type="number" name="variations[${index}][stock_quantity]" step="any" class="form-control" value="0" required></td>
             <td><input type="number" name="variations[${index}][manufacturing_cost]" step="any" class="form-control" value="0" required></td>
-            <td><input type="text" name="variations[${index}][sku]" class="form-control" value="${mainSku} - ${label}"></td>
+            <td><input type="text" name="variations[${index}][sku]" class="form-control" value="${mainSku}-${label}"></td>
             <td><button type="button" class="btn btn-sm btn-danger remove-variation">X</button></td>
           </tr>
         `);

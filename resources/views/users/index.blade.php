@@ -84,8 +84,8 @@
               <input type="text" name="name" class="form-control" required />
             </div>
             <div class="mb-2">
-              <label>Email</label>
-              <input type="email" name="email" class="form-control" required />
+              <label>Username</label>
+              <input type="text" name="username" class="form-control" required />
             </div>
             <div class="mb-2">
               <label>Password</label>
@@ -134,8 +134,8 @@
               <input type="text" name="name" id="edit_name" class="form-control" required>
             </div>
             <div class="mb-2">
-              <label>Email</label>
-              <input type="email" name="email" id="edit_email" class="form-control" required>
+              <label>Username</label>
+              <input type="text" name="username" id="edit_username" class="form-control" required>
             </div>
             <div class="mb-2">
               <label>Role</label>
@@ -172,7 +172,7 @@
           document.getElementById('updateForm').action = `/users/${user.id}`;
           document.getElementById('edit_user_id').value = user.id;
           document.getElementById('edit_name').value = user.name;
-          document.getElementById('edit_email').value = user.email;
+          document.getElementById('edit_username').value = user.username;
           document.getElementById('edit_role').value = user.roles[0]?.id || '';
 
           let previewDiv = document.getElementById('current_signature_preview');

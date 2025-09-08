@@ -11,6 +11,10 @@ class PurchaseReturn extends Model
 
     protected $fillable = ['vendor_id', 'return_date', 'remarks'];
 
+    protected $casts = [
+        'return_date' => 'date',
+    ];
+
     public function vendor()
     {
         return $this->belongsTo(ChartOfAccounts::class, 'vendor_id');
@@ -20,4 +24,5 @@ class PurchaseReturn extends Model
     {
         return $this->hasMany(PurchaseReturnItem::class);
     }
+
 }

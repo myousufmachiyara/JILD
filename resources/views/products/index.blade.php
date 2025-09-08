@@ -32,7 +32,6 @@
                 <th>Item Name</th>
                 <th>SKU</th>
                 <th>Category</th>
-                <th>M. Cost</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -50,7 +49,6 @@
                 <td>{{ $product->name }}</td>
                 <td>{{ $product->sku }}</td>
                 <td>{{ $product->category->name ?? '-' }}</td>
-                <td>{{ number_format($product->manufacturing_cost, 2) }}</td>
                 <td>
                   <a href="{{ route('products.edit', $product->id) }}" class="text-primary"><i class="fa fa-pen"></i></a>
                   <form method="POST" action="{{ route('products.destroy', $product->id) }}" style="display:inline-block">

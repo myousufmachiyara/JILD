@@ -27,8 +27,12 @@ class DatabaseSeeder extends Seeder
 
         // 🔑 Create Super Admin User
         $admin = User::firstOrCreate(
-            ['email' => 'admin@gmail.com'],
-            ['name' => 'Admin', 'password' => Hash::make('12345678')]
+            ['username' => 'admin'],
+            [
+                'name' => 'Admin',
+                'email' => 'admin@gmail.com', // optional, keep if you want for notifications
+                'password' => Hash::make('12345678'),
+            ]
         );
 
         $superAdmin = Role::firstOrCreate(['name' => 'superadmin']);
@@ -207,40 +211,6 @@ class DatabaseSeeder extends Seeder
                 'payables' => 0,
                 'opening_date' => '2025-01-01',
                 'remarks' => "Expense",
-                'address' => "",
-                'phone_no' => "",
-                'created_by' => 1,
-                'updated_by' => 1,
-                'created_at' => $now,
-                'updated_at' => $now
-            ],
-            [
-                'id' => 7,
-                'shoa_id' => 1,
-                'account_code' => '101004',
-                'name' => "Test Customer",
-                'account_type' => "customer",
-                'receivables' => 0,
-                'payables' => 0,
-                'opening_date' => '2025-01-01',
-                'remarks' => "Customer",
-                'address' => "",
-                'phone_no' => "",
-                'created_by' => 1,
-                'updated_by' => 1,
-                'created_at' => $now,
-                'updated_at' => $now
-            ],
-            [
-                'id' => 8,
-                'shoa_id' => 3,
-                'account_code' => '201002',
-                'name' => "Test Vendor",
-                'account_type' => "vendor",
-                'receivables' => 0,
-                'payables' => 0,
-                'opening_date' => '2025-01-01',
-                'remarks' => "Vendor",
                 'address' => "",
                 'phone_no' => "",
                 'created_by' => 1,
