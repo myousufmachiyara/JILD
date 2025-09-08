@@ -3,8 +3,12 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use App\Services\myPDF;
+use Carbon\Carbon;
 
 use App\Models\PurchaseReturn;
 use App\Models\PurchaseReturnItem;
@@ -28,7 +32,7 @@ class PurchaseReturnController extends Controller
     public function create()
     {
         $invoices = PurchaseInvoice::with('vendor')->get();
-        $products = Product::where('item_type','raw')->get();
+        $products = Product::get();
         $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
         $units = MeasurementUnit::all();
         return view('purchase-returns.create', compact('invoices', 'products', 'units','vendors'));
@@ -60,6 +64,7 @@ class PurchaseReturnController extends Controller
                 'vendor_id' => $request->vendor_id,
                 'return_date' => $request->return_date,
                 'remarks' => $request->remarks,
+                'created_by'       => auth()->id(),
             ]);
 
             Log::info('Purchase Return created', ['id' => $purchaseReturn->id]);
@@ -94,7 +99,6 @@ class PurchaseReturnController extends Controller
         }
     }
 
-
     public function edit($id)
     {
         $purchaseReturn = PurchaseReturn::with([
@@ -113,58 +117,76 @@ class PurchaseReturnController extends Controller
         return view('purchase-returns.edit', compact('purchaseReturn', 'products', 'vendors', 'units', 'invoices'));
     }
 
-
     public function update(Request $request, $id)
     {
+        Log::info('PurchaseReturn Update Request', $request->all());
+
         $request->validate([
             'vendor_id' => 'required|exists:chart_of_accounts,id',
             'return_date' => 'required|date',
             'remarks' => 'nullable|string|max:1000',
             'total_amount' => 'required|numeric|min:0',
-            'net_amount' => 'required|numeric|min:0',
+            'net_amount_hidden' => 'required|numeric|min:0',
 
-            'item_id.*' => 'required|exists:products,id',
-            'invoice_id.*' => 'required|exists:purchase_invoices,id',
-            'quantity.*' => 'required|numeric|min:0',
-            'unit.*' => 'required|exists:measurement_units,id',
-            'price.*' => 'required|numeric|min:0',
-            'amount.*' => 'required|numeric|min:0',
+            // Validate nested items
+            'items.*.item_id' => 'required|exists:products,id',
+            'items.*.variation_id' => 'nullable|exists:product_variations,id',
+            'items.*.invoice_id' => 'required|exists:purchase_invoices,id',
+            'items.*.quantity' => 'required|numeric|min:0',
+            'items.*.unit' => 'required|exists:measurement_units,id',
+            'items.*.price' => 'required|numeric|min:0',
+            'items.*.amount' => 'required|numeric|min:0',
         ]);
 
         try {
             DB::beginTransaction();
 
             $purchaseReturn = PurchaseReturn::findOrFail($id);
+
             $purchaseReturn->update([
                 'vendor_id' => $request->vendor_id,
                 'return_date' => $request->return_date,
                 'remarks' => $request->remarks,
                 'total_amount' => $request->total_amount,
-                'net_amount' => $request->net_amount,
+                'net_amount' => $request->net_amount_hidden,
             ]);
 
-            // Remove existing items
-            PurchaseReturnItem::where('purchase_return_id', $purchaseReturn->id)->delete();
+            Log::info('PurchaseReturn updated', ['id' => $purchaseReturn->id]);
 
-            // Add updated items
-            foreach ($request->item_id as $index => $itemId) {
-                PurchaseReturnItem::create([
+            // Remove old items
+            PurchaseReturnItem::where('purchase_return_id', $purchaseReturn->id)->delete();
+            Log::info('Old PurchaseReturnItems deleted', ['purchase_return_id' => $purchaseReturn->id]);
+
+            // Insert updated items
+            foreach ($request->items as $item) {
+                $data = [
                     'purchase_return_id' => $purchaseReturn->id,
-                    'item_id' => $itemId,
-                    'purchase_invoice_id' => $request->invoice_id[$index],
-                    'quantity' => $request->quantity[$index],
-                    'unit_id' => $request->unit[$index],
-                    'price' => $request->price[$index],
-                    'amount' => $request->amount[$index],
-                    'remarks' => $request->remarks[$index] ?? null,
-                ]);
+                    'item_id' => $item['item_id'],
+                    'variation_id' => $item['variation_id'] ?? null,
+                    'purchase_invoice_id' => $item['invoice_id'],
+                    'quantity' => $item['quantity'],
+                    'unit_id' => $item['unit'],
+                    'price' => $item['price'],
+                    'amount' => $item['amount'],
+                    'remarks' => $item['remarks'] ?? null,
+                ];
+
+                Log::info('Creating PurchaseReturnItem', $data);
+
+                PurchaseReturnItem::create($data);
             }
 
             DB::commit();
+            Log::info('PurchaseReturn update committed successfully', ['id' => $purchaseReturn->id]);
 
             return redirect()->route('purchase_return.index')->with('success', 'Purchase Return updated successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('PurchaseReturn update failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return back()->withInput()->withErrors(['error' => 'Failed to update: ' . $e->getMessage()]);
         }
     }

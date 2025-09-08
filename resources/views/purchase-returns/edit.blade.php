@@ -59,10 +59,10 @@
                       <select name="items[{{ $idx }}][item_id]" class="form-control select2-js product-select" onchange="onReturnItemChange(this)">
                         <option value="">Select Item</option>
                         @foreach($products as $product)
-                            <option value="{{ $product->id }}" data-barcode="{{ $product->barcode }}" data-unit="{{ $product->measurement_unit }}"
-                                {{ $product->id == $item->item_id ? 'selected' : '' }}>
-                                {{ $product->name }}
-                            </option>
+                          <option value="{{ $product->id }}" data-barcode="{{ $product->barcode }}" data-unit="{{ $product->measurement_unit }}"
+                            {{ $product->id == $item->item_id ? 'selected' : '' }}>
+                            {{ $product->name }}
+                          </option>
                         @endforeach
                       </select>
                     </td>
@@ -79,9 +79,8 @@
                     </td>
 
                     <td>
-                      <select name="items[{{ $idx }}][invoice_id]" class="form-control invoice-select" required data-selected-id="{{ $item->invoice_id }}">
+                      <select name="items[{{ $idx }}][invoice_id]" class="form-control invoice-select" data-selected-id="{{ $item->purchase_invoice_id }}" required>
                         <option value="">Select Invoice</option>
-                        {{-- Options will be loaded via JS --}}
                       </select>
                     </td>
 
