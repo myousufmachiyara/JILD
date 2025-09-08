@@ -30,7 +30,6 @@
                 <th>Name</th>
                 <th>Email</th>
                 <th>Role(s)</th>
-                <th>Signature</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -39,16 +38,9 @@
                 <tr>
                   <td>{{ $index + 1 }}</td>
                   <td>{{ $user->name }}</td>
-                  <td>{{ $user->email }}</td>
+                  <td>{{ $user->email ?? 'N/A'}}</td>
                   <td>{{ $user->roles->pluck('name')->join(', ') }}</td>
-                <td>
-                  @if($user->signature)
-                    <img src="{{ asset('storage/signatures/' . $user->signature) }}" alt="Signature"
-                      style="max-height: 60px; max-width: 120px; object-fit: contain; border: 1px solid #ccc; padding: 2px;">
-                  @else
-                    <span class="text-muted">No signature</span>
-                  @endif
-                </td>
+               
                   <td class="actions">
                     <a href="#updateModal" class="modal-with-form" onclick="getUser({{ $user->id }})">
                       <i class="fas fa-pencil-alt"></i>
@@ -178,14 +170,15 @@
           let previewDiv = document.getElementById('current_signature_preview');
           previewDiv.innerHTML = '';
 
-          if (user.signature) {
+          if (user.signature_url) {
             const img = document.createElement('img');
-            img.src = `/storage/signatures/${user.signature}`;
+            img.src = user.signature_url;
             img.alt = 'Current Signature';
             img.style.maxHeight = '100px';
             img.style.border = '1px solid #ccc';
             previewDiv.appendChild(img);
           }
+
         } else {
           alert('User not found.');
         }

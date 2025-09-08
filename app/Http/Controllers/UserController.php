@@ -172,12 +172,21 @@ class UserController extends Controller
     public function show($id)
     {
         $user = User::with('roles:id,name')->findOrFail($id);
+
         return response()->json([
             'status' => true,
-            'data' => $user
+            'data' => [
+                'id'       => $user->id,
+                'name'     => $user->name,
+                'username' => $user->username,
+                'signature'=> $user->signature,
+                'roles'    => $user->roles->map(fn($r) => [
+                'id'   => $r->id,
+                'name' => $r->name
+                ])
+            ]
         ]);
     }
-
 
     public function destroy(User $user)
     {

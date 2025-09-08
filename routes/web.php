@@ -84,6 +84,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get("$uri", [$controller, 'index'])->middleware("check.permission:$permission.index")->name("$uri.index");
         Route::get("$uri/create", [$controller, 'create'])->middleware("check.permission:$permission.create")->name("$uri.create");
         Route::post("$uri", [$controller, 'store'])->middleware("check.permission:$permission.create")->name("$uri.store");
+        Route::get("$uri/{id}", [$controller, 'show'])->middleware("check.permission:$permission.index")->name("$uri.show");
         Route::get("$uri/{id}/edit", [$controller, 'edit'])->middleware("check.permission:$permission.edit")->name("$uri.edit");
         Route::put("$uri/{id}", [$controller, 'update'])->middleware("check.permission:$permission.edit")->name("$uri.update");
         Route::delete("$uri/{id}", [$controller, 'destroy'])->middleware("check.permission:$permission.delete")->name("$uri.destroy");
