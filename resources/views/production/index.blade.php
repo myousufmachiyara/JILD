@@ -42,7 +42,7 @@
                 <td>{{ \Carbon\Carbon::parse($production->order_date)->format('d-m-Y') }}</td>
                 <td>{{ $production->category->name ?? '-' }}</td>
                 <td>{{ $production->vendor->name ?? '-' }}</td>
-                <td>{{ number_format($production->total_amount, 0) }}</td>
+                <td>{{ number_format($production->total_amount ?? 0, 0) }}</td>
                 <td>
                   @if($production->attachments && count($production->attachments))
                     @foreach($production->attachments as $file)

@@ -22,9 +22,18 @@ class ProductionController extends Controller
 {
     public function index()
     {
-        $productions = Production::with(['vendor', 'category'])->orderBy('id', 'desc')->get();
+        $productions = Production::with(['vendor', 'category', 'details'])->orderBy('id', 'desc')->get();
+
+        // Calculate total amount for each production
+        foreach ($productions as $production) {
+            $production->total_amount = $production->details->sum(function($detail) {
+                return $detail->rate * $detail->qty;
+            });
+        }
+
         return view('production.index', compact('productions'));
     }
+
 
     public function create()
     {

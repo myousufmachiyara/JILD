@@ -214,7 +214,6 @@ class ProductionReceivingController extends Controller
             <tr><td><b>Date</b></td><td>' . \Carbon\Carbon::parse($receiving->rec_date)->format('d/m/Y') . '</td></tr>
             <tr><td><b>Production</b></td><td>PROD-' . ($receiving->production->id ?? '-') . '</td></tr>
             <tr><td><b>Vendor</b></td><td>' . ($receiving->production->vendor->name ?? '-') . '</td></tr>
-            <tr><td><b>Challan No</b></td><td>' . ($receiving->challan_no ?? '-') . '</td></tr>
         </table>';
         $pdf->writeHTML($infoHtml, false, false, false, false, '');
 
