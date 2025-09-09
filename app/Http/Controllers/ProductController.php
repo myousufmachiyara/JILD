@@ -377,17 +377,29 @@ class ProductController extends Controller
             ]);
         }
 
-        $unitName = $product->measurementUnit->shortcode ?? '-'; // or use 'name' if you prefer
+        // Get unit ID (or name)
+        $unitId = $product->measurementUnit->id ?? null; // or ->name if you prefer
+
+        $variations = $product->variations->map(function ($v) use ($unitId) {
+            return [
+                'id'   => $v->id,
+                'sku'  => $v->sku,
+                'unit' => $unitId,
+            ];
+        })->toArray();
+
+        // If no variations exist, still return a placeholder with unit
+        if (empty($variations)) {
+            $variations[] = [
+                'id'   => null,
+                'sku'  => 'No Variations',
+                'unit' => $unitId,
+            ];
+        }
 
         return response()->json([
-            'success' => true,
-            'variation' => $product->variations->map(function ($v) use ($unitName) {
-                return [
-                    'id'   => $v->id,
-                    'sku'  => $v->sku,
-                    'unit' => $unitName,
-                ];
-            }),
+            'success'   => true,
+            'variation' => $variations,
         ]);
     }
 

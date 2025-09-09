@@ -305,54 +305,61 @@
     
   // 🔹 When product changes
   function onItemChange(select) {
-    const row = select.closest('tr');
-    const itemId = select.value;
-    if (!row || !itemId) return;
+      const row = select.closest('tr');
+      const itemId = select.value;
+      if (!row || !itemId) return;
 
-    // Reset variation dropdown
-    const variationSelect = row.querySelector(`select[id^="variationSelect"]`);
-    variationSelect.innerHTML = `<option value="" disabled selected>Loading...</option>`;
-    
-    // Reset invoice dropdown
-    const invoiceSelect = row.querySelector(`select[id^="invoiceSelect"]`);
-    invoiceSelect.innerHTML = `<option value="" disabled selected>Select Invoice</option>`;
+      // --- Reset variation dropdown ---
+      const variationSelect = row.querySelector(`select[id^="variationSelect"]`);
+      variationSelect.innerHTML = `<option value="" disabled selected>Loading...</option>`;
+      
+      // --- Reset invoice dropdown ---
+      const invoiceSelect = row.querySelector(`select[id^="invoiceSelect"]`);
+      invoiceSelect.innerHTML = `<option value="" disabled selected>Select Invoice</option>`;
 
-    // Reset qty, rate, total
-    row.querySelector(`input[id^="item_qty_"]`).value = '';
-    row.querySelector(`input[id^="item_rate_"]`).value = '';
-    row.querySelector(`input[id^="item_total_"]`).value = '';
+      // --- Reset qty, rate, total ---
+      row.querySelector(`input[id^="item_qty_"]`).value = '';
+      row.querySelector(`input[id^="item_rate_"]`).value = '';
+      row.querySelector(`input[id^="item_total_"]`).value = '';
 
-    // Reset unit
-    const unitInput = row.querySelector(`input[id^="item_unit_"]`);
-    if (unitInput) unitInput.value = '';
+      // --- Reset unit ---
+      const unitSelect = row.querySelector(`select[id^="item_unit_"]`);
+      if (unitSelect) {
+          unitSelect.value = '';
+          $(unitSelect).select2({ width: '100%' });
+      }
 
-    // Fetch variations for this product
-    fetch(`/product/${itemId}/variations`)
-      .then(res => res.json())
-      .then(data => {
-        variationSelect.innerHTML = `<option value="" disabled selected>Select Variation</option>`;
-        if (data.success && data.variation.length) {
-          console.log(data.vaiation);
-          data.variation.forEach(v => {
-            variationSelect.innerHTML += `<option value="${v.id}" data-product-id="${itemId}">${v.sku}</option>`;
+      // --- Fetch variations for this product ---
+      fetch(`/product/${itemId}/variations`)
+          .then(res => res.json())
+          .then(data => {
+              variationSelect.innerHTML = `<option value="" disabled selected>Select Variation</option>`;
+              if (data.success && data.variation.length) {
+                  data.variation.forEach(v => {
+                      variationSelect.innerHTML += `<option value="${v.id}" data-product-id="${itemId}">${v.sku}</option>`;
+                  });
+
+                  // --- Auto-set unit from first variation ---
+                  if (unitSelect) {
+                      // v.unit should be the **unit ID** that matches <option value="ID">
+                      unitSelect.value = data.variation[0].unit;
+                      $(unitSelect).select2({ width: '100%' });
+                  }
+              } else {
+                  variationSelect.innerHTML = `<option value="">No Variations</option>`;
+              }
+
+              // Refresh Select2 for variation dropdown
+              $(variationSelect).select2({ width: '100%' });
+          })
+          .catch(() => {
+              variationSelect.innerHTML = `<option value="">Error loading variations</option>`;
           });
 
-          // Auto-set unit from the first variation
-            if (unitInput) unitInput.value = data.variation[0].unit;
-        } else {
-          variationSelect.innerHTML = `<option value="">No Variations</option>`;
-        }
-
-        // Reinitialize Select2
-        $(variationSelect).select2({ width: '100%' });
-      })
-      .catch(() => {
-        variationSelect.innerHTML = `<option value="">Error loading variations</option>`;
-      });
-
-    // Fetch invoices for this product (without variation)
-    fetchInvoices(itemId, row);
+      // --- Fetch invoices for this product ---
+      fetchInvoices(itemId, row);
   }
+
 
   // 🔹 When variation changes
   function onVariationChange(select) {
