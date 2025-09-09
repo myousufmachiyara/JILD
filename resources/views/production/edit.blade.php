@@ -17,41 +17,38 @@
         </ul>
       </div>
     @endif
+
     <div class="row">
+      <!-- Master Details -->
       <div class="col-12 col-md-12 mb-3">
         <section class="card">
-          <header class="card-header">
-            <div style="display: flex;justify-content: space-between;">
-              <h2 class="card-title">Edit Production</h2>
-            </div>
+          <header class="card-header d-flex justify-content-between">
+            <h2 class="card-title">Edit Production #{{ $production->id }}</h2>
           </header>
           <div class="card-body">
             <div class="row">
-              <div class="col-12 col-md-1 mb-3">
-                <label>Prod #</label>
-                <input type="text" class="form-control" value="{{ $production->id ?? '' }}" disabled />
+              <div class="col-12 col-md-2 mb-3">
+                <label>Production #</label>
+                <input type="text" class="form-control" value="{{ $production->id }}" disabled />
               </div>
 
               <div class="col-12 col-md-2 mb-3">
-                <label>Category<span style="color: red;"><strong>*</strong></span></label>
+                <label>Category<span style="color: red;">*</span></label>
                 <select class="form-control" name="category_id" required>
                   <option value="" disabled>Select Category</option>
-                  @foreach($categories as $item)
+                  @foreach($categories as $item)  
                     <option value="{{ $item->id }}" {{ $production->category_id == $item->id ? 'selected' : '' }}>{{ $item->name }}</option>
                   @endforeach
                 </select>
               </div>
 
               <div class="col-12 col-md-2 mb-3">
-                <label>Vendor Name</label>
+                <label>Vendor</label>
                 <select class="form-control select2-js" name="vendor_id" id="vendor_name" required>
-                    <option value="" disabled>Select Vendor</option>
-                    @foreach($vendors as $item)
-                        <option value="{{ $item->id }}" 
-                            {{ (isset($production) && $production->vendor_id == $item->id) ? 'selected' : '' }}>
-                            {{ $item->name }}
-                        </option>
-                    @endforeach
+                  <option value="" disabled>Select Vendor</option>
+                  @foreach($vendors as $item)  
+                    <option value="{{ $item->id }}" {{ $production->vendor_id == $item->id ? 'selected' : '' }}>{{ $item->name }}</option>
+                  @endforeach
                 </select>
               </div>
 
@@ -62,87 +59,83 @@
                   <option value="cmt" {{ $production->production_type == 'cmt' ? 'selected' : '' }}>CMT</option>
                   <option value="sale_leather" {{ $production->production_type == 'sale_leather' ? 'selected' : '' }}>Sale Leather</option>
                 </select>
+                <input type="hidden" name="challan_generated" value="{{ $production->challan_no ? 1 : 0 }}">
               </div>
 
               <div class="col-12 col-md-2 mb-3">
                 <label>Order Date</label>
-                <input type="date" name="order_date" id="order_date" class="form-control" value="{{ \Carbon\Carbon::parse($production->order_date)->toDateString() }}" required />
-              </div>
-
-              <div class="col-12 col-md-3 mb-3">
-                <label>Attachment (optional)</label>
-                <input type="file" name="attachment" class="form-control">
-                @if ($production->attachment)
-                  <a href="{{ asset('storage/' . $production->attachment) }}" target="_blank" class="d-block mt-2">View current file</a>
-                @endif
+                <input type="date" name="order_date" class="form-control" id="order_date" value="{{ $production->order_date }}" required/>
               </div>
             </div>
           </div>
         </section>
       </div>
 
+      <!-- Raw Details -->
       <div class="col-12 col-md-12 mb-3">
         <section class="card">
-          <header class="card-header" style="display: flex;justify-content: space-between;">
+          <header class="card-header d-flex justify-content-between">
             <h2 class="card-title">Raw Material Details</h2>
           </header>
           <div class="card-body">
-            <table class="table table-bordered" id="rawMaterialTable">
-              <thead class="table-light">
+            <table class="table table-bordered" id="myTable">
+              <thead>
                 <tr>
-                  <th>Item</th>
-                  <th>Invoice</th>
+                  <th>Raw</th>
+                  <th>Variation</th>
+                  <th>Purchase #</th>
+                  <th>Rate</th>
                   <th>Qty</th>
                   <th>Unit</th>
-                  <th>Rate</th>
-                  <th>Amount</th>
-                  <th><button type="button" class="btn btn-sm btn-success" id="addRow"><i class="fas fa-plus"></i></button></th>
+                  <th>Total</th>
+                  <th width="10%"></th>
                 </tr>
               </thead>
-              <tbody>
-                @foreach ($production->details ?? [] as $index => $item)
-                <tr>
-                  <td>
-
-                    <select name="items[{{ $index }}][item_id]" class="form-control select2 item-select" data-index="{{ $index }}" required>
-                      <option value="">Select Item</option>
-                      @foreach ($allProducts as $product)
-                        <option value="{{ $product->id }}" {{ $product->id == $item->product_id ? 'selected' : '' }} data-unit="{{ $product->unit }}" >{{ $product->name }}</option>
-                      @endforeach
-                    </select>
-                  </td>
-                  <td>
-                    @php
-                      $invoices = \App\Models\PurchaseInvoiceItem::where('item_id', $item->product_id)
-                        ->with('invoice')
-                        ->get()
-                        ->groupBy('invoice_id');
-                    @endphp
-
-                    <select name="items[{{ $index }}][invoice]" class="form-control invoice-dropdown" data-index="{{ $index }}" data-selected="{{ $item->invoice_id }}" required>
-                      <option value="">Select Invoice</option>
-                      @foreach ($invoices as $invoiceId => $group)
-                        <option value="{{ $invoiceId }}" {{ $item->invoice_id == $invoiceId ? 'selected' : '' }}>
-                          #{{ $invoiceId }}
-                        </option>
-                      @endforeach
-                    </select>
-                  </td>
-                  <td><input type="number" name="items[{{ $index }}][qty]" class="form-control qty" value="{{ $item->qty }}" step="any" required></td>
-                  <td>
-                    <select name="items[{{ $index }}][item_unit]" class="form-control" required>
-                      <option value="" disabled>Select Unit</option>
-                      @foreach($units as $unit)
-                        <option value="{{ $unit->id }}" {{ $item->unit == $unit->id ? 'selected' : '' }}>
-                          {{ $unit->name }}
-                        </option>
-                      @endforeach
-                    </select>
-                  </td>
-                  <td><input type="number" name="items[{{ $index }}][rate]" class="form-control rate" value="{{ $item->rate }}" step="any" required></td>
-                  <td><input type="number" name="items[{{ $index }}][amount]" class="form-control amount" value="{{ $item->qty * $item->rate }}" readonly></td>
-                  <td><button type="button" class="btn btn-sm btn-danger removeRow"><i class="fas fa-trash"></i></button></td>
-                </tr>
+              <tbody id="PurPOTbleBody">
+                @foreach($production->details as $index => $detail)
+                  <tr class="item-row">
+                    <td>
+                      <select name="item_details[{{ $index }}][product_id]" id="productSelect{{ $index }}" class="form-control select2-js" onchange="onItemChange(this)" required>
+                        <option value="" disabled>Select Product</option>
+                        @foreach($allProducts as $product)
+                          <option value="{{ $product->id }}" data-unit="{{ $product->unit }}" {{ $detail->product_id == $product->id ? 'selected' : '' }}>
+                            {{ $product->name }}
+                          </option>
+                        @endforeach
+                      </select>
+                    </td>
+                    <td>
+                      <select name="item_details[{{ $index }}][variation_id]" id="variationSelect{{ $index }}" class="form-control select2-js">
+                        <option value="" disabled>Select Variation</option>
+                        @if($detail->variation_id)
+                          <option value="{{ $detail->variation_id }}" selected>{{ $detail->variation->sku ?? 'Variation' }}</option>
+                        @endif
+                      </select>
+                    </td>
+                    <td>
+                      <select name="item_details[{{ $index }}][invoice_id]" id="invoiceSelect{{ $index }}" class="form-control" required onchange="onInvoiceChange(this)">
+                        <option value="" disabled>Select Invoice</option>
+                        @if($detail->invoice_id)
+                          <option value="{{ $detail->invoice_id }}" selected>{{ $detail->invoice_id }}</option>
+                        @endif
+                      </select>
+                    </td>
+                    <td><input type="number" name="item_details[{{ $index }}][item_rate]" id="item_rate_{{ $index }}" step="any" value="{{ $detail->rate }}" onchange="rowTotal({{ $index }})" class="form-control" required/></td>
+                    <td><input type="number" name="item_details[{{ $index }}][qty]" id="item_qty_{{ $index }}" step="any" value="{{ $detail->qty }}" onchange="rowTotal({{ $index }})" class="form-control" required/></td>
+                    <td>
+                      <select id="item_unit_{{ $index }}" class="form-control" name="item_details[{{ $index }}][item_unit]" required>
+                        <option value="" disabled>Select Unit</option>
+                        @foreach($units as $unit)
+                          <option value="{{ $unit->id }}" {{ $detail->unit == $unit->id ? 'selected' : '' }}>{{ $unit->name }}</option>
+                        @endforeach          
+                      </select>
+                    </td>
+                    <td><input type="number" id="item_total_{{ $index }}" class="form-control" value="{{ $detail->qty * $detail->rate }}" disabled/></td>
+                    <td>
+                      <button type="button" onclick="removeRow(this)" class="btn btn-danger btn-xs"><i class="fas fa-times"></i></button>
+                      <button type="button" class="btn btn-primary btn-xs" onclick="addNewRow()"><i class="fa fa-plus"></i></button>
+                    </td>
+                  </tr>
                 @endforeach
               </tbody>
             </table>
@@ -150,6 +143,7 @@
         </section>
       </div>
 
+      <!-- Challan -->
       <div class="col-12 col-md-5 mb-3">
         <section class="card">
           <header class="card-header d-flex justify-content-between">
@@ -160,12 +154,21 @@
           </header>
           <div class="card-body">
             <div class="row pb-4">
-              <div class="col-12 mt-3" id="voucher-container"></div>
+              <div class="col-12 mt-3" id="voucher-container">
+                @if($production->challan_no)
+                  <div class="border p-3">
+                    <h3 class="text-center text-dark">Production Challan #{{ $production->challan_no }}</h3>
+                    <p><strong>Vendor:</strong> {{ $production->vendor->name ?? '-' }}</p>
+                    <p><strong>Date:</strong> {{ $production->order_date }}</p>
+                  </div>
+                @endif
+              </div>
             </div>
           </div>
         </section>
       </div>
 
+      <!-- Summary -->
       <div class="col-12 col-md-7">
         <section class="card">
           <header class="card-header d-flex justify-content-between">
@@ -175,12 +178,12 @@
             <div class="row pb-4">
               <div class="col-12 col-md-3">
                 <label>Total Raw Quantity</label>
-                <input type="number" class="form-control" id="total_fab" placeholder="Total Qty" disabled/>
+                <input type="number" class="form-control" id="total_fab" value="{{ $production->details->sum('qty') }}" disabled/>
               </div>
 
               <div class="col-12 col-md-3">
                 <label>Total Raw Amount</label>
-                <input type="number" class="form-control" id="total_fab_amt" placeholder="Total Amount" disabled />
+                <input type="number" class="form-control" id="total_fab_amt" value="{{ $production->details->sum(fn($d) => $d->qty * $d->rate) }}" disabled/>
               </div>
               
               <div class="col-12 col-md-5">
@@ -190,14 +193,14 @@
 
               <div class="col-12 text-end">
                 <h3 class="font-weight-bold mb-0 text-5 text-primary">Net Amount</h3>
-                <span><strong class="text-4 text-primary">PKR <span id="netTotal" class="text-4 text-danger">0.00</span></strong></span>
-                <input type="hidden" name="total_amount" id="net_amount">
+                <span><strong class="text-4 text-primary">PKR <span id="netTotal" class="text-4 text-danger">{{ number_format($production->details->sum(fn($d) => $d->qty * $d->rate),0) }}</span></strong></span>
+                <input type="hidden" name="total_amount" id="net_amount" value="{{ $production->details->sum(fn($d) => $d->qty * $d->rate) }}">
               </div>
             </div>
           </div>
 
           <footer class="card-footer text-end">
-            <a class="btn btn-danger" href="{{ route('production.index') }}">Discard</a>
+            <a class="btn btn-danger" href="{{ route('production.index') }}">Cancel</a>
             <button type="submit" class="btn btn-primary">Update</button>
           </footer>
         </section>
@@ -207,226 +210,317 @@
 </div>
 
 <script>
-$(document).ready(function () {
-    let rowIdx = {{ count($production->details ?? []) }};
-    const allProducts = @json($allProducts);
-    $('.select2').select2();
+  var index = {{ $production->details->count() }};
+  const allProducts = @json($allProducts);
 
-    // ---- CALCULATE TOTALS ----
-    function calculateTotal() {
-        let totalQty = 0;
-        let totalAmt = 0;
+      document.addEventListener("DOMContentLoaded", function () {
+      const form = document.getElementById('productionForm');
 
-        $('#rawMaterialTable tbody tr').each(function () {
-            const qty = parseFloat($(this).find('.qty').val()) || 0;
-            const rate = parseFloat($(this).find('.rate').val()) || 0;
-            const amount = qty * rate;
+      form.addEventListener('submit', function (e) {
+        const productionType = document.getElementById('production_type')?.value;
+        const challanGenerated = document.querySelector('input[name="challan_generated"]')?.value;
 
-            $(this).find('.amount').val(amount.toFixed(2));
-
-            totalQty += qty;
-            totalAmt += amount;
-        });
-
-        $('#total_fab').val(totalQty.toFixed(2));
-        $('#total_fab_amt').val(totalAmt.toFixed(2));
-        $('#netTotal').text(totalAmt.toFixed(2));
-        $('#net_amount').val(totalAmt.toFixed(2));
-    }
-
-    // ---- GENERATE VOUCHER ----
-    window.generateVoucher = function () {
-        const voucherContainer = document.getElementById("voucher-container");
-        voucherContainer.innerHTML = "";
-
-        const vendorName = $("#vendor_name option:checked").text() || "-";
-        const orderDate = $('#order_date').val();
-
-        let itemsHTML = "";
-        let grandTotal = 0;
-
-        $("#rawMaterialTable tbody tr").each(function () {
-            const productName = $(this).find('.item-select option:checked').text() || "-";
-            const qty = parseFloat($(this).find('.qty').val() || 0);
-            const unit = $(this).find('select[name*="[item_unit]"] option:checked').text() || "-";
-            const rate = parseFloat($(this).find('.rate').val() || 0);
-            const total = qty * rate;
-            grandTotal += total;
-
-            itemsHTML += `<tr>
-                <td>${productName}</td>
-                <td>${qty} ${unit}</td>
-                <td>${rate.toFixed(2)}</td>
-                <td>${total.toFixed(2)}</td>
-            </tr>`;
-        });
-
-        const html = `<div class="border p-3 mt-3">
-            <h3 class="text-center text-dark">Production Challan</h3>
-            <hr>
-            <div class="d-flex justify-content-between text-dark">
-                <p><strong>Vendor:</strong> ${vendorName}</p>
-                <p><strong>Date:</strong> ${orderDate}</p>
-            </div>
-            <table class="table table-bordered mt-3">
-                <thead class="bg-light">
-                    <tr>
-                        <th>Product</th>
-                        <th>Qty</th>
-                        <th>Rate</th>
-                        <th>Total</th>
-                    </tr>
-                </thead>
-                <tbody>${itemsHTML}</tbody>
-                <tfoot>
-                    <tr>
-                        <th colspan="3" class="text-end">Grand Total</th>
-                        <th>${grandTotal.toFixed(2)}</th>
-                    </tr>
-                </tfoot>
-            </table>
-            <input type="hidden" name="voucher_amount" value="${grandTotal}">
-            <div class="d-flex justify-content-between mt-4">
-                <div>
-                    <p class="text-dark"><strong>Authorized By:</strong></p>
-                    <p>________________________</p>
-                </div>
-            </div>
-        </div>`;
-
-        voucherContainer.innerHTML = html;
-        $('#net_amount').val(grandTotal.toFixed(2));
-    }
-
-    // ---- INITIALIZE EXISTING ROWS ----
-    $('#rawMaterialTable tbody tr').each(function () {
-        const row = $(this);
-        const itemSelect = row.find('.item-select');
-        const invoiceSelect = row.find('.invoice-dropdown');
-        const itemId = itemSelect.val();
-        const selectedInvoice = invoiceSelect.data('selected');
-
-        if (!itemId) return;
-
-        // Fetch qty/rate for the existing selected invoice
-        if (selectedInvoice) {
-            fetch(`/invoice-item/${selectedInvoice}/item/${itemId}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (!data.error) {
-                        row.find('.qty').val(data.quantity ?? 0);
-                        row.find('.rate').val(data.price ?? 0);
-                        row.find('.amount').val(((data.quantity ?? 0) * (data.price ?? 0)).toFixed(2));
-                        calculateTotal();
-                        if ($('#production_type').val() === 'sale_leather') generateVoucher();
-                    }
-                });
+        if (productionType === 'sale_leather' && challanGenerated !== '1') {
+          e.preventDefault();
+          alert("Please generate the challan before submitting the form.");
+          return false;
         }
+      });
     });
 
-    // ---- ADD ROW ----
-    $('#addRow').click(function () {
-        const row = `<tr>
-            <td>
-                <select name="items[${rowIdx}][item_id]" class="form-control select2 item-select" data-index="${rowIdx}" required>
-                    <option value="">Select Item</option>
-                    ${allProducts.map(p => `<option value="${p.id}" data-unit="${p.unit ?? ''}">${p.name}</option>`).join('')}
-                </select>
-            </td>
-            <td>
-                <select name="items[${rowIdx}][invoice]" class="form-control invoice-dropdown" required>
-                    <option value="">Select Invoice</option>
-                </select>
-            </td>
-            <td><input type="number" name="items[${rowIdx}][qty]" class="form-control qty" step="any" required></td>
-            <td>
-                <select name="items[${rowIdx}][item_unit]" class="form-control" required>
-                    <option value="">Select Unit</option>
-                    @foreach($units as $unit)
-                        <option value="{{ $unit->id }}">{{ $unit->name }}</option>
-                    @endforeach
-                </select>
-            </td>
-            <td><input type="number" name="items[${rowIdx}][rate]" class="form-control rate" step="any" required></td>
-            <td><input type="number" name="items[${rowIdx}][amount]" class="form-control amount" readonly></td>
-            <td><button type="button" class="btn btn-sm btn-danger removeRow"><i class="fas fa-trash"></i></button></td>
-        </tr>`;
-        $('#rawMaterialTable tbody').append(row);
-        $('.select2').select2();
-        rowIdx++;
-    });
+    function removeRow(button) {
+      const tableRows = $("#PurPOTbleBody tr").length;
+      if (tableRows > 1) {
+        const row = button.closest('tr');
+        row.remove();
+        index--;
+        tableTotal();
+      }
+    }
 
-    // ---- REMOVE ROW ----
-    $(document).on('click', '.removeRow', function () {
-        $(this).closest('tr').remove();
-        calculateTotal();
-        if ($('#production_type').val() === 'sale_leather') generateVoucher();
-    });
+    function addNewRow() {
+      const lastRow = $('#PurPOTbleBody tr:last');
+      const latestValue = lastRow.find('select').val();
 
-    // ---- ITEM CHANGE ----
-    $(document).on('change', '.item-select', function () {
-        const row = $(this).closest('tr');
-        const itemId = $(this).val();
-        const invoiceSelect = row.find('.invoice-dropdown');
-        const selectedOption = $(this).find('option:selected');
-        const unit = selectedOption.data('unit') || '';
-        row.find('select[name*="[item_unit]"]').val(unit);
-        row.find('.qty, .rate, .amount').val('');
+      if (latestValue !== "") {
+        const table = document.getElementById('myTable').getElementsByTagName('tbody')[0];
+        const newRow = table.insertRow();
+        newRow.classList.add('item-row');
 
-        if (!itemId) return;
+        const options = allProducts.map(p =>
+          `<option value="${p.id}" data-unit="${p.unit ?? ''}">${p.name}</option>`
+        ).join('');
 
-        invoiceSelect.html('<option value="">Loading...</option>');
 
-        fetch(`/item/${itemId}/invoices`)
-            .then(res => res.json())
-            .then(data => {
-                invoiceSelect.html('<option value="">Select Invoice</option>');
-                data.forEach(inv => invoiceSelect.append(`<option value="${inv.id}">#${inv.id}</option>`));
-            });
-    });
+        newRow.innerHTML = `
+          <td>
+            <select data-plugin-selecttwo name="item_details[${index}][product_id]" required id="productSelect${index}" class="form-control select2-js" onchange="onItemChange(this)">
+              <option value="" disabled selected>Select Leather</option>
+              ${options}
+            </select>
+          </td>
+          <td>
+            <select name="item_details[${index}][variation_id]" id="variationSelect${index}" class="form-control select2-js">
+              <option value="" selected disabled>Select Variation</option>
+            </select>
+          </td>
+          <td>
+            <select name="item_details[${index}][invoice_id]" id="invoiceSelect${index}" class="form-control" onchange="onInvoiceChange(this)" required>
+              <option value="" disabled selected>Select Invoice</option>
+            </select>
+          </td>
+          <td><input type="number" name="item_details[${index}][item_rate]" id="item_rate_${index}" step="any" value="0" onchange="rowTotal(${index})" class="form-control" required/></td>
+          <td><input type="number" name="item_details[${index}][qty]" id="item_qty_${index}" step="any" value="0" onchange="rowTotal(${index})" class="form-control" required/></td>
+          <td>
+            <select id="item_unit_${index}" class="form-control" name="item_details[${index}][item_unit]" required>
+              <option value="" disabled selected>Select Unit</option>
+              @foreach($units as $unit)
+                <option value="{{ $unit->id }}">{{ $unit->name }}</option>
+              @endforeach              
+            </select>
+          </td>
+          <td><input type="number" id="item_total_${index}" class="form-control" placeholder="Total" disabled/></td>
+          <td>
+            <button type="button" onclick="removeRow(this)" class="btn btn-danger btn-xs"><i class="fas fa-times"></i></button>
+            <button type="button" onclick="addNewRow()" class="btn btn-primary btn-xs"><i class="fa fa-plus"></i></button>
+          </td>
+        `;
 
-    // ---- INVOICE CHANGE ----
-    $(document).on('change', '.invoice-dropdown', function () {
-        const row = $(this).closest('tr');
-        const invoiceId = $(this).val();
-        const itemId = row.find('.item-select').val();
+        index++;
+        $('#myTable select[data-plugin-selecttwo]').select2();
+      }
+    }
 
-        if (!invoiceId || !itemId) return;
+    function rowTotal(i) {
+      const rate = parseFloat($(`#item_rate_${i}`).val()) || 0;
+      const qty = parseFloat($(`#item_qty_${i}`).val()) || 0;
+      const total = rate * qty;
 
-        fetch(`/invoice-item/${invoiceId}/item/${itemId}`)
-            .then(res => res.json())
-            .then(data => {
-                if (!data.error) {
-                    row.find('.qty').val(data.quantity ?? 0);
-                    row.find('.rate').val(data.price ?? 0);
-                    row.find('.amount').val(((data.quantity ?? 0) * (data.price ?? 0)).toFixed(2));
-                    calculateTotal();
-                    if ($('#production_type').val() === 'sale_leather') generateVoucher();
-                }
-            });
-    });
+      $(`#item_total_${i}`).val(total.toFixed(2));
+      tableTotal();
+    }
 
-    // ---- INITIAL CALC & AUTO VOUCHER ----
-    calculateTotal();
-    if ($('#production_type').val() === 'sale_leather') generateVoucher();
+    function tableTotal() {
+      let totalQty = 0;
+      let totalAmt = 0;
 
-    // ---- PRODUCTION TYPE CHANGE ----
-    $('#production_type').on('change', function () {
-        if ($(this).val() === 'sale_leather') {
-            generateVoucher();
+      $('#PurPOTbleBody tr').each(function () {
+        const rate = parseFloat($(this).find('input[id^="item_rate_"]').val()) || 0;
+        const qty = parseFloat($(this).find('input[id^="item_qty_"]').val()) || 0;
+        totalQty += qty;
+        totalAmt += rate * qty;
+      });
+
+      $('#total_fab').val(totalQty);
+      $('#total_fab_amt').val(totalAmt.toFixed(2));
+      updateNetTotal(totalAmt);
+    }
+
+    function updateNetTotal(total) {
+      const net = parseFloat(total) || 0;
+      $('#netTotal').text(formatNumberWithCommas(net.toFixed(0)));
+    }
+
+    function formatNumberWithCommas(x) {
+      return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+    
+// 🔹 When product changes
+  function onItemChange(select) {
+    const row = select.closest('tr');
+    const itemId = select.value;
+    if (!row || !itemId) return;
+
+    // Reset variation dropdown
+    const variationSelect = row.querySelector(`select[id^="variationSelect"]`);
+    variationSelect.innerHTML = `<option value="" disabled selected>Loading...</option>`;
+    
+    // Reset invoice dropdown
+    const invoiceSelect = row.querySelector(`select[id^="invoiceSelect"]`);
+    invoiceSelect.innerHTML = `<option value="" disabled selected>Select Invoice</option>`;
+
+    // Reset qty, rate, total
+    row.querySelector(`input[id^="item_qty_"]`).value = '';
+    row.querySelector(`input[id^="item_rate_"]`).value = '';
+    row.querySelector(`input[id^="item_total_"]`).value = '';
+
+    // Fetch variations for this product
+    fetch(`/product/${itemId}/variations`)
+      .then(res => res.json())
+      .then(data => {
+        variationSelect.innerHTML = `<option value="" disabled selected>Select Variation</option>`;
+        if (data.success && data.variation.length) {
+          data.variation.forEach(v => {
+            variationSelect.innerHTML += `<option value="${v.id}" data-product-id="${itemId}">${v.sku}</option>`;
+          });
         } else {
-            $('#voucher-container').empty();
+          variationSelect.innerHTML = `<option value="">No Variations</option>`;
         }
+
+        // Reinitialize Select2
+        $(variationSelect).select2({ width: '100%' });
+      })
+      .catch(() => {
+        variationSelect.innerHTML = `<option value="">Error loading variations</option>`;
+      });
+
+    // Fetch invoices for this product (without variation)
+    fetchInvoices(itemId, row);
+  }
+
+  // 🔹 When variation changes
+  function onVariationChange(select) {
+    const row = select.closest('tr');
+    const variationId = select.value;
+    const productId = select.selectedOptions[0]?.getAttribute('data-product-id');
+
+    if (!variationId || !productId) return;
+
+    // Fetch invoices using variation id if selected, else product id
+    fetchInvoices(variationId, row, true);
+  }
+
+  // 🔹 Fetch invoices
+  function fetchInvoices(id, row, isVariation = false) {
+    const invoiceSelect = row.querySelector(`select[id^="invoiceSelect"]`);
+    invoiceSelect.innerHTML = `<option value="" disabled selected>Loading...</option>`;
+
+    fetch(`/product/${id}/invoices`)
+      .then(res => res.json())
+      .then(data => {
+        invoiceSelect.innerHTML = `<option value="" disabled selected>Select Invoice</option>`;
+        if (Array.isArray(data) && data.length > 0) {
+          data.forEach(inv => {
+            invoiceSelect.innerHTML += `<option value="${inv.id}" data-rate="${inv.rate}">${inv.id}</option>`;
+          });
+        } else {
+          invoiceSelect.innerHTML = `<option value="">No Invoices Found</option>`;
+        }
+
+        $(invoiceSelect).select2({ width: '100%' });
+      })
+      .catch(() => {
+        invoiceSelect.innerHTML = `<option value="">Error loading invoices</option>`;
+      });
+  }
+
+  // 🔹 When invoice changes
+  function onInvoiceChange(select) {
+    const row = select.closest('tr');
+    const option = select.selectedOptions[0];
+    if (!row || !option) return;
+
+    const rate = option.getAttribute('data-rate') || 0;
+
+    const rateInput = row.querySelector(`input[id^="item_rate_"]`);
+    const qtyInput = row.querySelector(`input[id^="item_qty_"]`);
+    const totalInput = row.querySelector(`input[id^="item_total_"]`);
+
+    if (rateInput) rateInput.value = rate;
+    if (qtyInput && totalInput) {
+      totalInput.value = ((parseFloat(qtyInput.value) || 0) * (parseFloat(rate) || 0)).toFixed(2);
+    }
+
+    tableTotal();
+  }
+
+
+    function generateVoucher() {
+      const voucherContainer = document.getElementById("voucher-container");
+      voucherContainer.innerHTML = "";
+
+      const vendorName = document.querySelector("#vendor_name option:checked")?.textContent ?? "-";
+      const orderDate = $('#order_date').val();
+
+      let itemsHTML = "";
+      let grandTotal = 0;
+
+      document.querySelectorAll(".item-row").forEach((row) => {
+        const productName = row.querySelector('select[name*="[product_id]"] option:checked')?.textContent ?? "-";
+        const qty = parseFloat(row.querySelector('input[name*="[qty]"]')?.value || 0);
+        const unit = row.querySelector('select[name*="[item_unit]"] option:checked')?.textContent ?? "-";
+        const rate = parseFloat(row.querySelector('input[name*="[item_rate]"]')?.value || 0);
+        const total = qty * rate;
+        grandTotal += total;
+
+        itemsHTML += `
+          <tr>
+            <td>${productName}</td>
+            <td>${qty} ${unit}</td>
+            <td>${rate.toFixed(2)}</td>
+            <td>${total.toFixed(2)}</td>
+          </tr>
+        `;
+      });
+
+      const html = `
+        <div class="border p-3 mt-3">
+          <h3 class="text-center text-dark">Production Challan</h3>
+          <hr>
+
+          <div class="d-flex justify-content-between text-dark">
+            <p><strong>Vendor:</strong> ${vendorName}</p>
+            <p><strong>Date:</strong> ${orderDate}</p>
+          </div>
+
+          <table class="table table-bordered mt-3">
+            <thead class="bg-light">
+              <tr>
+                <th>Product</th>
+                <th>Qty</th>
+                <th>Rate</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHTML}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th colspan="3" class="text-end">Grand Total</th>
+                <th>${grandTotal.toFixed(2)}</th>
+              </tr>
+            </tfoot>
+          </table>
+
+          <input type="hidden" name="voucher_amount" value="${grandTotal}">
+          <input type="hidden" name="challan_generated" value="1">
+
+          <div class="d-flex justify-content-between mt-4">
+            <div>
+              <p class="text-dark"><strong>Authorized By:</strong></p>
+              <p>________________________</p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      voucherContainer.innerHTML = html;
+
+      // Also ensure challan is generated
+      const form = document.querySelector('form');
+
+      const ensureHiddenInput = (name, value) => {
+        let input = form.querySelector(`input[name="${name}"]`);
+        if (!input) {
+          input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = name;
+          form.appendChild(input);
+        }
+        input.value = value;
+      };
+
+      ensureHiddenInput("challan_generated", "1");
+      ensureHiddenInput("voucher_amount", grandTotal.toFixed(2));
+    }
+
+    $(document).on("click", ".delete-row", function () {
+      $(this).closest("tr").remove();
     });
 
-    // ---- RECALCULATE ON INPUT ----
-    $(document).on('input', '.qty, .rate', function () {
-        calculateTotal();
-        if ($('#production_type').val() === 'sale_leather') generateVoucher();
+    $(document).ready(function () {
+      $('.select2-js').select2();
     });
-});
 </script>
-
-
-
 @endsection

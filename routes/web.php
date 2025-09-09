@@ -58,20 +58,40 @@ Route::middleware(['auth'])->group(function () {
 
     // Common Modules
     $modules = [
+        // User Management
         'roles' => ['controller' => RoleController::class, 'permission' => 'user_roles'],
         'permissions' => ['controller' => PermissionController::class, 'permission' => 'role_permissions'],
         'users' => ['controller' => UserController::class, 'permission' => 'users'],
+
+        // Accounts
         'coa' => ['controller' => COAController::class, 'permission' => 'coa'],
         'shoa' => ['controller' => SubHeadOfAccController::class, 'permission' => 'shoa'],
+
+        // Products
         'products' => ['controller' => ProductController::class, 'permission' => 'products'],
+        'product_categories' => ['controller' => ProductCategoryController::class, 'permission' => 'product_categories'],
+        'attributes' => ['controller' => AttributeController::class, 'permission' => 'attributes'],
+
+        // Stock Management
         'locations' => ['controller' => LocationController::class, 'permission' => 'locations'],
         'stock_transfer' => ['controller' => StockTransferController::class, 'permission' => 'stock_transfer'],
+
+        // Purchases
         'purchase_invoices' => ['controller' => PurchaseInvoiceController::class, 'permission' => 'purchase_invoices'],
         'purchase_return' => ['controller' => PurchaseReturnController::class, 'permission' => 'purchase_return'],
-        'production' => ['controller' => ProductionController::class, 'permission' => 'production'],
+
+        // Sales
         'sale_invoices' => ['controller' => SaleInvoiceController::class, 'permission' => 'sale_invoices'],
         'sale_return' => ['controller' => SaleReturnController::class, 'permission' => 'sale_return'],
+
+        // Vouchers
         'payment_vouchers' => ['controller' => PaymentVoucherController::class, 'permission' => 'payment_vouchers'],
+
+        // Production
+        'production' => ['controller' => ProductionController::class, 'permission' => 'production'],
+        'production_receiving' => ['controller' => ProductionReceivingController::class, 'permission' => 'production_receiving'],
+
+        // POS (optional)
         'pos_system' => ['controller' => POSController::class, 'permission' => 'pos_system'],
     ];
 
@@ -102,21 +122,5 @@ Route::middleware(['auth'])->group(function () {
     // Reports (readonly)
     Route::prefix('reports')->name('reports.')->group(function () {
         Route::get('inventory', [InventoryReportController::class, 'inventoryReports'])->name('inventory');
-    });
-
-    // Product Categories
-    Route::prefix('product-categories')->name('product-categories.')->group(function () {
-        Route::get('/', [ProductCategoryController::class, 'index'])->name('index');
-        Route::post('/', [ProductCategoryController::class, 'store'])->name('store');
-        Route::put('/{productCategory}', [ProductCategoryController::class, 'update'])->name('update');
-        Route::delete('/{productCategory}', [ProductCategoryController::class, 'destroy'])->name('destroy');
-    });
-
-    // Attributes
-    Route::prefix('attributes')->name('attributes.')->group(function () {
-        Route::get('/', [AttributeController::class, 'index'])->name('index');
-        Route::post('/', [AttributeController::class, 'store'])->name('store');
-        Route::put('/{attribute}', [AttributeController::class, 'update'])->name('update');
-        Route::delete('/{attribute}', [AttributeController::class, 'destroy'])->name('destroy');
     });
 });

@@ -36,7 +36,7 @@
                 <td>{{ $category->name }}</td>
                 <td>
                   <button class="btn btn-warning btn-sm modal-with-form" href="#editCategoryModal{{ $category->id }}">Edit</button>
-                  <form action="{{ route('product-categories.destroy', $category->id) }}" method="POST" style="display:inline-block;">
+                  <form action="{{ route('product_categories.destroy', $category->id) }}" method="POST" style="display:inline-block;">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure?')">Delete</button>
@@ -47,7 +47,7 @@
               <!-- Edit Modal -->
               <div id="editCategoryModal{{ $category->id }}" class="modal-block modal-block-warning mfp-hide">
                 <section class="card">
-                  <form method="post" action="{{ route('product-categories.update', $category->id) }}">
+                  <form method="post" action="{{ route('product_categories.update', $category->id) }}">
                     @csrf
                     @method('PUT')
                     <header class="card-header">
@@ -80,7 +80,7 @@
     <!-- Add Modal -->
     <div id="addCategoryModal" class="modal-block modal-block-primary mfp-hide">
       <section class="card">
-        <form method="post" action="{{ route('product-categories.store') }}">
+        <form method="post" action="{{ route('product_categories.store') }}">
           @csrf
           <header class="card-header">
             <h2 class="card-title">New Category</h2>

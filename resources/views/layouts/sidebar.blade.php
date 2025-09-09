@@ -56,16 +56,23 @@
           @endif
 
           {{-- Products --}}
-          @if(auth()->user()->can('products.index'))
-          <li class="nav-parent">
-            <a class="nav-link" href="#"><i class="fa fa-layer-group"></i> <span>Products</span></a>
-            <ul class="nav nav-children">
-              <li><a class="nav-link" href="{{ route('product-categories.index') }}">Categories</a></li>
-              <li><a class="nav-link" href="{{ route('attributes.index') }}">Attributes</a></li>
-              <li><a class="nav-link" href="{{ route('products.index') }}">All Products</a></li>
-            </ul>
-          </li>
+          @if(auth()->user()->can('product-categories.index') || auth()->user()->can('attributes.index') || auth()->user()->can('products.index'))
+            <li class="nav-parent">
+                <a class="nav-link" href="#"><i class="fa fa-layer-group"></i> <span>Products</span></a>
+                <ul class="nav nav-children">
+                    @can('product_categories.index')
+                        <li><a class="nav-link" href="{{ route('product_categories.index') }}">Categories</a></li>
+                    @endcan
+                    @can('attributes.index')
+                        <li><a class="nav-link" href="{{ route('attributes.index') }}">Attributes</a></li>
+                    @endcan
+                    @can('products.index')
+                        <li><a class="nav-link" href="{{ route('products.index') }}">All Products</a></li>
+                    @endcan
+                </ul>
+            </li>
           @endif
+
 
           {{-- Stock Management --}}
           @if(auth()->user()->can('locations.index') || auth()->user()->can('stock_transfer.index'))
@@ -107,7 +114,7 @@
             <a class="nav-link" href="#"><i class="fa fa-file-invoice"></i> <span>Production</span></a>
             <ul class="nav nav-children">
               <li><a class="nav-link" href="{{ route('production.index') }}">Order</a></li>
-              <li><a class="nav-link" href="{{ route('production.receiving.index') }}">Receiving</a></li>
+              <li><a class="nav-link" href="{{ route('production_receiving.index') }}">Receiving</a></li>
             </ul>
           </li>
           @endif

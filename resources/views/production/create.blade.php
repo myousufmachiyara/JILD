@@ -303,7 +303,7 @@
       return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
     
-// 🔹 When product changes
+  // 🔹 When product changes
   function onItemChange(select) {
     const row = select.closest('tr');
     const itemId = select.value;
@@ -322,15 +322,23 @@
     row.querySelector(`input[id^="item_rate_"]`).value = '';
     row.querySelector(`input[id^="item_total_"]`).value = '';
 
+    // Reset unit
+    const unitInput = row.querySelector(`input[id^="item_unit_"]`);
+    if (unitInput) unitInput.value = '';
+
     // Fetch variations for this product
     fetch(`/product/${itemId}/variations`)
       .then(res => res.json())
       .then(data => {
         variationSelect.innerHTML = `<option value="" disabled selected>Select Variation</option>`;
         if (data.success && data.variation.length) {
+          console.log(data.vaiation);
           data.variation.forEach(v => {
             variationSelect.innerHTML += `<option value="${v.id}" data-product-id="${itemId}">${v.sku}</option>`;
           });
+
+          // Auto-set unit from the first variation
+            if (unitInput) unitInput.value = data.variation[0].unit;
         } else {
           variationSelect.innerHTML = `<option value="">No Variations</option>`;
         }

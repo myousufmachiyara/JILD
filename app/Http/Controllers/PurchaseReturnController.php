@@ -243,14 +243,13 @@ class PurchaseReturnController extends Controller
                 <th width="20%">Amount</th>
             </tr>';
 
-        $count = 0;
         $totalAmount = 0;
-        $amount = 0;
+        $count = 0;
 
         foreach ($return->items as $item) {
             $count++;
-            $amount = $amount + ($item->price * $item->quantity) ;
-            $totalAmount += $amount;
+            $amount = $item->price * $item->quantity; // per item amount
+            $totalAmount += $amount; // add to total
 
             $html .= '
             <tr>

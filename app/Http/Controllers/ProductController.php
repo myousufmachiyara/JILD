@@ -329,6 +329,7 @@ class ProductController extends Controller
                         'sku' => $variation->sku,
                         'barcode' => $variation->barcode,
                         'name' => $variation->product->name,
+                        'm.cost' => $variation->product->manufacturing_cost,
                     ]
                 ]);
             }
@@ -345,6 +346,7 @@ class ProductController extends Controller
                         'name' => $product->name,
                         'barcode' => $product->barcode,
                         'sku' => $product->sku,
+                        'm.cost' => $product->manufacturing_cost,
                     ]
                 ]);
             }
@@ -366,7 +368,7 @@ class ProductController extends Controller
 
     public function getVariations($productId)
     {
-        $product = Product::with('variations')->find($productId);
+        $product = Product::with('variations', 'measurementUnit')->find($productId);
 
         if (!$product) {
             return response()->json([
@@ -375,15 +377,19 @@ class ProductController extends Controller
             ]);
         }
 
+        $unitName = $product->measurementUnit->shortcode ?? '-'; // or use 'name' if you prefer
+
         return response()->json([
-            'success'   => true,
-            'variation' => $product->variations->map(function ($v) {
+            'success' => true,
+            'variation' => $product->variations->map(function ($v) use ($unitName) {
                 return [
-                    'id'  => $v->id,
-                    'sku' => $v->sku,
+                    'id'   => $v->id,
+                    'sku'  => $v->sku,
+                    'unit' => $unitName,
                 ];
             }),
         ]);
     }
+
 }
 

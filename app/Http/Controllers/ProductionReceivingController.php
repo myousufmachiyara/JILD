@@ -29,7 +29,7 @@ class ProductionReceivingController extends Controller
     {
         $productions = Production::all();
         $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
-        $products = Product::where('item_type','fg')->get();
+        $products = Product::get();
         return view('production-receiving.create', compact('productions', 'vendors', 'products'));
     }
 

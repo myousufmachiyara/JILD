@@ -165,12 +165,13 @@ class ProductionController extends Controller
             'order_date' => 'required|date',
             'production_type' => 'required|string|in:cmt,sale_leather',
             'attachments.*' => 'nullable|file|max:2048',
-            'items' => 'required|array|min:1',
-            'items.*.item_id' => 'required|exists:products,id',
-            'items.*.invoice' => 'required|exists:purchase_invoices,id',
-            'items.*.qty' => 'required|numeric|min:0.01',
-            'items.*.item_unit' => 'required|exists:measurement_units,id',
-            'items.*.rate' => 'required|numeric|min:0',
+            'item_details' => 'required|array|min:1',
+            'item_details.*.item_id' => 'required|exists:products,id',
+            'item_details.*.variation_id' => 'nullable|exists:product_variations,id',
+            'item_details.*.invoice' => 'required|exists:purchase_invoices,id',
+            'item_details.*.qty' => 'required|numeric|min:0.01',
+            'item_details.*.item_unit' => 'required|exists:measurement_units,id',
+            'item_details.*.rate' => 'required|numeric|min:0',
             'challan_no' => 'nullable|string',
         ]);
 
@@ -179,7 +180,7 @@ class ProductionController extends Controller
         try {
             $production = Production::findOrFail($id);
 
-            // Handle attachments (merge old + new)
+            // --- Attachments ---
             $attachments = $production->attachments ?? [];
             if ($request->hasFile('attachments')) {
                 foreach ($request->file('attachments') as $file) {
@@ -187,24 +188,24 @@ class ProductionController extends Controller
                 }
             }
 
-            // Calculate total amount from items
-            $totalAmount = collect($request->items)->sum(fn($item) => $item['qty'] * $item['rate']);
+            // --- Total ---
+            $totalAmount = collect($request->item_details)->sum(fn($item) => $item['qty'] * $item['rate']);
 
-            // 2️⃣ Delete existing payment voucher (if any)
+            // --- Delete old voucher ---
             PaymentVoucher::where('id', $production->voucher_id)->delete();
 
-            // Create payment voucher if production_type is sale_leather and challan exists
-            if ($production->production_type === 'sale_leather') {
+            // --- Create new voucher if needed ---
+            if ($request->production_type === 'sale_leather') {
                 $voucher = PaymentVoucher::create([
                     'date' => $request->order_date,
                     'ac_dr_sid' => 5, // Raw Material Inventory (Dr)
-                    'ac_cr_sid' => $request->vendor_id, // Vendor becomes payable (Cr)
+                    'ac_cr_sid' => $request->vendor_id,
                     'amount' => $totalAmount,
                     'remarks' => 'Sold Leather of Amount ' . number_format($totalAmount, 2) . ' for Production',
                 ]);
             }
 
-            // Update main production entry
+            // --- Update production ---
             $production->update([
                 'vendor_id' => $request->vendor_id,
                 'category_id' => $request->category_id,
@@ -212,18 +213,17 @@ class ProductionController extends Controller
                 'order_date' => $request->order_date,
                 'production_type' => $request->production_type,
                 'remarks' => $request->remarks,
+                'attachments' => $attachments,
             ]);
 
-            // --- DELETE EXISTING DATA ---
-            // 1️⃣ Delete all production details
+            // --- Reset details ---
             $production->details()->delete();
 
-            // --- CREATE NEW DATA ---
-            // 1️⃣ Create production details
-            foreach ($request->items as $item) {
+            foreach ($request->item_details as $item) {
                 $production->details()->create([
                     'production_id' => $id,
                     'product_id' => $item['item_id'],
+                    'variation_id' => $item['variation_id'] ?? null,
                     'invoice_id' => $item['invoice'],
                     'qty' => $item['qty'],
                     'unit' => $item['item_unit'],
@@ -249,7 +249,6 @@ class ProductionController extends Controller
             return back()->withInput()->with('error', 'Failed to update production. Check logs.');
         }
     }
-
 
     public function show($id)
     {
