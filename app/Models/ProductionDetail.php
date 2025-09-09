@@ -12,6 +12,7 @@ class ProductionDetail extends Model
     protected $fillable = [
         'production_id',
         'product_id',
+        'variation_id',
         'qty',
         'rate',
         'unit',
@@ -36,5 +37,10 @@ class ProductionDetail extends Model
     public function measurementUnit()
     {
         return $this->belongsTo(MeasurementUnit::class, 'unit');
+    }
+
+    public function variation()
+    {
+        return $this->belongsTo(ProductVariation::class, 'variation_id');
     }
 }

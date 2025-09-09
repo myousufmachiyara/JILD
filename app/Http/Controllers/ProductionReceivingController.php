@@ -78,7 +78,7 @@ class ProductionReceivingController extends Controller
 
             DB::commit();
 
-            return redirect()->route('production.receiving.index')
+            return redirect()->route('production_receiving.index')
                 ->with('success', 'Production receiving created successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -170,7 +170,7 @@ class ProductionReceivingController extends Controller
             DB::commit();
             Log::info("ProductionReceiving #{$id} updated successfully.");
 
-            return redirect()->route('production.receiving.index')
+            return redirect()->route('production_receiving.index')
                 ->with('success', 'Production receiving updated successfully!');
         } catch (\Exception $e) {
             DB::rollBack();

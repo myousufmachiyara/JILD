@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="row">
-  <form action="{{ route('production.receiving.store') }}" method="POST" enctype="multipart/form-data">
+  <form action="{{ route('production_receiving.store') }}" method="POST" enctype="multipart/form-data">
     @csrf
     @if ($errors->has('error'))
       <strong class="text-danger">{{ $errors->first('error') }}</strong>
@@ -114,7 +114,7 @@
           </div>
         </div>
         <footer class="card-footer text-end">
-          <a href="{{ route('production.receiving.index') }}" class="btn btn-danger">Discard</a>
+          <a href="{{ route('production_receiving.index') }}" class="btn btn-danger">Discard</a>
           <button type="submit" class="btn btn-primary">Receive</button>
         </footer>
       </section>

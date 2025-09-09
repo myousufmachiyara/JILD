@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('production_id');
             $table->unsignedBigInteger('product_id');
+            $table->unsignedBigInteger('variation_id');
             $table->unsignedBigInteger('invoice_id');
             $table->decimal('rate', 15, 2);
             $table->decimal('qty', 15, 2);

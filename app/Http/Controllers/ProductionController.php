@@ -56,6 +56,7 @@ class ProductionController extends Controller
             'att.*' => 'nullable|file|max:2048',
             'item_details' => 'required|array|min:1',
             'item_details.*.product_id' => 'required|exists:products,id',
+            'item_details.*.variation_id' => 'nullable|exists:product_variations,id',
             'item_details.*.invoice_id' => 'required|exists:purchase_invoices,id',
             'item_details.*.qty' => 'required|numeric|min:0.01',
             'item_details.*unit' => 'required|exists:measurement_units,id',
@@ -113,6 +114,7 @@ class ProductionController extends Controller
                     $production->details()->create([
                         'production_id' => $production->id,
                         'invoice_id' => $item['invoice_id'],
+                        'variation_id' => $item['variation_id'] ?? null,
                         'product_id' => $item['product_id'],
                         'qty' => $item['qty'],
                         'unit' => $item['item_unit'],
@@ -138,22 +140,31 @@ class ProductionController extends Controller
 
     public function edit($id)
     {
-        $production = Production::with('details')->findOrFail($id);
+        $production = Production::with(['details.variation', 'details.product'])->findOrFail($id);
         $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
         $categories = ProductCategory::all();
-        $products = Product::select('id', 'name', 'barcode', 'measurement_unit')->where('item_type', 'raw')->get();
+        $products = Product::with('variations') // <-- load variations
+                            ->select('id', 'name', 'barcode', 'measurement_unit')
+                            ->where('item_type', 'raw')
+                            ->get();
         $units = MeasurementUnit::all();
 
-        $allProducts = collect($products)->map(function ($product) {
+        $allProducts = $products->map(function ($product) {
             return (object)[
                 'id' => $product->id,
                 'name' => $product->name,
                 'unit' => $product->measurement_unit,
+                'variations' => $product->variations->map(fn($v) => (object)[
+                    'id' => $v->id,
+                    'sku' => $v->sku,
+                ]),
             ];
         });
 
+
         return view('production.edit', compact('production', 'vendors', 'categories', 'allProducts', 'units'));
     }
+
 
     public function update(Request $request, $id)
     {

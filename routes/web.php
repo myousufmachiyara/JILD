@@ -43,16 +43,6 @@ Route::middleware(['auth'])->group(function () {
     //Purchase Helper
     Route::get('/product/{product}/invoices', [PurchaseInvoiceController::class, 'getProductInvoices']);
 
-    // Production Receiving
-    Route::prefix('production_receiving')->name('production.receiving.')->group(function () {
-        Route::get('/', [ProductionReceivingController::class, 'index'])->middleware('check.permission:production_receiving.index')->name('index');
-        Route::get('/create', [ProductionReceivingController::class, 'create'])->middleware('check.permission:production_receiving.create')->name('create');
-        Route::post('/store', [ProductionReceivingController::class, 'store'])->middleware('check.permission:production_receiving.create')->name('store');
-        Route::get('/{id}/edit', [ProductionReceivingController::class, 'edit'])->middleware('check.permission:production_receiving.edit')->name('edit');
-        Route::put('/{id}/update', [ProductionReceivingController::class, 'update'])->middleware('check.permission:production_receiving.edit')->name('update');
-        Route::get('/{id}/print', [ProductionReceivingController::class, 'print'])->middleware('check.permission:production_receiving.print')->name('print');
-    });
-
     // Production Summary
     Route::get('/production-summary/{id}', [ProductionController::class, 'summary'])->name('production.summary');
 
@@ -96,28 +86,24 @@ Route::middleware(['auth'])->group(function () {
     ];
 
     foreach ($modules as $uri => $config) {
-        if($uri === 'roles') continue; // skip roles for now
-
         $controller = $config['controller'];
         $permission = $config['permission'];
 
+        // Determine route parameter
+        $param = $uri === 'roles' ? '{role}' : '{id}';
+
+        // Index & Create
         Route::get("$uri", [$controller, 'index'])->middleware("check.permission:$permission.index")->name("$uri.index");
         Route::get("$uri/create", [$controller, 'create'])->middleware("check.permission:$permission.create")->name("$uri.create");
         Route::post("$uri", [$controller, 'store'])->middleware("check.permission:$permission.create")->name("$uri.store");
-        Route::get("$uri/{id}", [$controller, 'show'])->middleware("check.permission:$permission.index")->name("$uri.show");
-        Route::get("$uri/{id}/edit", [$controller, 'edit'])->middleware("check.permission:$permission.edit")->name("$uri.edit");
-        Route::put("$uri/{id}", [$controller, 'update'])->middleware("check.permission:$permission.edit")->name("$uri.update");
-        Route::delete("$uri/{id}", [$controller, 'destroy'])->middleware("check.permission:$permission.delete")->name("$uri.destroy");
-        Route::get("$uri/{id}/print", [$controller, 'print'])->middleware("check.permission:$permission.print")->name("$uri.print");
-    }
 
-    // Roles module (model binding: Role $role)
-    Route::get("roles", [RoleController::class, 'index'])->middleware("check.permission:user_roles.index")->name("roles.index");
-    Route::get("roles/create", [RoleController::class, 'create'])->middleware("check.permission:user_roles.create")->name("roles.create");
-    Route::post("roles", [RoleController::class, 'store'])->middleware("check.permission:user_roles.create")->name("roles.store");
-    Route::get("roles/{role}/edit", [RoleController::class, 'edit'])->middleware("check.permission:user_roles.edit")->name("roles.edit");
-    Route::put("roles/{role}", [RoleController::class, 'update'])->middleware("check.permission:user_roles.edit")->name("roles.update");
-    Route::delete("roles/{role}", [RoleController::class, 'destroy'])->middleware("check.permission:user_roles.delete")->name("roles.destroy");
+        // Show, Edit, Update, Delete, Print
+        Route::get("$uri/$param", [$controller, 'show'])->middleware("check.permission:$permission.index")->name("$uri.show");
+        Route::get("$uri/$param/edit", [$controller, 'edit'])->middleware("check.permission:$permission.edit")->name("$uri.edit");
+        Route::put("$uri/$param", [$controller, 'update'])->middleware("check.permission:$permission.edit")->name("$uri.update");
+        Route::delete("$uri/$param", [$controller, 'destroy'])->middleware("check.permission:$permission.delete")->name("$uri.destroy");
+        Route::get("$uri/$param/print", [$controller, 'print'])->middleware("check.permission:$permission.print")->name("$uri.print");
+    }
 
     // Reports (readonly)
     Route::prefix('reports')->name('reports.')->group(function () {

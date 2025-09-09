@@ -4,7 +4,7 @@
 
 @section('content')
   <div class="row">
-    <form action="{{ route('production.receiving.update', $receiving->id) }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ route('production_receiving.update', $receiving->id) }}" method="POST" enctype="multipart/form-data">
       @csrf
       @method('PUT')
       @if ($errors->has('error'))
@@ -153,7 +153,7 @@
             </div>
           </div>
           <footer class="card-footer text-end mt-3">
-            <a href="{{ route('production.receiving.index') }}" class="btn btn-danger">Discard</a>
+            <a href="{{ route('production_receiving.index') }}" class="btn btn-danger">Discard</a>
             <button type="submit" class="btn btn-primary">Update</button>
           </footer>
         </section>
