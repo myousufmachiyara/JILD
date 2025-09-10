@@ -41,6 +41,9 @@ class Production extends Model
         return $this->hasMany(ProductionReceiving::class);
     }
 
-    
+    public function voucher()
+    {
+        return $this->belongsTo(Voucher::class, 'voucher_id');
+    }
 
 }

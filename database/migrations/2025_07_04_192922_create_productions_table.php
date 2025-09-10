@@ -25,7 +25,7 @@ return new class extends Migration
 
             $table->foreign('created_by')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('vendor_id')->references('id')->on('chart_of_accounts')->onDelete('cascade');
-            $table->foreign('voucher_id')->references('id')->on('payment_vouchers')->onDelete('cascade');
+            $table->foreign('voucher_id')->references('id')->on('vouchers')->onDelete('cascade');
         });
     }
 

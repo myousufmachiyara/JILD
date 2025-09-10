@@ -10,7 +10,7 @@ use App\Models\ProductionReceivingDetail;
 use App\Models\Production;
 use App\Models\Product;
 use App\Models\MeasurementUnit;
-use App\Models\PaymentVoucher;
+use App\Models\Voucher;
  
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -93,8 +93,9 @@ class ProductionController extends Controller
 
             // Auto-generate payment voucher production_type is sale_leather
             if ($request->production_type === 'sale_leather') {
-                $voucher = PaymentVoucher::create([
+                $voucher = Voucher::create([
                     'date' => $request->order_date,
+                    'voucher_type' => "payment",
                     'ac_dr_sid' => $request->vendor_id, // Vendor becomes receivable (Dr)
                     'ac_cr_sid' => 5, // Raw Material Inventory (Cr)
                     'amount' => $totalAmount,
@@ -212,14 +213,17 @@ class ProductionController extends Controller
             $totalAmount = collect($request->item_details)->sum(fn($item) => $item['qty'] * $item['rate']);
 
             // --- Delete old voucher ---
-            PaymentVoucher::where('id', $production->voucher_id)->delete();
+            if ($production->voucher_id) {
+                Voucher::where('id', $production->voucher_id)->delete();
+            }
 
             // --- Create new voucher if needed ---
             if ($request->production_type === 'sale_leather') {
-                $voucher = PaymentVoucher::create([
+                $voucher = Voucher::create([
                     'date' => $request->order_date,
-                    'ac_dr_sid' => 5, // Raw Material Inventory (Dr)
-                    'ac_cr_sid' => $request->vendor_id,
+                    'voucher_type' => "payment",
+                    'ac_dr_sid' => $request->vendor_id, // Vendor becomes receivable (Dr)
+                    'ac_cr_sid' => 5, // Raw Material Inventory (Cr)
                     'amount' => $totalAmount,
                     'remarks' => 'Sold Leather of Amount ' . number_format($totalAmount, 2) . ' for Production',
                 ]);
