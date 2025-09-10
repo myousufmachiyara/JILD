@@ -44,7 +44,7 @@
                 <td>{{ number_format($rec->total_amount, 2) }}</td>
                 <td>
                   <a href="{{ route('production_receiving.print', $rec->id) }}" target="_blank" class="text-success"><i class="fas fa-print"></i></a>
-                  <a href="{{ route('production_receiving.edit', $rec->id) }}" class="text-warning"><i class="fa fa-edit"></i></a>
+                  <a href="{{ route('production_receiving.edit', $rec->id) }}" class="text-primary"><i class="fa fa-edit"></i></a>
                 </td>
               </tr>
               @endforeach

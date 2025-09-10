@@ -2029,7 +2029,7 @@ html.no-overflowscrolling.custom-scroll .nano > .nano-content {
 html.no-overflowscrolling .sidebar-left .nano {
 	background: #1D2127;
 	box-shadow: -5px 0 0 #2F3139 inset;
-	top: 30px;
+	top: 20px;
 }
 
 html.no-overflowscrolling.sidebar-light:not(.dark) .sidebar-left .nano {
