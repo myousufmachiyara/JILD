@@ -67,6 +67,7 @@ class DatabaseSeeder extends Seeder
 
             // Vouchers
             'payment_vouchers',
+            'vouchers',
 
             // Production
             'production',

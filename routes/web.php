@@ -18,6 +18,7 @@ use App\Http\Controllers\{
     ProductCategoryController,
     ProductionReceivingController,
     PaymentVoucherController,
+    VoucherController,
     ReportController,
     InventoryReportController,
     POSController,
@@ -76,6 +77,7 @@ Route::middleware(['auth'])->group(function () {
 
         // Vouchers
         'payment_vouchers' => ['controller' => PaymentVoucherController::class, 'permission' => 'payment_vouchers'],
+        'vouchers' => ['controller' => VoucherController::class, 'permission' => 'vouchers'],
 
         // Production
         'production' => ['controller' => ProductionController::class, 'permission' => 'production'],
@@ -91,6 +93,23 @@ Route::middleware(['auth'])->group(function () {
 
         // Determine route parameter
         $param = $uri === 'roles' ? '{role}' : '{id}';
+
+        if ($uri === 'vouchers') {
+            // Voucher routes with type in all relevant actions
+            Route::prefix("$uri/{type}")->group(function () use ($controller, $permission) {
+                Route::get('/', [$controller, 'index'])->middleware("check.permission:$permission.index")->name("vouchers.index");
+                Route::get('/create', [$controller, 'create'])->middleware("check.permission:$permission.create")->name("vouchers.create");
+                Route::post('/', [$controller, 'store'])->middleware("check.permission:$permission.create")->name("vouchers.store");
+
+                Route::get('/{id}', [$controller, 'show'])->middleware("check.permission:$permission.index")->name("vouchers.show");
+                Route::get('/{id}/edit', [$controller, 'edit'])->middleware("check.permission:$permission.edit")->name("vouchers.edit");
+                Route::put('/{id}', [$controller, 'update'])->middleware("check.permission:$permission.edit")->name("vouchers.update");
+                Route::delete('/{id}', [$controller, 'destroy'])->middleware("check.permission:$permission.delete")->name("vouchers.destroy");
+                Route::get('/{id}/print', [$controller, 'print'])->middleware("check.permission:$permission.print")->name("vouchers.print");
+            });
+
+            continue;
+        }
 
         // Index & Create
         Route::get("$uri", [$controller, 'index'])->middleware("check.permission:$permission.index")->name("$uri.index");
