@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('sale_invoice_id');
             $table->unsignedBigInteger('product_id');
-            $table->unsignedBigInteger('variation_id'); // size/color variation
+            $table->unsignedBigInteger('variation_id')->nullable(); // size/color variation
             $table->decimal('sale_price', 10, 2); // actual selling price
             $table->decimal('discount', 10, 2)->default(0); // per item discount
             $table->integer('quantity');

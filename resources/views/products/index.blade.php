@@ -50,11 +50,11 @@
                 <td>{{ $product->sku }}</td>
                 <td>{{ $product->category->name ?? '-' }}</td>
                 <td>
-                  <a href="{{ route('products.edit', $product->id) }}" class="text-primary"><i class="fa fa-pen"></i></a>
+                  <a href="{{ route('products.edit', $product->id) }}" class="text-primary"><i class="fa fa-edit"></i></a>
                   <form method="POST" action="{{ route('products.destroy', $product->id) }}" style="display:inline-block">
                     @csrf
                     @method('DELETE')
-                    <button class="text-danger bg-transparent" style="border:none" onclick="return confirm('Delete this product?')"><i class="fa fa-trash"></i></button>
+                    <button class="btn btn-link p-0 m-0 text-danger" onclick="return confirm('Delete this product?')" title="Delete"><i class="fa fa-trash-alt"></i></button>
                   </form>
                 </td>
               </tr>

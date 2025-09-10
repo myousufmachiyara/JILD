@@ -17,7 +17,7 @@ class SaleInvoiceController extends Controller
     public function create()
     {
         return view('sales.create', [
-            'products' => Product::where('item_type', 'fg')->get(),
+            'products' => Product::get(),
             'productions' => Production::latest()->get(),
             'accounts' => ChartOfAccounts::where('account_type', 'customer')->get(), // or your logic
         ]);
@@ -25,6 +25,7 @@ class SaleInvoiceController extends Controller
 
     public function store(Request $request)
     {
+
         // ✅ Validate incoming request
         $validated = $request->validate([
             'date'         => 'required|date',
@@ -43,20 +44,30 @@ class SaleInvoiceController extends Controller
 
         DB::beginTransaction();
         try {
+            Log::info('[SaleInvoice] Store start', [
+                'request' => $validated,
+                'user_id' => Auth::id(),
+            ]);
+
             // ✅ Create invoice
             $invoice = SaleInvoice::create([
-                'date'             => $validated['date'],
-                'account_id'       => $validated['account_id'],
-                'type'             => $validated['type'],
-                'discount'         => $validated['discount'] ?? 0,
-                'created_by'       => Auth::id(),
-                'remarks'          => $request->remarks,
+                'date'       => $validated['date'],
+                'account_id' => $validated['account_id'],
+                'type'       => $validated['type'],
+                'discount'   => $validated['discount'] ?? 0,
+                'created_by' => Auth::id(),
+                'remarks'    => $request->remarks,
+            ]);
+
+            Log::info('[SaleInvoice] Invoice created', [
+                'invoice_id' => $invoice->id,
+                'account_id' => $invoice->account_id,
             ]);
 
             // ✅ Save items
             foreach ($validated['items'] as $index => $item) {
                 try {
-                    SaleInvoiceItem::create([
+                    $saved = SaleInvoiceItem::create([
                         'sale_invoice_id' => $invoice->id,
                         'product_id'      => $item['product_id'],
                         'variation_id'    => $item['variation_id'] ?? null,
@@ -64,22 +75,27 @@ class SaleInvoiceController extends Controller
                         'discount'        => $item['disc_price'] ?? 0,
                         'quantity'        => $item['quantity'],
                     ]);
-                } catch (\Throwable $itemEx) {
-                    // Log individual item failure but don’t stop loop unless you want strict rollback
-                    Log::error('[SaleInvoice] Item save failed', [
-                        'invoice_id'   => $invoice->id,
-                        'item_index'   => $index,
-                        'item_data'    => $item,
-                        'error'        => $itemEx->getMessage(),
+
+                    Log::info('[SaleInvoiceItem] Saved', [
+                        'invoice_id' => $invoice->id,
+                        'item_index' => $index,
+                        'item_id'    => $saved->id,
+                        'data'       => $item,
                     ]);
-                    throw $itemEx; // rethrow to rollback whole transaction
+                } catch (\Throwable $itemEx) {
+                    Log::error('[SaleInvoiceItem] Save failed', [
+                        'invoice_id' => $invoice->id,
+                        'item_index' => $index,
+                        'item_data'  => $item,
+                        'error'      => $itemEx->getMessage(),
+                    ]);
+                    throw $itemEx; // rollback everything
                 }
             }
 
             DB::commit();
-            Log::info('[SaleInvoice] Created successfully', [
+            Log::info('[SaleInvoice] Transaction committed', [
                 'invoice_id' => $invoice->id,
-                'created_by' => Auth::id(),
             ]);
 
             return redirect()->route('sale_invoices.index')
@@ -87,8 +103,6 @@ class SaleInvoiceController extends Controller
 
         } catch (\Throwable $e) {
             DB::rollBack();
-
-            // Log full error
             Log::error('[SaleInvoice] Store failed', [
                 'request_data' => $request->all(),
                 'error'        => $e->getMessage(),
@@ -114,7 +128,7 @@ class SaleInvoiceController extends Controller
 
         return view('sales.edit', [
             'invoice'   => $invoice,
-            'products'  => Product::where('item_type', 'fg')->get(),
+            'products'  => Product::get(),
             'accounts'  => ChartOfAccounts::where('account_type', 'customer')->get(),
         ]);
     }

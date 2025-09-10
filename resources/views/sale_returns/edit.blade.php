@@ -55,7 +55,7 @@
               <tr>
                 <td>
                   <input type="text" class="form-control product-code" placeholder="Scan/Enter Code"
-                         data-product-id="{{ $item->product_id }}" data-variation-id="{{ $item->variation_id }}">
+                         value="{{ $item->product->barcode ?? '' }}">
                 </td>
                 <td>
                   <select name="items[{{ $i }}][product_id]" class="form-control product-select" required>
@@ -82,7 +82,7 @@
                   </select>
                 </td>
                 <td><input type="number" name="items[{{ $i }}][qty]" class="form-control qty-input" value="{{ $item->qty }}" min="1"></td>
-                <td><input type="number" name="items[{{ $i }}][price]" class="form-control price-input" value="{{ $item->price }}" step="0.01"></td>
+                <td><input type="number" name="items[{{ $i }}][price]" class="form-control price-input" step="0.01" value="{{ $item->price }}" required></td>
                 <td><input type="number" name="items[{{ $i }}][total]" class="form-control total-input" value="{{ $item->qty * $item->price }}" readonly></td>
                 <td>
                   <button type="button" class="btn btn-sm btn-danger removeRowBtn">X</button>
@@ -114,200 +114,189 @@
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-    let rowIdx = document.querySelectorAll("#itemsTable tbody tr").length;
+$(document).ready(function () {
+    let rowIndex = $("#itemsTable tbody tr").length || 0;
 
-    // ---------- Helper: calculate row total ----------
-    function calcRowTotal(row) {
-        const qty = parseFloat(row.querySelector(".qty-input").value) || 0;
-        const price = parseFloat(row.querySelector(".price-input").value) || 0;
-        row.querySelector(".total-input").value = (qty * price).toFixed(2);
-    }
-
-    // ---------- Helper: update grand total ----------
-    function updateGrandTotal() {
-        let total = 0;
-        document.querySelectorAll("#itemsTable tbody tr").forEach(row => {
-            if(row.style.display !== "none"){
-                total += parseFloat(row.querySelector(".total-input").value) || 0;
-            }
-        });
-        document.getElementById("net_amount").value = total.toFixed(2);
-    }
-
-    // ---------- Helper: set product reliably (like Sale edit) ----------
-    function setProductSelectValue(productSelect, productId, row) {
-        productSelect.value = productId;
-        productSelect.dispatchEvent(new Event('change'));
-
-        // Apply wanted variation after product fetch
-        if(row.dataset.wantedVariationId){
-            setTimeout(() => {
-                const variationSelect = row.querySelector(".variation-select");
-                if(variationSelect.querySelector(`option[value="${row.dataset.wantedVariationId}"]`)){
-                    variationSelect.value = row.dataset.wantedVariationId;
-                }
-                delete row.dataset.wantedVariationId;
-            }, 200); // wait for variations to be fetched
-        }
-
-        // Apply preferred price if set
-        if(row.dataset.preferPrice){
-            row.querySelector(".price-input").value = parseFloat(row.dataset.preferPrice).toFixed(2);
-            delete row.dataset.preferPrice;
-        }
-    }
-
-    // ---------- Bind events to a row ----------
-    function bindRowEvents(row) {
-        // Remove row
-        row.querySelector(".removeRowBtn").addEventListener("click", function() {
-            const deleteFlag = row.querySelector(".delete-flag");
-            if(deleteFlag){
-                deleteFlag.value = "1";
-                row.style.display = "none";
-            } else {
-                row.remove();
-            }
-            updateGrandTotal();
-        });
-
-        // Qty/Price input change
-        row.querySelectorAll(".qty-input, .price-input").forEach(input => {
-            input.addEventListener("input", () => {
-                calcRowTotal(row);
-                updateGrandTotal();
-            });
-        });
-
-        // Product select change
-        row.querySelector(".product-select").addEventListener("change", async function () {
-            const productSelect = this;
-            const productId = productSelect.value;
-            const variationSelect = row.querySelector(".variation-select");
-
-            // Set price from product option
-            const price = parseFloat(productSelect.options[productSelect.selectedIndex].dataset.price) || 0;
-            row.querySelector(".price-input").value = price.toFixed(2);
-
-            // Fetch variations
-            variationSelect.innerHTML = `<option value="">Loading...</option>`;
-            if(productId){
-                try {
-                    const res = await fetch(`/product/${productId}/variations`);
-                    const data = await res.json();
-
-                    variationSelect.innerHTML = `<option value="">-- Select Variation --</option>`;
-                    data.forEach(v => {
-                        variationSelect.innerHTML += `<option value="${v.id}">${v.sku}</option>`;
-                    });
-
-                    // Apply wanted variation if set
-                    if(row.dataset.wantedVariationId){
-                        const wantedId = row.dataset.wantedVariationId;
-                        if(variationSelect.querySelector(`option[value="${wantedId}"]`)){
-                            variationSelect.value = wantedId;
-                        }
-                        delete row.dataset.wantedVariationId;
-                    }
-
-                } catch(err) {
-                    variationSelect.innerHTML = `<option value="">-- Select Variation --</option>`;
-                    console.error(err);
-                }
-            } else {
-                variationSelect.innerHTML = `<option value="">-- Select Variation --</option>`;
-            }
-
-            calcRowTotal(row);
-            updateGrandTotal();
-        });
-
-        // Barcode input
-        row.querySelector(".product-code").addEventListener("blur", function() {
-            const code = this.value.trim();
-            if(!code) return;
-
-            fetch(`/get-variation-by-code/${encodeURIComponent(code)}`)
-            .then(res => res.json())
-            .then(data => {
-                if(data.success && data.variation){
-                    const variation = data.variation;
-                    const productSelect = row.querySelector(".product-select");
-
-                    // Store wanted variation and preferred price
-                    row.dataset.wantedVariationId = variation.id;
-                    if(variation.price !== undefined && variation.price !== null){
-                        row.dataset.preferPrice = variation.price;
-                    }
-
-                    // Set product -> triggers variation fetch
-                    productSelect.value = variation.product_id;
-
-                    // Trigger change manually
-                    const event = new Event('change');
-                    productSelect.dispatchEvent(event);
-
-                    // Wait for variations to be populated, then select wanted variation
-                    const variationSelect = row.querySelector(".variation-select");
-                    const checkOptions = setInterval(() => {
-                        if(variationSelect.querySelector(`option[value="${variation.id}"]`)){
-                            variationSelect.value = variation.id;
-                            clearInterval(checkOptions);
-                        }
-                    }, 50); // check every 50ms
-
-                } else {
-                    alert(data.message || "No variation found for this barcode");
-                    this.value = '';
-                    this.focus();
-                }
-            })
-            .catch(() => alert('Error fetching variation by barcode.'));
-        });
-
-    }
-
-    // ---------- Bind existing rows ----------
-    document.querySelectorAll("#itemsTable tbody tr").forEach(row => bindRowEvents(row));
-
-    // ---------- Add new row ----------
-    document.getElementById("addRowBtn").addEventListener("click", function () {
-        const tableBody = document.querySelector("#itemsTable tbody");
-        const newRow = document.createElement("tr");
-        newRow.innerHTML = `
+    // ✅ Add Row button
+    $("#addRowBtn").click(function () {
+        let newRow = `<tr>
             <td><input type="text" class="form-control product-code" placeholder="Scan/Enter Code"></td>
             <td>
-                <select name="items[${rowIdx}][product_id]" class="form-control product-select" required>
-                    <option value="">-- Select Product --</option>
-                    @foreach($products as $product)
-                        <option value="{{ $product->id }}" data-price="{{ $product->selling_price }}">{{ $product->name }}</option>
-                    @endforeach
-                </select>
+              <select name="items[${rowIndex}][product_id]" class="form-control product-select" required>
+                <option value="">Select Product</option>
+                @foreach($products as $prod)
+                  <option value="{{ $prod->id }}" data-price="{{ $prod->selling_price }}">{{ $prod->name }}</option>
+                @endforeach
+              </select>
             </td>
             <td>
-                <select name="items[${rowIdx}][variation_id]" class="form-control variation-select">
-                    <option value="">-- Select Variation --</option>
-                </select>
+              <select name="items[${rowIndex}][variation_id]" class="form-control variation-select">
+                <option value="">Select Variation</option>
+              </select>
             </td>
-            <td><input type="number" name="items[${rowIdx}][qty]" class="form-control qty-input" value="1" min="1"></td>
-            <td><input type="number" step="0.01" name="items[${rowIdx}][price]" class="form-control price-input" value="0"></td>
-            <td><input type="text" class="form-control total-input" readonly value="0"></td>
-            <td>
-                <button type="button" class="btn btn-danger btn-sm removeRowBtn">X</button>
-                <input type="hidden" name="items[${rowIdx}][delete]" value="0" class="delete-flag">
-            </td>
-        `;
-        tableBody.appendChild(newRow);
-        bindRowEvents(newRow);
-        rowIdx++;
+            <td><input type="number" name="items[${rowIndex}][qty]" class="form-control qty-input" value="1" min="1"></td>
+            <td><input type="number" name="items[${rowIndex}][price]" class="form-control price-input" step="0.01" required></td>
+            <td><input type="number" name="items[${rowIndex}][total]" class="form-control total-input" readonly></td>
+            <td><button type="button" class="btn btn-sm btn-danger removeRow"><i class="fas fa-trash"></i></button></td>
+          </tr>`;
+        $("#itemsTable tbody").append(newRow);
+
+        $('#itemsTable tbody tr:last .product-select, #itemsTable tbody tr:last .variation-select').select2({
+            width: '100%',
+            dropdownAutoWidth: true
+        });
+
+        rowIndex++;
     });
 
-    // ---------- Initial grand total ----------
-    updateGrandTotal();
+    // ✅ Remove row
+    $(document).on("click", ".removeRow, .removeRowBtn", function () {
+        $(this).closest("tr").remove();
+        calculateGrandTotal();
+    });
+
+    // ✅ Product change → set price + load variations
+    $(document).on("change", ".product-select", function () {
+        let row = $(this).closest("tr");
+        let productId = $(this).val();
+        let price = $(this).find(":selected").data("price") || 0;
+
+        row.find(".price-input").val(price);
+        calculateRowTotal(row);
+
+        if (productId) {
+            loadVariations(row, productId);
+        } else {
+            row.find(".variation-select").html('<option value="">Select Variation</option>').trigger('change');
+        }
+    });
+
+    // ✅ Variation change → update price if variation has price
+    $(document).on("change", ".variation-select", function () {
+        let row = $(this).closest("tr");
+        let price = $(this).find(":selected").data("price") || row.find(".price-input").val();
+        row.find(".price-input").val(price);
+        calculateRowTotal(row);
+    });
+
+    // ✅ Quantity / Price change → recalc total
+    $(document).on("input", ".qty-input, .price-input", function () {
+        let row = $(this).closest("tr");
+        calculateRowTotal(row);
+    });
+
+    // ✅ Barcode scan
+    $(document).on("blur", ".product-code", function () {
+        let row = $(this).closest("tr");
+        let barcode = $(this).val().trim();
+        if (!barcode) return;
+
+        $.ajax({
+            url: '/get-product-by-code/' + encodeURIComponent(barcode),
+            method: 'GET',
+            success: function (res) {
+                const $productSelect = row.find('.product-select');
+                const $variationSelect = row.find('.variation-select');
+
+                if (!res || !res.success) {
+                    alert(res.message || 'Product not found');
+                    resetRow(row);
+                    return;
+                }
+
+                // 🔹 CASE 1: Variation barcode
+                if (res.type === 'variation' && res.variation) {
+                    const v = Array.isArray(res.variation) ? res.variation[0] : res.variation;
+                    $productSelect.val(v.product_id).trigger('change.select2');
+                    loadVariations(row, v.product_id, v.id);
+
+                    row.find('.price-input').val(v.price || 0);
+                    row.find('.qty-input').val(row.find('.qty-input').val() || 1);
+                    calculateRowTotal(row);
+
+                    row.find('.qty-input').focus();
+                    if (row.is(':last-child')) {
+                        $("#addRowBtn").trigger("click");
+                        $('#itemsTable tbody tr:last .product-code').focus();
+                    }
+                    return;
+                }
+
+                // 🔹 CASE 2: Product barcode
+                if (res.type === 'product' && res.product) {
+                    const p = res.product;
+                    if ($productSelect.find(`option[value="${p.id}"]`).length) {
+                        $productSelect.val(p.id).trigger('change.select2');
+                        row.find('.product-code').val(p.barcode);
+                        row.find('.price-input').val(p.selling_price || 0);
+                        loadVariations(row, p.id);
+                        setTimeout(() => $variationSelect.select2('open'), 300);
+                    } else {
+                        alert("Product found but not in dropdown list.");
+                        resetRow(row);
+                    }
+                    return;
+                }
+
+                alert('Invalid response. Barcode not matched.');
+                resetRow(row);
+            },
+            error: function () {
+                alert('Error fetching product/variation.');
+                resetRow(row);
+            }
+        });
+    });
+
+    // ✅ Helpers
+    function calculateRowTotal(row) {
+        let qty = parseFloat(row.find(".qty-input").val()) || 0;
+        let price = parseFloat(row.find(".price-input").val()) || 0;
+        let total = qty * price;
+        row.find(".total-input").val(total.toFixed(2));
+        calculateGrandTotal();
+    }
+
+    function calculateGrandTotal() {
+        let grandTotal = 0;
+        $(".total-input").each(function () {
+            grandTotal += parseFloat($(this).val()) || 0;
+        });
+        $("#net_amount").val(grandTotal.toFixed(2));
+    }
+
+    function resetRow(row) {
+        row.find('.product-code').val('');
+        row.find('.product-select').val('').trigger('change.select2');
+        row.find('.variation-select').html('<option value="">Select Variation</option>');
+        row.find('.price-input').val('');
+        row.find('.qty-input').val(1);
+        row.find('.total-input').val('');
+        calculateGrandTotal();
+    }
+
+    // 🔹 Load variations with optional preselect
+    function loadVariations(row, productId, preselectVariationId = null) {
+        let $variationSelect = row.find('.variation-select');
+        $variationSelect.html('<option value="">Loading...</option>');
+        $.get(`/product/${productId}/variations`, function (data) {
+            let options = '<option value="">Select Variation</option>';
+            (data.variation || []).forEach(function (v) {
+                options += `<option value="${v.id}" data-price="${v.price || 0}">${v.sku}</option>`;
+            });
+            $variationSelect.html(options).trigger('change');
+
+            if (preselectVariationId) {
+                $variationSelect.val(preselectVariationId).trigger('change');
+            }
+        });
+    }
+
+    // ✅ Init: calculate totals for preloaded rows
+    $("#itemsTable tbody tr").each(function () {
+        calculateRowTotal($(this));
+    });
 });
 </script>
-
-
 
 @endsection

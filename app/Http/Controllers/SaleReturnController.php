@@ -30,7 +30,7 @@ class SaleReturnController extends Controller
     public function create()
     {
         return view('sale_returns.create', [
-            'products'  => Product::where('item_type', 'fg')->get(),
+            'products'  => Product::get(),
             'customers'  => ChartOfAccounts::where('account_type', 'customer')->get(),
             'invoices'  => SaleInvoice::latest()->get(), // optional link to original
         ]);
@@ -129,38 +129,49 @@ class SaleReturnController extends Controller
 
         return view('sale_returns.edit', [
             'return'    => $return,
-            'products'  => Product::where('item_type', 'fg')->get(),
+            'products'  => Product::get(),
             'customers' => ChartOfAccounts::where('account_type', 'customer')->get(),
             'invoices'  => SaleInvoice::latest()->get(),
         ]);
     }
-
+    
     public function update(Request $request, $id)
     {
-        $validated = $request->validate([
-            'account_id'          => 'required|exists:chart_of_accounts,id',
-            'return_date'         => 'required|date',
-            'sale_invoice_no'     => 'nullable|string|max:50',
-            'remarks'             => 'nullable|string|max:500',
-            'items'               => 'required|array|min:1',
-            'items.*.product_id'  => 'required|exists:products,id',
-            'items.*.variation_id'=> 'nullable|exists:product_variations,id',
-            'items.*.qty'         => 'required|numeric|min:1',
-            'items.*.price'       => 'required|numeric|min:0',
+        // Log the incoming request
+        Log::info('[SaleReturn] Update Request', [
+            'sale_return_id' => $id,
+            'request_data'   => $request->except(['_token', '_method']),
         ]);
+
+        $validated = $request->validate([
+            'account_id'           => 'required|exists:chart_of_accounts,id',
+            'return_date'          => 'required|date',
+            'sale_invoice_no'      => 'nullable|string|max:50',
+            'remarks'              => 'nullable|string|max:500',
+            'items'                => 'required|array|min:1',
+            'items.*.product_id'   => 'required|exists:products,id',
+            'items.*.variation_id' => 'nullable|exists:product_variations,id',
+            'items.*.qty'          => 'required|numeric|min:1',
+            'items.*.price'        => 'required|numeric|min:0',
+        ]);
+
+        // Log validated data
+        Log::info('[SaleReturn] Validated Data', $validated);
 
         DB::beginTransaction();
         try {
             $return = SaleReturn::findOrFail($id);
+
             $return->update([
-                'account_id'     => $validated['account_id'],
-                'return_date'    => $validated['return_date'],
-                'sale_invoice_no'=> $validated['sale_invoice_no'] ?? null,
-                'remarks'        => $validated['remarks'] ?? null,
+                'account_id'      => $validated['account_id'],
+                'return_date'     => $validated['return_date'],
+                'sale_invoice_no' => $validated['sale_invoice_no'] ?? null,
+                'remarks'         => $validated['remarks'] ?? null,
             ]);
 
             // Delete old items and reinsert
             $return->items()->delete();
+
             foreach ($validated['items'] as $idx => $item) {
                 SaleReturnItem::create([
                     'sale_return_id' => $return->id,
@@ -172,11 +183,28 @@ class SaleReturnController extends Controller
             }
 
             DB::commit();
-            return redirect()->route('sale_return.index')->with('success', 'Sale return updated successfully.');
+
+            Log::info('[SaleReturn] Update Success', [
+                'sale_return_id' => $return->id,
+                'items_count'    => count($validated['items']),
+            ]);
+
+            return redirect()->route('sale_return.index')
+                ->with('success', 'Sale return updated successfully.');
+
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('[SaleReturn] Update failed', ['error' => $e->getMessage()]);
-            return back()->withInput()->with('error', 'Error updating sale return.');
+
+            Log::error('[SaleReturn] Update Failed', [
+                'sale_return_id' => $id,
+                'error_message'  => $e->getMessage(),
+                'file'           => $e->getFile(),
+                'line'           => $e->getLine(),
+                'trace'          => $e->getTraceAsString(),
+            ]);
+
+            return back()->withInput()
+                ->with('error', 'Error updating sale return.');
         }
     }
 
