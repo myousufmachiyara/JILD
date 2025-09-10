@@ -28,11 +28,15 @@
             <div class="col-md-2">
               <label>Production Order</label>
               <select name="production_id" class="form-control select2-js" required>
-                <option value="" disabled selected>Select Production</option>
-                @foreach($productions as $prod)
-                  <option value="{{ $prod->id }}">{{ $prod->id }} - {{ $prod->vendor->name ?? '-' }}</option>
-                @endforeach
+                  <option value="" disabled {{ empty($selectedProductionId) ? 'selected' : '' }}>Select Production</option>
+                  @foreach($productions as $prod)
+                      <option value="{{ $prod->id }}"
+                          {{ $selectedProductionId == $prod->id ? 'selected' : '' }}>
+                          {{ $prod->id }}
+                      </option>
+                  @endforeach
               </select>
+
             </div>
           </div>
         </div>

@@ -25,13 +25,21 @@ class ProductionReceivingController extends Controller
         return view('production-receiving.index', compact('receivings'));
     }
 
-    public function create()
+    public function create(Request $request)
     {
         $productions = Production::all();
-        $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
         $products = Product::get();
-        return view('production-receiving.create', compact('productions', 'vendors', 'products'));
+
+        // ✅ Get optional ID from query string
+        $selectedProductionId = $request->query('id');
+
+        return view('production-receiving.create', compact(
+            'productions',
+            'products',
+            'selectedProductionId'
+        ));
     }
+
 
     public function store(Request $request)
     {

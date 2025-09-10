@@ -42,12 +42,17 @@
                 <td>{{ $loop->iteration }}</td>
                 <td>{{ $location->name }}</td>
                 <td>{{ $location->code }}</td>
+                
                 <td>
-                  <button class="btn btn-warning btn-sm modal-with-form" href="#editLocationModal{{ $location->id }}">Edit</button>
-                  <form action="{{ route('locations.destroy', $location) }}" method="POST" style="display:inline-block;">
+                  <a class="text-primary modal-with-form" href="#editLocationModal{{ $location->id }}">
+                    <i class="fa fa-edit"></i>
+                  </a>
+                  <form action="{{ route('locations.destroy', $location->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure?')">
                     @csrf
                     @method('DELETE')
-                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure?')">Delete</button>
+                    <button type="submit" class="btn btn-link p-0 m-0 text-danger">
+                      <i class="fas fa-trash-alt"></i>
+                    </button>
                   </form>
                 </td>
               </tr>

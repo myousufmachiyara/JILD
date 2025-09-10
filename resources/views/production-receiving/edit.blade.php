@@ -152,7 +152,7 @@
               </div>
             </div>
           </div>
-          <footer class="card-footer text-end mt-3">
+          <footer class="card-footer text-end">
             <a href="{{ route('production_receiving.index') }}" class="btn btn-danger">Discard</a>
             <button type="submit" class="btn btn-primary">Update</button>
           </footer>

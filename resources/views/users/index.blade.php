@@ -42,10 +42,9 @@
                   <td>{{ $user->roles->pluck('name')->join(', ') }}</td>
                
                   <td class="actions">
-                    <a href="#updateModal" class="modal-with-form" onclick="getUser({{ $user->id }})">
-                      <i class="fas fa-pencil-alt"></i>
+                    <a href="#updateModal" class="text-primary modal-with-form" onclick="getUser({{ $user->id }})">
+                      <i class="fa fa-edit"></i>
                     </a>
-                    <span class="separator"> | </span>
                     <form action="{{ route('users.destroy', $user->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure?')">
                       @csrf
                       @method('DELETE')

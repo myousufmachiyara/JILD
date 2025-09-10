@@ -35,11 +35,15 @@
                 <td>{{ $loop->iteration }}</td>
                 <td>{{ $category->name }}</td>
                 <td>
-                  <button class="btn btn-warning btn-sm modal-with-form" href="#editCategoryModal{{ $category->id }}">Edit</button>
-                  <form action="{{ route('product_categories.destroy', $category->id) }}" method="POST" style="display:inline-block;">
+                  <a class="text-primary modal-with-form" href="#editCategoryModal{{ $category->id }}">
+                    <i class="fa fa-edit"></i>
+                  </a>
+                  <form action="{{ route('product_categories.destroy', $category->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure?')">
                     @csrf
                     @method('DELETE')
-                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure?')">Delete</button>
+                    <button type="submit" class="btn btn-link p-0 m-0 text-danger">
+                      <i class="fas fa-trash-alt"></i>
+                    </button>
                   </form>
                 </td>
               </tr>
