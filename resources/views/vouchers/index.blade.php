@@ -37,9 +37,9 @@
                   <td>{{ $row->remarks }}</td>
                   <td><strong>{{ number_format($row->amount, 0, '.', ',') }}</strong></td>
                   <td class="actions">
-                    <a class="text-success me-2" href="{{ route('vouchers.print', $row->id) }}"><i class="fas fa-print"></i></a>
-                    <a class="text-primary me-2 modal-with-form" onclick="getVoucherDetails({{ $row->id }})" href="#updateModal"><i class="fas fa-pencil-alt"></i></a>
-                    <a class="text-danger" onclick="setDeleteId({{ $row->id }})" href="#deleteModal"><i class="far fa-trash-alt"></i></a>
+                    <a class="text-success" href="{{ route('vouchers.print', ['type' => $type, 'id' => $row->id]) }}"><i class="fas fa-print"></i></a>
+                    <a class="text-primary modal-with-form" onclick="getVoucherDetails({{ $row->id }})" href="#updateModal"><i class="fas fa-edit"></i></a>
+                    <a class="btn btn-link p-0 m-0 text-danger" onclick="setDeleteId({{ $row->id }})" href="#deleteModal"><i class="fas fa-trash-alt"></i></a>
                   </td>
                 </tr>
               @endforeach
@@ -207,7 +207,7 @@
 <script>
 function getVoucherDetails(id) {
     document.getElementById('updateForm').action = `/vouchers/{{ $type }}/${id}`;
-    fetch(`/vouchers/${id}`)
+    fetch(`/vouchers/{{ $type }}/${id}`)
         .then(res => res.json())
         .then(data => {
             document.getElementById('update_id').value = id;
@@ -221,7 +221,7 @@ function getVoucherDetails(id) {
 }
 
 function setDeleteId(id) {
-    document.getElementById('deleteForm').action = `/vouchers/{{ $type }}/${id}`;
+  document.getElementById('deleteForm').action = `/vouchers/{{ $type }}/${id}`;
 }
 </script>
 @endsection

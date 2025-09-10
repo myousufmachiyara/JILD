@@ -105,7 +105,7 @@ Route::middleware(['auth'])->group(function () {
                 Route::get('/{id}/edit', [$controller, 'edit'])->middleware("check.permission:$permission.edit")->name("vouchers.edit");
                 Route::put('/{id}', [$controller, 'update'])->middleware("check.permission:$permission.edit")->name("vouchers.update");
                 Route::delete('/{id}', [$controller, 'destroy'])->middleware("check.permission:$permission.delete")->name("vouchers.destroy");
-                Route::get('/{id}/print', [$controller, 'print'])->middleware("check.permission:$permission.print")->name("vouchers.print");
+                Route::get('/{id}/print', [$controller, 'print'])->middleware("check.permission:$permission.print")->name('vouchers.print');
             });
 
             continue;

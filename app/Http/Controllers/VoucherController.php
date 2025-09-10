@@ -6,6 +6,7 @@ use App\Models\Voucher;
 use App\Models\ChartOfAccounts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log; // at the top of the controller
 
 class VoucherController extends Controller
 {
@@ -37,40 +38,6 @@ class VoucherController extends Controller
     }
 
     /**
-     * Store a newly created voucher.
-     */
-    public function store(Request $request, $type)
-    {
-        $data = $request->validate([
-            'date' => 'required|date',
-            'ac_dr_sid' => 'required|numeric',
-            'ac_cr_sid' => 'required|numeric|different:ac_dr_sid',
-            'amount' => 'required|numeric|min:1',
-            'remarks' => 'nullable|string',
-            'att.*' => 'nullable|file|max:2048',
-        ]);
-
-        $attachments = [];
-        if ($request->hasFile('att')) {
-            foreach ($request->file('att') as $file) {
-                $attachments[] = $file->store("attachments/{$type}", 'public');
-            }
-        }
-
-        Voucher::create([
-            'voucher_type' => $type,
-            'date' => $data['date'],
-            'ac_dr_sid' => $data['ac_dr_sid'],
-            'ac_cr_sid' => $data['ac_cr_sid'],
-            'amount' => $data['amount'],
-            'remarks' => $data['remarks'],
-            'attachments' => $attachments,
-        ]);
-
-        return back()->with('success', ucfirst($type) . ' voucher added successfully!');
-    }
-
-    /**
      * Show a single voucher.
      */
     public function show($type, $id)
@@ -89,59 +56,113 @@ class VoucherController extends Controller
         return view('vouchers.edit', compact('voucher', 'accounts', 'type'));
     }
 
-    /**
-     * Update an existing voucher.
-     */
-    public function update(Request $request, $type, $id)
+    public function store(Request $request, $type)
     {
-        $data = $request->validate([
-            'date' => 'required|date',
-            'ac_dr_sid' => 'required|numeric',
-            'ac_cr_sid' => 'required|numeric|different:ac_dr_sid',
-            'amount' => 'required|numeric|min:1',
-            'remarks' => 'nullable|string',
-            'att.*' => 'nullable|file|max:2048',
-        ]);
+        try {
+            $data = $request->validate([
+                'date' => 'required|date',
+                'ac_dr_sid' => 'required|numeric',
+                'ac_cr_sid' => 'required|numeric|different:ac_dr_sid',
+                'amount' => 'required|numeric|min:1',
+                'remarks' => 'nullable|string',
+                'att.*' => 'nullable|file|max:2048',
+            ]);
 
-        $voucher = Voucher::findOrFail($id);
-        $attachments = $voucher->attachments ?? [];
-
-        if ($request->hasFile('att')) {
-            foreach ($request->file('att') as $file) {
-                $attachments[] = $file->store("attachments/{$type}", 'public');
-            }
-        }
-
-        $voucher->update([
-            'date' => $data['date'],
-            'ac_dr_sid' => $data['ac_dr_sid'],
-            'ac_cr_sid' => $data['ac_cr_sid'],
-            'amount' => $data['amount'],
-            'remarks' => $data['remarks'],
-            'attachments' => $attachments,
-        ]);
-
-        return back()->with('success', ucfirst($type) . ' voucher updated successfully!');
-    }
-
-    /**
-     * Delete a voucher and its attachments.
-     */
-    public function destroy($type, $id)
-    {
-        $voucher = Voucher::findOrFail($id);
-
-        if (!empty($voucher->attachments)) {
-            foreach ($voucher->attachments as $file) {
-                if (Storage::disk('public')->exists($file)) {
-                    Storage::disk('public')->delete($file);
+            $attachments = [];
+            if ($request->hasFile('att')) {
+                foreach ($request->file('att') as $file) {
+                    $attachments[] = $file->store("attachments/{$type}", 'public');
                 }
             }
+
+            Voucher::create([
+                'voucher_type' => $type,
+                'date' => $data['date'],
+                'ac_dr_sid' => $data['ac_dr_sid'],
+                'ac_cr_sid' => $data['ac_cr_sid'],
+                'amount' => $data['amount'],
+                'remarks' => $data['remarks'],
+                'attachments' => $attachments,
+            ]);
+
+            return back()->with('success', ucfirst($type) . ' voucher added successfully!');
+
+        } catch (\Throwable $e) {
+            Log::error("Error storing {$type} voucher: " . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all(),
+            ]);
+
+            return back()->with('error', 'Something went wrong while adding the voucher. Check logs.');
         }
+    }
 
-        $voucher->delete();
+    public function update(Request $request, $type, $id)
+    {
+        try {
+            $data = $request->validate([
+                'date' => 'required|date',
+                'ac_dr_sid' => 'required|numeric',
+                'ac_cr_sid' => 'required|numeric|different:ac_dr_sid',
+                'amount' => 'required|numeric|min:1',
+                'remarks' => 'nullable|string',
+                'att.*' => 'nullable|file|max:2048',
+            ]);
 
-        return back()->with('success', ucfirst($type) . ' voucher deleted successfully!');
+            $voucher = Voucher::findOrFail($id);
+            $attachments = $voucher->attachments ?? [];
+
+            if ($request->hasFile('att')) {
+                foreach ($request->file('att') as $file) {
+                    $attachments[] = $file->store("attachments/{$type}", 'public');
+                }
+            }
+
+            $voucher->update([
+                'date' => $data['date'],
+                'ac_dr_sid' => $data['ac_dr_sid'],
+                'ac_cr_sid' => $data['ac_cr_sid'],
+                'amount' => $data['amount'],
+                'remarks' => $data['remarks'],
+                'attachments' => $attachments,
+            ]);
+
+            return back()->with('success', ucfirst($type) . ' voucher updated successfully!');
+
+        } catch (\Throwable $e) {
+            Log::error("Error updating {$type} voucher ID {$id}: " . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all(),
+            ]);
+
+            return back()->with('error', 'Something went wrong while updating the voucher. Check logs.');
+        }
+    }
+
+    public function destroy($type, $id)
+    {
+        try {
+            $voucher = Voucher::findOrFail($id);
+
+            if (!empty($voucher->attachments)) {
+                foreach ($voucher->attachments as $file) {
+                    if (Storage::disk('public')->exists($file)) {
+                        Storage::disk('public')->delete($file);
+                    }
+                }
+            }
+
+            $voucher->delete();
+
+            return back()->with('success', ucfirst($type) . ' voucher deleted successfully.');
+
+        } catch (\Throwable $e) {
+            Log::error("Error deleting {$type} voucher ID {$id}: " . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return back()->with('error', 'Something went wrong while deleting the voucher. Check logs.');
+        }
     }
 
     /**
