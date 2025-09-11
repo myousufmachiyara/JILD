@@ -75,18 +75,35 @@
             </form>
 
             <table class="table table-bordered table-striped">
-                <thead><tr><th>Item</th><th>Stock Inhand</th><th>Unit</th></tr></thead>
-                <tbody>
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Variation</th>
+                        <th>Quantity</th>
+                        <th>Price</th>
+                        <th>Total</th>
+                    </tr>
+                    </thead>
+                    <tbody>
                     @forelse($stockInHand as $stock)
                         <tr>
-                            <td>{{ $stock['product'] }} {{ $stock['variation'] ? '(' . $stock['variation'] . ')' : '' }}</td>
-                            <td>{{ $stock['quantity'] }}</td>
-                            <td>{{ $product->unit ?? '' }}</td>
+                        <td>{{ $stock['product'] }}</td>
+                        <td>{{ $stock['variation'] ?? '-' }}</td>
+                        <td>{{ $stock['quantity'] }}</td>
+                        <td>{{ number_format($stock['price'], 2) }}</td>
+                        <td>{{ number_format($stock['total'], 2) }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="3" class="text-center text-muted">No stock data found.</td></tr>
+                        <tr><td colspan="5" class="text-center">No stock data found.</td></tr>
                     @endforelse
-                </tbody>
+                    </tbody>
+                    <tfoot>
+                    <tr>
+                        <th colspan="4" class="text-right">Grand Total:</th>
+                        <th>{{ number_format($stockInHand->sum('total'), 2) }}</th>
+                    </tr>
+                    </tfoot>
+
             </table>
         </div>
 

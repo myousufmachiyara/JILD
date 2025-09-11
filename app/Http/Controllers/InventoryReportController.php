@@ -164,30 +164,42 @@ class InventoryReportController extends Controller
                     $qtyIn = 0;
                     $qtyOut = 0;
 
-                    $qtyIn += PurchaseInvoiceItem::where('item_id', $product->id)
+                    $qtyIn += PurchaseInvoiceItem::where('product_id', $product->id)
                         ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
                         ->sum('quantity');
                     $qtyIn += SaleReturnItem::where('product_id', $product->id)
                         ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
-                        ->sum('qty');
+                        ->sum('quantity');
                     $qtyIn += ProductionReceivingDetail::where('product_id', $product->id)
                         ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
-                        ->sum('received_qty');
+                        ->sum('qty');
 
                     $qtyOut += SaleInvoiceItem::where('product_id', $product->id)
                         ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
                         ->sum('quantity');
-                    $qtyOut += PurchaseReturnItem::where('item_id', $product->id)
+                    $qtyOut += PurchaseReturnItem::where('product_id', $product->id)
                         ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
                         ->sum('quantity');
                     $qtyOut += ProductionDetail::where('product_id', $product->id)
                         ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
                         ->sum('qty');
 
+                    $balanceQty = $qtyIn - $qtyOut;
+
+                    // 🔹 Get latest purchase price
+                    $lastPurchase = PurchaseInvoiceItem::where('product_id', $product->id)
+                        ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
+                        ->latest('id')
+                        ->first();
+                    
+                    $lastPrice = $lastPurchase->price ?? 0;
+
                     $stockInHand->push([
-                        'product' => $product->name,
+                        'product'   => $product->name,
                         'variation' => $var->sku ?? null,
-                        'quantity' => $qtyIn - $qtyOut,
+                        'quantity'  => $balanceQty,
+                        'price'     => $lastPrice,
+                        'total'     => $balanceQty * $lastPrice,
                     ]);
                 }
             }
