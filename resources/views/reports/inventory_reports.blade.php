@@ -79,9 +79,9 @@
                 <tbody>
                     @forelse($stockInHand as $stock)
                         <tr>
-                            <td>{{ $stock->name }}</td>
-                            <td>{{ $stock->quantity }}</td>
-                            <td>{{ $stock->unit }}</td>
+                            <td>{{ $stock['product'] }} {{ $stock['variation'] ? '(' . $stock['variation'] . ')' : '' }}</td>
+                            <td>{{ $stock['quantity'] }}</td>
+                            <td>{{ $product->unit ?? '' }}</td>
                         </tr>
                     @empty
                         <tr><td colspan="3" class="text-center text-muted">No stock data found.</td></tr>
