@@ -164,7 +164,7 @@ class InventoryReportController extends Controller
                     $qtyIn = 0;
                     $qtyOut = 0;
 
-                    $qtyIn += PurchaseInvoiceItem::where('product_id', $product->id)
+                    $qtyIn += PurchaseInvoiceItem::where('item_id', $product->id)
                         ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
                         ->sum('quantity');
                     $qtyIn += SaleReturnItem::where('product_id', $product->id)
@@ -177,7 +177,7 @@ class InventoryReportController extends Controller
                     $qtyOut += SaleInvoiceItem::where('product_id', $product->id)
                         ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
                         ->sum('quantity');
-                    $qtyOut += PurchaseReturnItem::where('product_id', $product->id)
+                    $qtyOut += PurchaseReturnItem::where('item_id', $product->id)
                         ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
                         ->sum('quantity');
                     $qtyOut += ProductionDetail::where('product_id', $product->id)
