@@ -390,8 +390,15 @@ class ProductController extends Controller
         return response()->json([
             'success'   => true,
             'variation' => $variations,
+
+            // 🔹 Extra: add product info for modules that need it
+            'product'   => [
+                'id'                 => $product->id,
+                'name'               => $product->name,
+                'manufacturing_cost' => $product->manufacturing_cost, // ✅ always included
+                'unit'               => $unitId,
+            ],
         ]);
     }
-
 }
 

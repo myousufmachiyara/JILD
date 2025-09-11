@@ -321,7 +321,6 @@ function loadVariations(row, productId, preselectVariationId = null) {
     });
 }
 
-
 // 🔹 Recalculate row total
 function recalcRow(row) {
     const qty = parseFloat(row.find('.received-qty').val()) || 0;
