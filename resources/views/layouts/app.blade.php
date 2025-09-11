@@ -62,9 +62,15 @@
                     padding: 60px 15px 0px 15px;
                 }
                 .sidebar-logo{
-                    width:30%;
+                    width:60%;
                     height:auto;
+                    padding-top: 5px;
                 }	
+            }
+            @media (max-width: 767px) {
+                .sidebar-logo {
+                    height: 40%;
+                }
             }
             .icon-container {
                 background-size: auto; /* Adjust the size of the icon to fit within the div */
@@ -147,8 +153,8 @@
             </div>
 
             <div class="logo-container d-md-none">
-                <a href="/" class="logo ">
-                    <img src="/assets/img/Jild-Logo.png" width="60px" alt="Jild Logo" />
+                <a href="/" class="logo">
+                    <img class="pt-2" src="/assets/img/billtrix-logo-black.png" width="35%" alt="BillTrix Logo" />
                 </a>
                 <div id="userbox" class="userbox" style="float:right !important;">
                     <a href="#" data-bs-toggle="dropdown" style="margin-right: 20px;">
