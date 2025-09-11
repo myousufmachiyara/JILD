@@ -285,49 +285,41 @@ function addRow() {
 
 }
 
-  // 🔹 Load variations for a product and set manufacturing cost
-  function loadVariations(row, productId, preselectVariationId = null) {
-      const $variationSelect = row.find('.variation-select');
-      const $mCostInput = row.find('.manufacturing_cost');
+// 🔹 Load variations for a product + always set product manufacturing cost
+function loadVariations(row, productId, preselectVariationId = null) {
+    const $variationSelect = row.find('.variation-select');
+    const $mCostInput = row.find('.manufacturing_cost');
 
-      $variationSelect.html('<option value="">Loading...</option>').prop('disabled', false);
+    $variationSelect.html('<option value="">Loading...</option>').prop('disabled', false);
 
-      $.get(`/product/${productId}/variations`, function (data) {
-          let options = '<option value="">Select Variation</option>';
+    $.get(`/product/${productId}/variations`, function (data) {
+        let options = '<option value="">Select Variation</option>';
 
-          (data.variation || []).forEach(v => {
-              options += `<option value="${v.id}">${v.sku}</option>`;
-          });
+        (data.variation || []).forEach(v => {
+            options += `<option value="${v.id}">${v.sku}</option>`;
+        });
 
-          $variationSelect.html(options).prop('disabled', false);
+        $variationSelect.html(options).prop('disabled', false);
 
-          // re-init select2
-          if ($variationSelect.hasClass('select2-hidden-accessible')) {
-              $variationSelect.select2('destroy');
-          }
-          $variationSelect.select2({ width: '100%', dropdownAutoWidth: true });
+        if ($variationSelect.hasClass('select2-hidden-accessible')) {
+            $variationSelect.select2('destroy');
+        }
+        $variationSelect.select2({ width: '100%', dropdownAutoWidth: true });
 
-          // 🔹 If product has no variations → set product cost
-          if ((data.variation || []).length === 0 && data.product) {
-              if (data.product['m.cost'] !== undefined) {
-                  $mCostInput.val(parseFloat(data.product['m.cost']).toFixed(2));
-              }
-          }
+        // 🔹 Always use product's manufacturing cost
+        if (data.product && data.product.manufacturing_cost !== undefined) {
+            $mCostInput.val(parseFloat(data.product.manufacturing_cost).toFixed(2));
+        }
 
-          // 🔹 If a variation was preselected → set variation cost
-          if (preselectVariationId) {
-              $variationSelect.val(String(preselectVariationId)).trigger('change');
+        // 🔹 Preselect variation if provided
+        if (preselectVariationId) {
+            $variationSelect.val(String(preselectVariationId)).trigger('change');
+        }
 
-              const selectedVar = (data.variation || []).find(v => v.id == preselectVariationId);
-              if (selectedVar && selectedVar['m.cost'] !== undefined) {
-                  $mCostInput.val(parseFloat(selectedVar['m.cost']).toFixed(2));
-              }
-          }
-
-          recalcRow(row);
-          recalcSummary();
-      });
-  }
+        recalcRow(row);
+        recalcSummary();
+    });
+}
 
 
 // 🔹 Recalculate row total
