@@ -252,7 +252,7 @@
           <option value="">Select Variation</option>
         </select>
       </td>
-      <td><input type="number" name="item_details[${newIndex}][manufacturing_cost]" class="form-control manufacturing_cost" step="0.0001" value="0" readonly></td>
+      <td><input type="number" name="item_details[${newIndex}][manufacturing_cost]" class="form-control manufacturing_cost" step="any" value="0" readonly></td>
       <td><input type="number" name="item_details[${newIndex}][received_qty]" class="form-control received-qty" step="any" value="0" required></td>
       <td><input type="text" name="item_details[${newIndex}][remarks]" class="form-control"></td>
       <td><input type="number" name="item_details[${newIndex}][total]" class="form-control row-total" step="any" value="0" readonly></td>

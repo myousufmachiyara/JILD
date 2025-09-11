@@ -128,7 +128,6 @@
 
 <script>
   $(document).ready(function () {
-    console.log("Production Receiving Script Loaded");
 
     // Initialize Select2
     $('.select2-js').select2({ width: '100%', dropdownAutoWidth: true });
@@ -157,13 +156,10 @@ $(document).on('blur', '.product-code', function () {
     const barcode = $(this).val().trim();
     if (!barcode) return;
 
-    console.log("Barcode scanned:", barcode);
-
     $.ajax({
         url: '/get-product-by-code/' + encodeURIComponent(barcode),
         method: 'GET',
         success: function (res) {
-            console.log("AJAX Response:", res);
 
             if (!res.success) {
                 alert(res.message || 'No product or variation found');
@@ -289,7 +285,6 @@ function addRow() {
     $('#itemTable tbody').append($newRow);
     $newRow.find('.select2-js').select2({ width: '100%', dropdownAutoWidth: true });
 
-    console.log("New row added, total rows:", $('#itemTable tbody tr').length);
 }
 
 // 🔹 Load variations for a product
@@ -341,7 +336,6 @@ function recalcSummary() {
     const net = totalAmt + conv - disc;
     $('#netAmountText').text(net.toFixed(2));
 
-    console.log("Summary updated - Total Pcs:", totalPcs, "Total Amt:", totalAmt, "Net:", net);
 }
 
 </script>

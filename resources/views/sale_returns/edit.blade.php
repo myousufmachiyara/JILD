@@ -82,7 +82,7 @@
                   </select>
                 </td>
                 <td><input type="number" name="items[{{ $i }}][qty]" class="form-control qty-input" value="{{ $item->qty }}" min="1"></td>
-                <td><input type="number" name="items[{{ $i }}][price]" class="form-control price-input" step="0.01" value="{{ $item->price }}" required></td>
+                <td><input type="number" name="items[{{ $i }}][price]" class="form-control price-input" step="any" value="{{ $item->price }}" required></td>
                 <td><input type="number" name="items[{{ $i }}][total]" class="form-control total-input" value="{{ $item->qty * $item->price }}" readonly></td>
                 <td>
                   <button type="button" class="btn btn-sm btn-danger removeRowBtn">X</button>
@@ -135,7 +135,7 @@ $(document).ready(function () {
               </select>
             </td>
             <td><input type="number" name="items[${rowIndex}][qty]" class="form-control qty-input" value="1" min="1"></td>
-            <td><input type="number" name="items[${rowIndex}][price]" class="form-control price-input" step="0.01" required></td>
+            <td><input type="number" name="items[${rowIndex}][price]" class="form-control price-input" step="any" required></td>
             <td><input type="number" name="items[${rowIndex}][total]" class="form-control total-input" readonly></td>
             <td><button type="button" class="btn btn-sm btn-danger removeRow"><i class="fas fa-trash"></i></button></td>
           </tr>`;

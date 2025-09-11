@@ -207,7 +207,6 @@
         fetch(`/payment_vouchers/${id}`)
             .then(res => res.json())
             .then(data => {
-                console.log(data);
                 document.getElementById('update_id').value = id;
                 document.getElementById('update_id_hidden').value = id;
                 document.getElementById('update_date').value = data.date;
