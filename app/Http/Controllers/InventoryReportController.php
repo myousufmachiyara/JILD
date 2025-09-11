@@ -169,10 +169,10 @@ class InventoryReportController extends Controller
                         ->sum('quantity');
                     $qtyIn += SaleReturnItem::where('product_id', $product->id)
                         ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
-                        ->sum('quantity');
+                        ->sum('qty');
                     $qtyIn += ProductionReceivingDetail::where('product_id', $product->id)
                         ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
-                        ->sum('qty');
+                        ->sum('received_qty');
 
                     $qtyOut += SaleInvoiceItem::where('product_id', $product->id)
                         ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
