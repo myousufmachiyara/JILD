@@ -178,16 +178,19 @@
                 <li><a class="nav-link" href="{{ route('reports.inventory') }}">Inventory</a></li>
               @endcan
               @can('reports.purchase')
-                <li><a class="nav-link">Purchase</a></li>
+                <li><a class="nav-link" href="{{ route('reports.purchase') }}">Purchase</a></li>
               @endcan
               @can('reports.production')
-                <li><a class="nav-link">Production</a></li>
+                <li><a class="nav-link" href="{{ route('reports.production') }}">Production</a></li>
               @endcan
               @can('reports.sales')
-                <li><a class="nav-link">Sales</a></li>
+                <li><a class="nav-link" href="{{ route('reports.sale') }}">Sales</a></li>
               @endcan
               @can('reports.accounts')
-                <li><a class="nav-link">Accounts</a></li>
+                <li><a class="nav-link" href="{{ route('reports.accounts') }}">Accounts</a></li>
+              @endcan
+              @can('reports.summary')
+                <li><a class="nav-link" href="{{ route('reports.summary') }}">Summary</a></li>
               @endcan
             </ul>
           </li>

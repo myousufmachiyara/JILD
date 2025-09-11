@@ -25,9 +25,11 @@ class InventoryReportController extends Controller
         $to   = $request->to_date ?? now()->toDateString();
         $locationId = $request->location_id ?? null;
 
-        // Fetch products (with variations if needed)
+        // Fetch products with variations
         $products = Product::with(['variations' => function($q) use ($variationId) {
-            if ($variationId) $q->where('id', $variationId);
+            if ($variationId) {
+                $q->where('id', $variationId);
+            }
         }])->when($productId, function($q) use ($productId) {
             $q->where('id', $productId);
         })->get();
@@ -39,12 +41,14 @@ class InventoryReportController extends Controller
         if ($tab === 'IL' && $productId) {
             foreach ($products as $product) {
                 $variations = $product->variations->isNotEmpty() ? $product->variations : collect([$product]);
+
                 foreach ($variations as $var) {
                     $ledger = collect();
 
                     // Purchases
                     $ledger = $ledger->concat(
-                        PurchaseInvoiceItem::where('item_id', $product->id)
+                        PurchaseInvoiceItem::where('product_id', $product->id)
+                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
                             ->whereHas('invoice', fn($q) => $q->whereBetween('invoice_date', [$from, $to]))
                             ->get()
                             ->map(fn($row) => [
@@ -54,12 +58,14 @@ class InventoryReportController extends Controller
                                 'qty_in' => $row->quantity,
                                 'qty_out' => 0,
                                 'product' => $product->name,
+                                'variation' => $var->sku ?? null,
                             ])
                     );
 
                     // Purchase Returns
                     $ledger = $ledger->concat(
-                        PurchaseReturnItem::where('item_id', $product->id)
+                        PurchaseReturnItem::where('product_id', $product->id)
+                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
                             ->whereHas('return', fn($q) => $q->whereBetween('return_date', [$from, $to]))
                             ->get()
                             ->map(fn($row) => [
@@ -69,13 +75,14 @@ class InventoryReportController extends Controller
                                 'qty_in' => 0,
                                 'qty_out' => $row->quantity,
                                 'product' => $product->name,
+                                'variation' => $var->sku ?? null,
                             ])
                     );
 
                     // Sales
                     $ledger = $ledger->concat(
                         SaleInvoiceItem::where('product_id', $product->id)
-                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))
+                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
                             ->whereHas('invoice', fn($q) => $q->whereBetween('date', [$from, $to]))
                             ->get()
                             ->map(fn($row) => [
@@ -85,14 +92,14 @@ class InventoryReportController extends Controller
                                 'qty_in' => 0,
                                 'qty_out' => $row->quantity,
                                 'product' => $product->name,
-                                'variation' => $var->sku ?? null
+                                'variation' => $var->sku ?? null,
                             ])
                     );
 
                     // Sale Returns
                     $ledger = $ledger->concat(
                         SaleReturnItem::where('product_id', $product->id)
-                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))
+                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
                             ->whereHas('saleReturn', fn($q) => $q->whereBetween('return_date', [$from, $to]))
                             ->get()
                             ->map(fn($row) => [
@@ -102,13 +109,14 @@ class InventoryReportController extends Controller
                                 'qty_in' => $row->quantity,
                                 'qty_out' => 0,
                                 'product' => $product->name,
-                                'variation' => $var->sku ?? null
+                                'variation' => $var->sku ?? null,
                             ])
                     );
 
                     // Production Issue (Out)
                     $ledger = $ledger->concat(
                         ProductionDetail::where('product_id', $product->id)
+                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
                             ->whereHas('production', fn($q) => $q->whereBetween('order_date', [$from, $to]))
                             ->get()
                             ->map(fn($row) => [
@@ -118,14 +126,14 @@ class InventoryReportController extends Controller
                                 'qty_in' => 0,
                                 'qty_out' => $row->qty,
                                 'product' => $product->name,
-                                'variation' => $var->sku ?? null
+                                'variation' => $var->sku ?? null,
                             ])
                     );
 
                     // Production Receiving (In)
                     $ledger = $ledger->concat(
                         ProductionReceivingDetail::where('product_id', $product->id)
-                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))
+                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
                             ->whereHas('receiving', fn($q) => $q->whereBetween('rec_date', [$from, $to]))
                             ->get()
                             ->map(fn($row) => [
@@ -135,11 +143,10 @@ class InventoryReportController extends Controller
                                 'qty_in' => $row->qty,
                                 'qty_out' => 0,
                                 'product' => $product->name,
-                                'variation' => $var->sku ?? null
+                                'variation' => $var->sku ?? null,
                             ])
                     );
 
-                    // Merge into main ledger
                     $itemLedger = $itemLedger->concat($ledger->sortBy('date'));
                 }
             }
@@ -152,31 +159,35 @@ class InventoryReportController extends Controller
         if ($tab === 'SR') {
             foreach ($products as $product) {
                 $variations = $product->variations->isNotEmpty() ? $product->variations : collect([$product]);
-                foreach ($variations as $var) {
-                    $qtyIn = PurchaseInvoiceItem::where('product_id', $product->id)
-                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))
-                            ->sum('quantity');
-                    $qtyIn += SaleReturnItem::where('product_id', $product->id)
-                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))
-                            ->sum('quantity');
-                    $qtyIn += ProductionReceivingDetail::where('product_id', $product->id)
-                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))
-                            ->sum('qty');
 
-                    $qtyOut = SaleInvoiceItem::where('product_id', $product->id)
-                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))
-                            ->sum('quantity');
+                foreach ($variations as $var) {
+                    $qtyIn = 0;
+                    $qtyOut = 0;
+
+                    $qtyIn += PurchaseInvoiceItem::where('product_id', $product->id)
+                        ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('quantity');
+                    $qtyIn += SaleReturnItem::where('product_id', $product->id)
+                        ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('quantity');
+                    $qtyIn += ProductionReceivingDetail::where('product_id', $product->id)
+                        ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('qty');
+
+                    $qtyOut += SaleInvoiceItem::where('product_id', $product->id)
+                        ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('quantity');
                     $qtyOut += PurchaseReturnItem::where('product_id', $product->id)
-                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))
-                            ->sum('quantity');
+                        ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('quantity');
                     $qtyOut += ProductionDetail::where('product_id', $product->id)
-                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))
-                            ->sum('qty');
+                        ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('qty');
 
                     $stockInHand->push([
                         'product' => $product->name,
                         'variation' => $var->sku ?? null,
-                        'quantity' => $qtyIn - $qtyOut
+                        'quantity' => $qtyIn - $qtyOut,
                     ]);
                 }
             }
@@ -187,9 +198,14 @@ class InventoryReportController extends Controller
         // --------------------------
         $stockTransfer = collect();
         if ($tab === 'STR') {
-            $transfers = StockTransferDetail::with(['transfer'])
-                ->when($locationId, fn($q) => $q->where('from_location_id', $locationId)->orWhere('to_location_id', $locationId))
+            $transfers = StockTransferDetail::with(['transfer', 'product', 'variation', 'transfer.from_location', 'transfer.to_location'])
                 ->whereHas('transfer', fn($q) => $q->whereBetween('date', [$from, $to]))
+                ->when($locationId, function($q) use ($locationId) {
+                    $q->where(function($inner) use ($locationId) {
+                        $inner->where('from_location_id', $locationId)
+                              ->orWhere('to_location_id', $locationId);
+                    });
+                })
                 ->get();
 
             foreach ($transfers as $t) {
@@ -199,7 +215,7 @@ class InventoryReportController extends Controller
                     'to_location' => $t->transfer->to_location->name ?? '',
                     'product' => $t->product->name,
                     'variation' => $t->variation->sku ?? null,
-                    'quantity' => $t->quantity
+                    'quantity' => $t->quantity,
                 ]);
             }
         }
@@ -210,27 +226,31 @@ class InventoryReportController extends Controller
         $nonMovingItems = collect();
         if ($tab === 'NMI') {
             $thresholdDate = now()->subMonths(3)->toDateString(); // Last 3 months
+
             foreach ($products as $product) {
                 $variations = $product->variations->isNotEmpty() ? $product->variations : collect([$product]);
+
                 foreach ($variations as $var) {
                     $lastTx = collect()
-                        ->concat(PurchaseInvoiceItem::where('product_id', $product->id)->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))->pluck('created_at'))
-                        ->concat(PurchaseReturnItem::where('product_id', $product->id)->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))->pluck('created_at'))
-                        ->concat(SaleInvoiceItem::where('product_id', $product->id)->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))->pluck('created_at'))
-                        ->concat(SaleReturnItem::where('product_id', $product->id)->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))->pluck('created_at'))
-                        ->concat(ProductionDetail::where('product_id', $product->id)->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))->pluck('created_at'))
-                        ->concat(ProductionReceivingDetail::where('product_id', $product->id)->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))->pluck('created_at'))
+                        ->concat(PurchaseInvoiceItem::where('product_id', $product->id)->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))->pluck('created_at'))
+                        ->concat(PurchaseReturnItem::where('product_id', $product->id)->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))->pluck('created_at'))
+                        ->concat(SaleInvoiceItem::where('product_id', $product->id)->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))->pluck('created_at'))
+                        ->concat(SaleReturnItem::where('product_id', $product->id)->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))->pluck('created_at'))
+                        ->concat(ProductionDetail::where('product_id', $product->id)->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))->pluck('created_at'))
+                        ->concat(ProductionReceivingDetail::where('product_id', $product->id)->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))->pluck('created_at'))
                         ->sortDesc()
                         ->first();
 
                     $daysInactive = $lastTx ? now()->diffInDays($lastTx) : null;
 
-                    $nonMovingItems->push([
-                        'product' => $product->name,
-                        'variation' => $var->sku ?? null,
-                        'last_date' => $lastTx,
-                        'days_inactive' => $daysInactive
-                    ]);
+                    if (!$lastTx || $lastTx < $thresholdDate) {
+                        $nonMovingItems->push([
+                            'product' => $product->name,
+                            'variation' => $var->sku ?? null,
+                            'last_date' => $lastTx,
+                            'days_inactive' => $daysInactive,
+                        ]);
+                    }
                 }
             }
         }
@@ -242,35 +262,42 @@ class InventoryReportController extends Controller
         if ($tab === 'ROL') {
             foreach ($products as $product) {
                 $variations = $product->variations->isNotEmpty() ? $product->variations : collect([$product]);
-                foreach ($variations as $var) {
-                    $qtyIn = PurchaseInvoiceItem::where('product_id', $product->id)
-                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))
-                            ->sum('quantity');
-                    $qtyIn += SaleReturnItem::where('product_id', $product->id)
-                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))
-                            ->sum('quantity');
-                    $qtyIn += ProductionReceivingDetail::where('product_id', $product->id)
-                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))
-                            ->sum('qty');
 
-                    $qtyOut = SaleInvoiceItem::where('product_id', $product->id)
-                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))
-                            ->sum('quantity');
+                foreach ($variations as $var) {
+                    $qtyIn = 0;
+                    $qtyOut = 0;
+
+                    $qtyIn += PurchaseInvoiceItem::where('product_id', $product->id)
+                        ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('quantity');
+                    $qtyIn += SaleReturnItem::where('product_id', $product->id)
+                        ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('quantity');
+                    $qtyIn += ProductionReceivingDetail::where('product_id', $product->id)
+                        ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('qty');
+
+                    $qtyOut += SaleInvoiceItem::where('product_id', $product->id)
+                        ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('quantity');
                     $qtyOut += PurchaseReturnItem::where('product_id', $product->id)
-                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))
-                            ->sum('quantity');
+                        ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('quantity');
                     $qtyOut += ProductionDetail::where('product_id', $product->id)
-                            ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id ?? null))
-                            ->sum('qty');
+                        ->when($var->id ?? null, fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('qty');
 
                     $stockInHandQty = $qtyIn - $qtyOut;
 
-                    if ($stockInHandQty <= 50) {
+                    // use product/variation reorder_level column if exists, else fallback to 50
+                    $reorderLevelValue = $var->reorder_level ?? $product->reorder_level ?? 50;
+
+                    if ($stockInHandQty <= $reorderLevelValue) {
                         $reorderLevel->push([
                             'product' => $product->name,
                             'variation' => $var->sku ?? null,
                             'stock_inhand' => $stockInHandQty,
-                            'reorder_level' => 50
+                            'reorder_level' => $reorderLevelValue,
                         ]);
                     }
                 }
@@ -278,8 +305,16 @@ class InventoryReportController extends Controller
         }
 
         return view('reports.inventory_reports', compact(
-            'products', 'tab', 'itemLedger', 'stockInHand', 'stockTransfer',
-            'nonMovingItems', 'reorderLevel', 'from', 'to', 'locationId'
+            'products',
+            'tab',
+            'itemLedger',
+            'stockInHand',
+            'stockTransfer',
+            'nonMovingItems',
+            'reorderLevel',
+            'from',
+            'to',
+            'locationId'
         ));
     }
 }

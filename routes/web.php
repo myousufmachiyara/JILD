@@ -17,10 +17,13 @@ use App\Http\Controllers\{
     AttributeController,
     ProductCategoryController,
     ProductionReceivingController,
-    PaymentVoucherController,
     VoucherController,
-    ReportController,
     InventoryReportController,
+    PurchaseReportController,
+    ProductionReportController,
+    SalesReportController,
+    AccountsReportController,
+    SummaryReportController,
     POSController,
     SaleReturnController,
     PermissionController,
@@ -127,5 +130,10 @@ Route::middleware(['auth'])->group(function () {
     // Reports (readonly)
     Route::prefix('reports')->name('reports.')->group(function () {
         Route::get('inventory', [InventoryReportController::class, 'inventoryReports'])->name('inventory');
+        Route::get('purchase', [PurchaseReportController::class, 'purchaseReports'])->name('purchase');
+        Route::get('production', [ProductionReportController::class, 'productionReports'])->name('production');
+        Route::get('sale', [SalesReportController::class, 'saleReports'])->name('sale');
+        Route::get('accounts', [AccountsReportController::class, 'accountsReports'])->name('accounts');
+        Route::get('summary', [SummaryReportController::class, 'summaryReports'])->name('summary');
     });
 });
