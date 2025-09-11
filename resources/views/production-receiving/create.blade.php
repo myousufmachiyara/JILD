@@ -150,79 +150,77 @@
     });
 
     // 🔹 Barcode scanning
-// 🔹 Barcode scanning
-$(document).on('blur', '.product-code', function () {
-    const row = $(this).closest('tr');
-    const barcode = $(this).val().trim();
-    if (!barcode) return;
+    $(document).on('blur', '.product-code', function () {
+        const row = $(this).closest('tr');
+        const barcode = $(this).val().trim();
+        if (!barcode) return;
 
-    $.ajax({
-        url: '/get-product-by-code/' + encodeURIComponent(barcode),
-        method: 'GET',
-        success: function (res) {
+        $.ajax({
+            url: '/get-product-by-code/' + encodeURIComponent(barcode),
+            method: 'GET',
+            success: function (res) {
 
-            if (!res.success) {
-                alert(res.message || 'No product or variation found');
-                row.find('.product-code').val('').focus();
-                return;
+                if (!res.success) {
+                    alert(res.message || 'No product or variation found');
+                    row.find('.product-code').val('').focus();
+                    return;
+                }
+
+                const $productSelect = row.find('.product-select');
+                const $variationSelect = row.find('.variation-select');
+                const $mCostInput = row.find('.manufacturing_cost');
+                const $qtyInput = row.find('.received-qty');
+
+                if (res.type === 'variation') {
+                    const v = res.variation;
+
+                    // Set product
+                    $productSelect.val(v.product_id).trigger('change');
+
+                    // Load variations and preselect
+                    loadVariations(row, v.product_id, v.id);
+
+                    // Set manufacturing cost
+                    if(v['m.cost'] !== undefined) $mCostInput.val(parseFloat(v['m.cost']).toFixed(2));
+
+                    // Focus qty
+                    setTimeout(() => $qtyInput.focus(), 200);
+
+                    recalcRow(row);
+                    recalcSummary();
+                    return;
+                }
+
+                if (res.type === 'product') {
+                    const p = res.product;
+
+                    // Set product
+                    $productSelect.val(p.id).trigger('change');
+
+                    // Load variations (if any)
+                    loadVariations(row, p.id);
+
+                    // Set manufacturing cost
+                    if(p['m.cost'] !== undefined) $mCostInput.val(parseFloat(p['m.cost']).toFixed(2));
+
+                    // Focus variation if exists else qty
+                    setTimeout(() => {
+                        if ($variationSelect.find('option').length > 1) {
+                            $variationSelect.focus();
+                        } else {
+                            $qtyInput.focus();
+                        }
+                    }, 200);
+
+                    recalcRow(row);
+                    recalcSummary();
+                }
+            },
+            error: function () {
+                alert('Error fetching product details.');
             }
-
-            const $productSelect = row.find('.product-select');
-            const $variationSelect = row.find('.variation-select');
-            const $mCostInput = row.find('.manufacturing_cost');
-            const $qtyInput = row.find('.received-qty');
-
-            if (res.type === 'variation') {
-                const v = res.variation;
-
-                // Set product
-                $productSelect.val(v.product_id).trigger('change');
-
-                // Load variations and preselect
-                loadVariations(row, v.product_id, v.id);
-
-                // Set manufacturing cost
-                if(v['m.cost'] !== undefined) $mCostInput.val(parseFloat(v['m.cost']).toFixed(2));
-
-                // Focus qty
-                setTimeout(() => $qtyInput.focus(), 200);
-
-                recalcRow(row);
-                recalcSummary();
-                return;
-            }
-
-            if (res.type === 'product') {
-                const p = res.product;
-
-                // Set product
-                $productSelect.val(p.id).trigger('change');
-
-                // Load variations (if any)
-                loadVariations(row, p.id);
-
-                // Set manufacturing cost
-                if(p['m.cost'] !== undefined) $mCostInput.val(parseFloat(p['m.cost']).toFixed(2));
-
-                // Focus variation if exists else qty
-                setTimeout(() => {
-                    if ($variationSelect.find('option').length > 1) {
-                        $variationSelect.focus();
-                    } else {
-                        $qtyInput.focus();
-                    }
-                }, 200);
-
-                recalcRow(row);
-                recalcSummary();
-            }
-        },
-        error: function () {
-            alert('Error fetching product details.');
-        }
+        });
     });
-});
-
 
     // 🔹 Recalc row on quantity input
     $(document).on('input', '.received-qty', function () {
@@ -287,28 +285,50 @@ function addRow() {
 
 }
 
-// 🔹 Load variations for a product
-function loadVariations(row, productId, preselectVariationId = null) {
-    const $variationSelect = row.find('.variation-select');
-    $variationSelect.html('<option value="">Loading...</option>').prop('disabled', false);
+  // 🔹 Load variations for a product and set manufacturing cost
+  function loadVariations(row, productId, preselectVariationId = null) {
+      const $variationSelect = row.find('.variation-select');
+      const $mCostInput = row.find('.manufacturing_cost');
 
-    $.get(`/product/${productId}/variations`, function (data) {
-        let options = '<option value="">Select Variation</option>';
-        (data.variation || []).forEach(v => {
-            options += `<option value="${v.id}">${v.sku}</option>`;
-        });
-        $variationSelect.html(options).prop('disabled', false);
+      $variationSelect.html('<option value="">Loading...</option>').prop('disabled', false);
 
-        if ($variationSelect.hasClass('select2-hidden-accessible')) {
-            $variationSelect.select2('destroy');
-        }
-        $variationSelect.select2({ width: '100%', dropdownAutoWidth: true });
+      $.get(`/product/${productId}/variations`, function (data) {
+          let options = '<option value="">Select Variation</option>';
 
-        if (preselectVariationId) {
-            $variationSelect.val(String(preselectVariationId)).trigger('change');
-        }
-    });
-}
+          (data.variation || []).forEach(v => {
+              options += `<option value="${v.id}">${v.sku}</option>`;
+          });
+
+          $variationSelect.html(options).prop('disabled', false);
+
+          // re-init select2
+          if ($variationSelect.hasClass('select2-hidden-accessible')) {
+              $variationSelect.select2('destroy');
+          }
+          $variationSelect.select2({ width: '100%', dropdownAutoWidth: true });
+
+          // 🔹 If product has no variations → set product cost
+          if ((data.variation || []).length === 0 && data.product) {
+              if (data.product['m.cost'] !== undefined) {
+                  $mCostInput.val(parseFloat(data.product['m.cost']).toFixed(2));
+              }
+          }
+
+          // 🔹 If a variation was preselected → set variation cost
+          if (preselectVariationId) {
+              $variationSelect.val(String(preselectVariationId)).trigger('change');
+
+              const selectedVar = (data.variation || []).find(v => v.id == preselectVariationId);
+              if (selectedVar && selectedVar['m.cost'] !== undefined) {
+                  $mCostInput.val(parseFloat(selectedVar['m.cost']).toFixed(2));
+              }
+          }
+
+          recalcRow(row);
+          recalcSummary();
+      });
+  }
+
 
 // 🔹 Recalculate row total
 function recalcRow(row) {
