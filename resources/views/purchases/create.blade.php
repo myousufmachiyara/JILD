@@ -403,14 +403,23 @@
   // 🔹 Load Variations
   function loadVariations(row, productId, preselectVariationId = null) {
     const $variationSelect = row.find('.variation-select');
-    $variationSelect.html('<option value="">Loading...</option>').prop('disabled', false);
+    $variationSelect.html('<option>Loading...</option>').prop('disabled', true);
 
     $.get(`/product/${productId}/variations`, function (data) {
-      let options = '<option value="">Select Variation</option>';
-      (data.variation || []).forEach(v => {
-        options += `<option value="${v.id}">${v.sku}</option>`;
-      });
-      $variationSelect.html(options).prop('disabled', false);
+      let options = '<option value="" disabled selected>Select Variation</option>';
+
+      if ((data.variation || []).length > 0) {
+        data.variation.forEach(v => {
+          options += `<option value="${v.id}">${v.sku}</option>`;
+        });
+        $variationSelect.prop('disabled', false);
+      } else {
+        // ✅ Only placeholder, stays disabled
+        options = '<option value="" disabled selected>No Variations Available</option>';
+        $variationSelect.prop('disabled', true);
+      }
+
+      $variationSelect.html(options);
 
       if ($variationSelect.hasClass('select2-hidden-accessible')) {
         $variationSelect.select2('destroy');
@@ -419,13 +428,10 @@
 
       if (preselectVariationId) {
         $variationSelect.val(String(preselectVariationId)).trigger('change');
-      } else {
-        setTimeout(() => {
-          $variationSelect.select2('open');
-        }, 300);
       }
     });
   }
+
 </script>
 
 @endsection

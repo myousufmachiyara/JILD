@@ -91,7 +91,7 @@
                   </select>
                 </td>
                 <td>
-                  <select name="items[{{ $i }}][variation_id]" class="form-control select2-js variation-select" required>
+                  <select name="items[{{ $i }}][variation_id]" class="form-control select2-js variation-select">
                     <option value="">Select Variation</option>
                     @if($item->product && $item->product->variations)
                       @foreach($item->product->variations as $v)

@@ -372,13 +372,12 @@ class ProductController extends Controller
 
         if (!$product) {
             return response()->json([
-                'success' => false,
+                'success'   => false,
                 'variation' => [],
             ]);
         }
 
-        // Get unit ID (or name)
-        $unitId = $product->measurementUnit->id ?? null; // or ->name if you prefer
+        $unitId = $product->measurementUnit->id ?? null;
 
         $variations = $product->variations->map(function ($v) use ($unitId) {
             return [
@@ -387,15 +386,6 @@ class ProductController extends Controller
                 'unit' => $unitId,
             ];
         })->toArray();
-
-        // If no variations exist, still return a placeholder with unit
-        if (empty($variations)) {
-            $variations[] = [
-                'id'   => null,
-                'sku'  => 'No Variations',
-                'unit' => $unitId,
-            ];
-        }
 
         return response()->json([
             'success'   => true,

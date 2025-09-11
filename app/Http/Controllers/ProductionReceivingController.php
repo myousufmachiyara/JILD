@@ -76,7 +76,7 @@ class ProductionReceivingController extends Controller
                     'production_receiving_id' => $receiving->id,
                     'production_id' => $validated['production_id'],
                     'product_id' => $detail['product_id'],
-                    'variation_id' => $detail['variation_id'] ?? 0,
+                    'variation_id' => $detail['variation_id'] ?? null,
                     'manufacturing_cost' => $detail['manufacturing_cost'],
                     'received_qty' => $detail['received_qty'],
                     'remarks' => $detail['remarks'] ?? null,
@@ -105,7 +105,7 @@ class ProductionReceivingController extends Controller
     {
         $receiving = ProductionReceiving::with(['details.product', 'details.variation'])->findOrFail($id);
         $productions = Production::all();
-        $products = Product::where('item_type','fg')->get();
+        $products = Product::get();
 
         return view('production-receiving.edit', compact('receiving', 'productions', 'products'));
     }

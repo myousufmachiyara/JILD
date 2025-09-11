@@ -18,7 +18,7 @@ return new class extends Migration
             $table->unsignedBigInteger('production_receiving_id');
             $table->unsignedBigInteger('production_id'); // Add this to link directly to production
             $table->unsignedBigInteger('product_id');
-            $table->unsignedBigInteger('variation_id');
+            $table->unsignedBigInteger('variation_id')->nullable();
 
             // Costing
             $table->decimal('manufacturing_cost', 10, 2)->default(0); // manual or fixed cost per unit
