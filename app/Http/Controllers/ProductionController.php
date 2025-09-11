@@ -282,7 +282,10 @@ class ProductionController extends Controller
     
     public function summary($id)
     {
-        $production = Production::with(['details.product.measurementUnit', 'receivings.details.product.measurementUnit'])->findOrFail($id);
+        $production = Production::with([
+            'details.product.measurementUnit',
+            'receivings.details.product.measurementUnit'
+        ])->findOrFail($id);
 
         $pdf = new \TCPDF();
         $pdf->SetCreator(PDF_CREATOR);
@@ -292,7 +295,7 @@ class ProductionController extends Controller
         $pdf->SetFont('helvetica', '', 10);
         $pdf->Ln(5);
 
-        // Header
+        // 🔹 Header
         $html = '
         <table class="info-table">
             <tr>
@@ -302,7 +305,7 @@ class ProductionController extends Controller
         </table>';
         $pdf->writeHTML($html, true, false, true, false, '');
 
-        // Raw Details Table
+        // 🔹 Raw Details Table
         $pdf->Ln(5);
         $pdf->SetFont('helvetica', 'B', 11);
         $pdf->Cell(0, 6, 'Raw Details', 0, 1);
@@ -310,7 +313,7 @@ class ProductionController extends Controller
 
         $pdf->SetFont('helvetica', 'B', 9);
         $pdf->Cell(40, 7, 'Item', 1);
-        $pdf->Cell(25, 7, 'Raw', 1);
+        $pdf->Cell(25, 7, 'Qty', 1);
         $pdf->Cell(25, 7, 'Rate', 1);
         $pdf->Cell(30, 7, 'Total Cost', 1);
         $pdf->Ln();
@@ -318,6 +321,7 @@ class ProductionController extends Controller
         $pdf->SetFont('helvetica', '', 9);
 
         $totalRawGiven = 0;
+        $totalRawCost = 0;
         foreach ($production->details as $raw) {
             $itemName = optional($raw->product)->name ?? 'N/A';
             $rawQty = $raw->qty;
@@ -326,6 +330,7 @@ class ProductionController extends Controller
             $totalCost = $rawQty * $rate;
 
             $totalRawGiven += $rawQty;
+            $totalRawCost += $totalCost;
 
             $pdf->Cell(40, 7, $itemName, 1);
             $pdf->Cell(25, 7, number_format($rawQty, 2) . ' ' . $rawUnit, 1);
@@ -334,20 +339,23 @@ class ProductionController extends Controller
             $pdf->Ln();
         }
 
-        // Finish Goods Table
+        // 🔹 Finish Goods Table
         $pdf->Ln(5);
         $pdf->SetFont('helvetica', 'B', 11);
         $pdf->Cell(0, 6, 'Finish Good Details', 0, 1);
         $pdf->Ln(2);
 
         $pdf->SetFont('helvetica', 'B', 9);
-        $pdf->Cell(60, 7, 'Product', 1);
-        $pdf->Cell(30, 7, 'Qty', 1);
+        $pdf->Cell(50, 7, 'Product', 1);
+        $pdf->Cell(25, 7, 'Qty', 1);
+        $pdf->Cell(25, 7, 'Cost/pc', 1);
+        $pdf->Cell(30, 7, 'Total Cost', 1);
         $pdf->Ln();
 
         $pdf->SetFont('helvetica', '', 9);
 
-        // Aggregate products by product_id
+        // Calculate avg raw usage & raw cost per unit
+        $totalProductsReceived = 0;
         $productSummary = [];
         foreach ($production->receivings as $receiving) {
             foreach ($receiving->details as $detail) {
@@ -355,29 +363,42 @@ class ProductionController extends Controller
                 $productName = optional($detail->product)->name ?? '-';
                 $unit = optional($detail->product->measurementUnit)->shortcode ?? '-';
                 $receivedQty = $detail->received_qty;
+                $mfgCost = optional($detail->product)->manufacturing_cost ?? 0;
 
                 if (!isset($productSummary[$productId])) {
                     $productSummary[$productId] = [
                         'name' => $productName,
                         'unit' => $unit,
-                        'qty' => 0
+                        'qty' => 0,
+                        'manufacturing_cost' => $mfgCost,
                     ];
                 }
 
                 $productSummary[$productId]['qty'] += $receivedQty;
+                $totalProductsReceived += $receivedQty;
             }
         }
 
-        // Display aggregated data
-        $totalProductsReceived = 0;
+        $rawCostPerUnit = $totalProductsReceived > 0 ? $totalRawCost / $totalProductsReceived : 0;
+
+        $grandTotalCost = 0;
         foreach ($productSummary as $product) {
-            $totalProductsReceived += $product['qty'];
-            $pdf->Cell(60, 7, $product['name'], 1);
-            $pdf->Cell(30, 7, number_format($product['qty'], 2) . ' ' . $product['unit'], 1);
+            $qty = $product['qty'];
+            $mfgCost = $product['manufacturing_cost'];
+
+            // Cost per pc = avg raw + mfg cost
+            $costPerPc = $rawCostPerUnit + $mfgCost;
+            $totalCost = $qty * $costPerPc;
+            $grandTotalCost += $totalCost;
+
+            $pdf->Cell(50, 7, $product['name'], 1);
+            $pdf->Cell(25, 7, number_format($qty, 2) . ' ' . $product['unit'], 1);
+            $pdf->Cell(25, 7, number_format($costPerPc, 2), 1);
+            $pdf->Cell(30, 7, number_format($totalCost, 2), 1);
             $pdf->Ln();
         }
 
-        // Summary Table
+        // 🔹 Summary Table
         $pdf->Ln(5);
         $pdf->SetFont('helvetica', 'B', 11);
         $pdf->Cell(0, 6, 'Summary', 0, 1);
@@ -391,11 +412,17 @@ class ProductionController extends Controller
         $pdf->Cell(60, 7, 'Total Raw Given', 1);
         $pdf->Cell(60, 7, number_format($totalRawGiven, 2), 1);
         $pdf->Ln();
+        $pdf->Cell(60, 7, 'Total Raw Cost', 1);
+        $pdf->Cell(60, 7, number_format($totalRawCost, 2), 1);
+        $pdf->Ln();
         $pdf->Cell(60, 7, 'Total Products Received', 1);
         $pdf->Cell(60, 7, number_format($totalProductsReceived, 2), 1);
         $pdf->Ln();
         $pdf->Cell(60, 7, 'Consumption (%)', 1);
         $pdf->Cell(60, 7, number_format($consumption, 2), 1);
+        $pdf->Ln();
+        $pdf->Cell(60, 7, 'Grand Total Cost', 1);
+        $pdf->Cell(60, 7, number_format($grandTotalCost, 2), 1);
         $pdf->Ln();
 
         $pdf->Output('production_' . $production->id . '.pdf', 'I');
