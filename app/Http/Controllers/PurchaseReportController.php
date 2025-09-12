@@ -52,7 +52,7 @@ class PurchaseReportController extends Controller
         // --- PURCHASE RETURNS ---
         if ($tab == 'PR') {
             $query = PurchaseReturn::with('vendor', 'items')
-                ->whereBetween('date', [$from, $to]);
+                ->whereBetween('return_date', [$from, $to]);
 
             if ($request->filled('vendor_id')) {
                 $query->where('vendor_id', $request->vendor_id);
@@ -61,7 +61,7 @@ class PurchaseReportController extends Controller
             $purchaseReturns = $query->get()->flatMap(function ($return) {
                 return $return->items->map(function ($item) use ($return) {
                     return (object)[
-                        'date'        => $return->date,
+                        'date'        => $return->return_date,
                         'return_no'   => $return->return_no ?? $return->id,
                         'vendor_name' => $return->vendor->name ?? '',
                         'item_name'   => $item->item_name,
@@ -75,8 +75,8 @@ class PurchaseReportController extends Controller
 
         // --- VENDOR-WISE PURCHASES ---
         if ($tab == 'VWP') {
-            $query = PurchaseInvoice::with('vendor', 'items')
-                ->whereBetween('date', [$from, $to]);
+            $query = PurchaseInvoice::with(['vendor', 'items.product', 'items.variation'])
+                ->whereBetween('invoice_date', [$from, $to]);
 
             if ($request->filled('vendor_id')) {
                 $query->where('vendor_id', $request->vendor_id);
@@ -85,22 +85,29 @@ class PurchaseReportController extends Controller
             $vendorWisePurchase = $query->get()->groupBy('vendor_id')->map(function ($purchases, $vendorId) {
                 $vendor = $purchases->first()->vendor->name ?? 'Unknown Vendor';
 
-                $totalQty = 0;
-                $totalAmount = 0;
-
+                $items = collect();
                 foreach ($purchases as $purchase) {
                     foreach ($purchase->items as $item) {
-                        $totalQty += $item->quantity;
-                        $totalAmount += $item->quantity * $item->price;
+                        $items->push((object)[
+                            'invoice_date' => $purchase->invoice_date,
+                            'invoice_no'   => $purchase->bill_no ?? $purchase->id,
+                            'item_name'    => $item->product->name ?? $item->item_name ?? 'N/A',
+                            'variation'    => $item->variation->name ?? '-',
+                            'quantity'     => $item->quantity,
+                            'rate'         => $item->price,
+                            'total'        => $item->quantity * $item->price,
+                        ]);
                     }
                 }
 
                 return (object)[
                     'vendor_name'  => $vendor,
-                    'total_qty'    => $totalQty,
-                    'total_amount' => $totalAmount,
+                    'items'        => $items,
+                    'total_qty'    => $items->sum('quantity'),
+                    'total_amount' => $items->sum('total'),
                 ];
             })->values();
+
         }
 
         return view('reports.purchase_reports', compact(
