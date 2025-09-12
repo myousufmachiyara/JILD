@@ -9,6 +9,8 @@
         <li class="nav-item"><a class="nav-link {{ $tab==='TB'?'active':'' }}" data-bs-toggle="tab" data-bs-target="#TB">Trial Balance</a></li>
         <li class="nav-item"><a class="nav-link {{ $tab==='PL'?'active':'' }}" data-bs-toggle="tab" data-bs-target="#PL">Profit & Loss</a></li>
         <li class="nav-item"><a class="nav-link {{ $tab==='BS'?'active':'' }}" data-bs-toggle="tab" data-bs-target="#BS">Balance Sheet</a></li>
+        <li class="nav-item"><a class="nav-link {{ $tab==='PL'?'active':'' }}" data-bs-toggle="tab" data-bs-target="#PL">Party Ledger</a></li>
+
     </ul>
 
     <div class="tab-content mt-3">
