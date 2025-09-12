@@ -225,7 +225,7 @@ class InventoryReportController extends Controller
         // STOCK TRANSFERS
         // --------------------------
         // assume relationships: transfer, product, variation, transfer.from_location, transfer.to_location
-        $transferQuery = StockTransferDetail::with(['transfer', 'product', 'variation', 'transfer.from_location', 'transfer.to_location'])
+        $transferQuery = StockTransferDetail::with(['transfer', 'product', 'variation', 'transfer.fromLocation', 'transfer.toLocation'])
             ->when($locationId, function ($q) use ($locationId) {
                 $q->whereHas('transfer', fn($t) => $t->where(function ($inner) use ($locationId) {
                     $inner->where('from_location_id', $locationId)->orWhere('to_location_id', $locationId);

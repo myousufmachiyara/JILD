@@ -89,9 +89,24 @@
 
         {{-- STOCK INHAND --}}
         <div id="SR" class="tab-pane fade {{ $tab=='SR'?'show active':'' }}">
+            @php
+                $grandTotal = collect($stockInHand)->sum('total');
+                $grandQty   = collect($stockInHand)->sum('quantity');
+            @endphp
+
+            <div class="mb-3 text-end">
+                <h3 class="card-title">Total Stock Value: <span class="text-danger">{{ number_format($grandTotal, 2) }}</span></h3>
+            </div>
+
             <table class="table table-bordered table-striped">
                 <thead>
-                    <tr><th>Product</th><th>Variation</th><th>Quantity</th><th>Price</th><th>Total</th></tr>
+                    <tr>
+                        <th>Product</th>
+                        <th>Variation</th>
+                        <th>Quantity</th>
+                        <th>Price</th>
+                        <th>Total</th>
+                    </tr>
                 </thead>
                 <tbody>
                     @forelse($stockInHand as $stock)
@@ -103,9 +118,21 @@
                             <td>{{ number_format($stock['total'], 2) }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="text-center">No stock data found.</td></tr>
+                        <tr>
+                            <td colspan="5" class="text-center">No stock data found.</td>
+                        </tr>
                     @endforelse
                 </tbody>
+                @if(count($stockInHand))
+                <tfoot>
+                    <tr>
+                        <th colspan="2" class="text-end">Grand Total</th>
+                        <th>{{ $grandQty }}</th>
+                        <th>-</th>
+                        <th>{{ number_format($grandTotal, 2) }}</th>
+                    </tr>
+                </tfoot>
+                @endif
             </table>
         </div>
 
