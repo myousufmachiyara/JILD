@@ -252,7 +252,33 @@
         <div id="NMI" class="tab-pane fade {{ $tab=='NMI'?'show active':'' }}">
             <form method="GET" class="mb-3">
                 <input type="hidden" name="tab" value="NMI">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label>Product</label>
+                        <select name="item_id" class="form-control">
+                            <option value="">-- All Products --</option>
+                            @foreach($products as $product)
+                                <option value="{{ $product->id }}" {{ request('item_id') == $product->id ? 'selected' : '' }}>
+                                    {{ $product->name }}
+                                </option>
+                                @foreach($product->variations as $var)
+                                    <option value="{{ $product->id }}-{{ $var->id }}" {{ request('item_id') == $product->id.'-'.$var->id ? 'selected' : '' }}>
+                                        {{ $product->name }} ({{ $var->sku }})
+                                    </option>
+                                @endforeach
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label>Threshold (Months)</label>
+                        <input type="number" name="months" value="{{ request('months', 3) }}" min="1" class="form-control">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">Filter</button>
+                    </div>
+                </div>
             </form>
+
             <table class="table table-bordered table-striped">
                 <thead>
                     <tr><th>Item</th><th>Last Transaction Date</th><th>Days Since Last Movement</th></tr>
@@ -275,7 +301,29 @@
         <div id="ROL" class="tab-pane fade {{ $tab=='ROL'?'show active':'' }}">
             <form method="GET" class="mb-3">
                 <input type="hidden" name="tab" value="ROL">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label>Product</label>
+                        <select name="item_id" class="form-control">
+                            <option value="">-- All Products --</option>
+                            @foreach($products as $product)
+                                <option value="{{ $product->id }}" {{ request('item_id') == $product->id ? 'selected' : '' }}>
+                                    {{ $product->name }}
+                                </option>
+                                @foreach($product->variations as $var)
+                                    <option value="{{ $product->id }}-{{ $var->id }}" {{ request('item_id') == $product->id.'-'.$var->id ? 'selected' : '' }}>
+                                        {{ $product->name }} ({{ $var->sku }})
+                                    </option>
+                                @endforeach
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">Filter</button>
+                    </div>
+                </div>
             </form>
+
             <table class="table table-bordered table-striped">
                 <thead>
                     <tr><th>Item</th><th>Stock Inhand</th><th>Reorder Level</th><th>Status</th></tr>
@@ -288,14 +336,14 @@
                             <td>{{ $rl['reorder_level'] }}</td>
                             <td>
                                 @if($rl['stock_inhand'] <= $rl['reorder_level'])
-                                    <span class="badge bg-danger">Below Reorder</span>
+                                    <span class="badge bg-danger">Reorder Required</span>
                                 @else
-                                    <span class="badge bg-success">OK</span>
+                                    <span class="badge bg-success">Sufficient</span>
                                 @endif
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="text-center">No data found</td></tr>
+                        <tr><td colspan="4" class="text-center">No items at/below reorder level</td></tr>
                     @endforelse
                 </tbody>
             </table>
