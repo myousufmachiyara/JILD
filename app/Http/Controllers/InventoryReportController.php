@@ -12,6 +12,7 @@ use App\Models\SaleReturnItem;
 use App\Models\ProductionDetail;
 use App\Models\ProductionReceivingDetail;
 use App\Models\StockTransferDetail;
+use App\Models\Location;
 
 class InventoryReportController extends Controller
 {
@@ -22,6 +23,7 @@ class InventoryReportController extends Controller
         $from       = $request->from_date ?? now()->startOfMonth()->toDateString();
         $to         = $request->to_date ?? now()->toDateString();
         $locationId = $request->location_id ?? null;
+        $locations = Location::all();
 
         // parse product and variation if provided in "productId-variationId" format
         $productId = null;
@@ -221,17 +223,23 @@ class InventoryReportController extends Controller
             }
         }
 
-        // --------------------------
         // STOCK TRANSFERS
-        // --------------------------
-        // assume relationships: transfer, product, variation, transfer.from_location, transfer.to_location
-        $transferQuery = StockTransferDetail::with(['transfer', 'product', 'variation', 'transfer.fromLocation', 'transfer.toLocation'])
-            ->when($locationId, function ($q) use ($locationId) {
-                $q->whereHas('transfer', fn($t) => $t->where(function ($inner) use ($locationId) {
-                    $inner->where('from_location_id', $locationId)->orWhere('to_location_id', $locationId);
-                }));
+        $transferQuery = StockTransferDetail::with([
+                'transfer',
+                'product',
+                'variation',
+                'transfer.fromLocation',
+                'transfer.toLocation'
+            ])
+            ->when($request->from_location_id, function ($q) use ($request) {
+                $q->whereHas('transfer', fn($t) => $t->where('from_location_id', $request->from_location_id));
             })
-            ->whereHas('transfer', fn($q) => $q->whereBetween('date', [$from, $to]));
+            ->when($request->to_location_id, function ($q) use ($request) {
+                $q->whereHas('transfer', fn($t) => $t->where('to_location_id', $request->to_location_id));
+            })
+            ->when($request->from_date && $request->to_date, function ($q) use ($request) {
+                $q->whereHas('transfer', fn($t) => $t->whereBetween('date', [$request->from_date, $request->to_date]));
+            });
 
         $transfers = $transferQuery->get();
 
@@ -240,10 +248,11 @@ class InventoryReportController extends Controller
             'reference' => $row->transfer->id ?? null,
             'product' => $row->product->name ?? null,
             'variation' => $row->variation->sku ?? null,
-            'from' => $row->transfer->from_location->name ?? '',
-            'to' => $row->transfer->to_location->name ?? '',
+            'from' => $row->transfer->fromLocation->name ?? '',
+            'to' => $row->transfer->toLocation->name ?? '',
             'quantity' => $row->quantity,
         ]);
+
 
         // --------------------------
         // NON-MOVING ITEMS (last 3 months threshold)
@@ -331,6 +340,8 @@ class InventoryReportController extends Controller
             'from'          => $from,
             'to'            => $to,
             'locationId'    => $locationId,
+            'locations'      => $locations,   // <-- added
+
         ]);
     }
 }

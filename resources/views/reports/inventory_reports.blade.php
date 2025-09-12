@@ -13,45 +13,35 @@
     </ul>
 
     <div class="tab-content mt-3">
+
         {{-- ITEM LEDGER --}}
         <div id="IL" class="tab-pane fade {{ $tab=='IL'?'show active':'' }}">
-            <form method="GET" action="{{ route('reports.inventory') }}">
+            <form method="GET" class="mb-3">
                 <input type="hidden" name="tab" value="IL">
-                <div class="row g-3 mb-3">
-                    <div class="col-md-4">
-                        <label>Select Item</label>
-                        <select name="item_id" class="form-control" required>
-                            <option value="">-- Select Item --</option>
-                            @foreach($products as $item)
-                                {{-- Main Product --}}
-                                <option value="{{ $item->id }}" {{ request('item_id')==$item->id?'selected':'' }}>
-                                    {{ $item->name }}
-                                </option>
-                                {{-- Variations --}}
-                                @foreach($item->variations as $var)
-                                    <option value="{{ $item->id }}-{{ $var->id }}" 
-                                        {{ request('item_id') == $item->id.'-'.$var->id ? 'selected':'' }}>
-                                        {{ $item->name }} ({{ $var->sku }})
-                                    </option>
-                                @endforeach
-                            @endforeach
-                        </select>
+                <div class="row">
+                    <div class="col-md-3">
+                        <label>From Date</label>
+                        <input type="date" name="from_date" value="{{ request('from_date') }}" class="form-control">
                     </div>
                     <div class="col-md-3">
-                        <label>From</label>
-                        <input type="date" name="from_date" class="form-control" 
-                               value="{{ request('from_date', $from) }}">
-                    </div>
-                    <div class="col-md-3">
-                        <label>To</label>
-                        <input type="date" name="to_date" class="form-control" 
-                               value="{{ request('to_date', $to) }}">
+                        <label>To Date</label>
+                        <input type="date" name="to_date" value="{{ request('to_date') }}" class="form-control">
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100">Filter</button>
                     </div>
                 </div>
             </form>
+
+            @php
+                $totalIn  = collect($itemLedger)->sum('qty_in');
+                $totalOut = collect($itemLedger)->sum('qty_out');
+                $balance  = $totalIn - $totalOut;
+            @endphp
+
+            <div class="mb-3 text-end">
+                <h5 class="card-title">Closing Balance: <span class="text-danger">{{ $balance }}</span></h5>
+            </div>
 
             <table class="table table-bordered table-striped">
                 <thead>
@@ -63,32 +53,50 @@
                         <th>Variation</th>
                         <th>Qty In</th>
                         <th>Qty Out</th>
-                        <th>Balance</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @php $balance = 0; @endphp
-                    @forelse($itemLedger as $tx)
-                        @php $balance += $tx['qty_in'] - $tx['qty_out']; @endphp
+                    @forelse($itemLedger as $row)
                         <tr>
-                            <td>{{ $tx['date'] }}</td>
-                            <td>{{ $tx['type'] }}</td>
-                            <td>{{ $tx['description'] }}</td>
-                            <td>{{ $tx['product'] }}</td>
-                            <td>{{ $tx['variation'] ?? '-' }}</td>
-                            <td>{{ $tx['qty_in'] }}</td>
-                            <td>{{ $tx['qty_out'] }}</td>
-                            <td>{{ $balance }}</td>
+                            <td>{{ $row['date'] }}</td>
+                            <td>{{ $row['type'] }}</td>
+                            <td>{{ $row['description'] }}</td>
+                            <td>{{ $row['product'] }}</td>
+                            <td>{{ $row['variation'] ?? '-' }}</td>
+                            <td class="text-success">{{ $row['qty_in'] }}</td>
+                            <td class="text-danger">{{ $row['qty_out'] }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="text-center">No records found</td></tr>
+                        <tr><td colspan="7" class="text-center">No ledger records found.</td></tr>
                     @endforelse
                 </tbody>
+                @if(count($itemLedger))
+                <tfoot>
+                    <tr>
+                        <th colspan="5" class="text-end">Totals</th>
+                        <th class="text-success">{{ $totalIn }}</th>
+                        <th class="text-danger">{{ $totalOut }}</th>
+                    </tr>
+                    <tr>
+                        <th colspan="5" class="text-end">Closing Balance</th>
+                        <th colspan="2" class="text-primary">{{ $balance }}</th>
+                    </tr>
+                </tfoot>
+                @endif
             </table>
         </div>
 
         {{-- STOCK INHAND --}}
         <div id="SR" class="tab-pane fade {{ $tab=='SR'?'show active':'' }}">
+            <form method="GET" class="mb-3">
+                <input type="hidden" name="tab" value="SR">
+                <div class="row">
+                    <div class="col-md-2 ">
+                        <button type="submit" class="btn btn-primary w-100">Filter</button>
+                    </div>
+                </div>
+            </form>
+
             @php
                 $grandTotal = collect($stockInHand)->sum('total');
                 $grandQty   = collect($stockInHand)->sum('quantity');
@@ -118,9 +126,7 @@
                             <td>{{ number_format($stock['total'], 2) }}</td>
                         </tr>
                     @empty
-                        <tr>
-                            <td colspan="5" class="text-center">No stock data found.</td>
-                        </tr>
+                        <tr><td colspan="5" class="text-center">No stock data found.</td></tr>
                     @endforelse
                 </tbody>
                 @if(count($stockInHand))
@@ -138,6 +144,45 @@
 
         {{-- STOCK TRANSFER --}}
         <div id="STR" class="tab-pane fade {{ $tab=='STR'?'show active':'' }}">
+            <form method="GET" class="mb-3">
+                <input type="hidden" name="tab" value="STR">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label>From Location</label>
+                        <select name="from_location_id" class="form-control">
+                            <option value="">-- All --</option>
+                            @foreach($locations as $loc)
+                                <option value="{{ $loc->id }}" {{ request('from_location_id') == $loc->id ? 'selected' : '' }}>
+                                    {{ $loc->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label>To Location</label>
+                        <select name="to_location_id" class="form-control">
+                            <option value="">-- All --</option>
+                            @foreach($locations as $loc)
+                                <option value="{{ $loc->id }}" {{ request('to_location_id') == $loc->id ? 'selected' : '' }}>
+                                    {{ $loc->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label>From Date</label>
+                        <input type="date" name="from_date" value="{{ request('from_date') }}" class="form-control">
+                    </div>
+                    <div class="col-md-2">
+                        <label>To Date</label>
+                        <input type="date" name="to_date" value="{{ request('to_date') }}" class="form-control">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">Filter</button>
+                    </div>
+                </div>
+            </form>
+
             <table class="table table-bordered table-striped">
                 <thead>
                     <tr>
@@ -170,6 +215,9 @@
 
         {{-- NON-MOVING --}}
         <div id="NMI" class="tab-pane fade {{ $tab=='NMI'?'show active':'' }}">
+            <form method="GET" class="mb-3">
+                <input type="hidden" name="tab" value="NMI">
+            </form>
             <table class="table table-bordered table-striped">
                 <thead>
                     <tr><th>Item</th><th>Last Transaction Date</th><th>Days Since Last Movement</th></tr>
@@ -190,6 +238,9 @@
 
         {{-- REORDER --}}
         <div id="ROL" class="tab-pane fade {{ $tab=='ROL'?'show active':'' }}">
+            <form method="GET" class="mb-3">
+                <input type="hidden" name="tab" value="ROL">
+            </form>
             <table class="table table-bordered table-striped">
                 <thead>
                     <tr><th>Item</th><th>Stock Inhand</th><th>Reorder Level</th><th>Status</th></tr>
@@ -214,6 +265,35 @@
                 </tbody>
             </table>
         </div>
+
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            let tab = urlParams.get('tab') || window.location.hash.replace('#', '');
+
+            if (tab) {
+                const selector = `.nav-link[href="#${tab}"]`;
+                const el = document.querySelector(selector);
+                if (el && typeof bootstrap !== 'undefined') {
+                    const tabInstance = new bootstrap.Tab(el);
+                    tabInstance.show();
+                    history.replaceState(null, null, window.location.pathname + window.location.search + '#' + tab);
+                } else if (el) {
+                    document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+                    el.classList.add('active');
+                    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('show','active'));
+                    const pane = document.querySelector(el.getAttribute('href'));
+                    if (pane) pane.classList.add('show','active');
+                }
+            }
+        } catch (e) {
+            console.error('Tab activation error', e);
+        }
+    });
+</script>
+
 @endsection
