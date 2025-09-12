@@ -56,7 +56,7 @@
             }
             @media (min-width: 768px) {
                 .cust-pad {
-                    padding: 85px 20px 0px 20px;
+                    padding: 60px 20px 0px 20px;
                 }
                 .home-cust-pad {
                     padding: 60px 15px 0px 15px;
