@@ -20,6 +20,22 @@
                 <input type="hidden" name="tab" value="IL">
                 <div class="row">
                     <div class="col-md-3">
+                        <label>Product</label>
+                        <select name="item_id" class="form-control">
+                            <option value="">-- All Products --</option>
+                            @foreach($products as $product)
+                                <option value="{{ $product->id }}" {{ request('item_id') == $product->id ? 'selected' : '' }}>
+                                    {{ $product->name }}
+                                </option>
+                                @foreach($product->variations as $var)
+                                    <option value="{{ $product->id }}-{{ $var->id }}" {{ request('item_id') == $product->id.'-'.$var->id ? 'selected' : '' }}>
+                                        {{ $product->name }} ({{ $var->sku }})
+                                    </option>
+                                @endforeach
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-3">
                         <label>From Date</label>
                         <input type="date" name="from_date" value="{{ request('from_date') }}" class="form-control">
                     </div>
@@ -27,6 +43,7 @@
                         <label>To Date</label>
                         <input type="date" name="to_date" value="{{ request('to_date') }}" class="form-control">
                     </div>
+
                     <div class="col-md-2 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100">Filter</button>
                     </div>
@@ -91,11 +108,29 @@
             <form method="GET" class="mb-3">
                 <input type="hidden" name="tab" value="SR">
                 <div class="row">
-                    <div class="col-md-2 ">
+                    <div class="col-md-3">
+                        <label>Product</label>
+                        <select name="item_id" class="form-control">
+                            <option value="">-- All Products --</option>
+                            @foreach($products as $product)
+                                <option value="{{ $product->id }}" {{ request('item_id') == $product->id ? 'selected' : '' }}>
+                                    {{ $product->name }}
+                                </option>
+                                @foreach($product->variations as $var)
+                                    <option value="{{ $product->id }}-{{ $var->id }}" {{ request('item_id') == $product->id.'-'.$var->id ? 'selected' : '' }}>
+                                        {{ $product->name }} ({{ $var->sku }})
+                                    </option>
+                                @endforeach
+                            @endforeach
+                        </select>
+
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100">Filter</button>
                     </div>
                 </div>
             </form>
+
 
             @php
                 $grandTotal = collect($stockInHand)->sum('total');

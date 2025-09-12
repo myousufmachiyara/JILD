@@ -169,57 +169,76 @@ class InventoryReportController extends Controller
             }
         }
 
-        // --------------------------
-        // STOCK INHAND (all products)
-        // --------------------------
-        $stockInHand = collect();
-        foreach ($allProducts as $product) {
-            $variations = $product->variations->isNotEmpty()
-                ? $product->variations
-                : collect([(object)['id' => null, 'sku' => null]]);
+        // --- STOCK INHAND ---
+        if ($tab == 'SR') {
+            $selectedItem = $request->item_id;
 
-            foreach ($variations as $var) {
-                $purchased = PurchaseInvoiceItem::where('item_id', $product->id)
-                    ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                    ->sum('quantity');
+            $allProducts = Product::with('variations')->get();
 
-                $purchaseReturn = PurchaseReturnItem::where('item_id', $product->id)
-                    ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                    ->sum('quantity');
+            // 🔹 If user selected a specific item/variation
+            if ($selectedItem) {
+                if (str_contains($selectedItem, '-')) {
+                    [$productId, $variationId] = explode('-', $selectedItem);
+                    $allProducts = $allProducts->where('id', $productId);
+                    foreach ($allProducts as $product) {
+                        $product->variations = $product->variations->where('id', $variationId);
+                    }
+                } else {
+                    // only product selected (all its variations)
+                    $allProducts = $allProducts->where('id', $selectedItem);
+                }
+            }
 
-                $sold = SaleInvoiceItem::where('product_id', $product->id)
-                    ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                    ->sum('quantity');
+            $stockInHand = collect();
 
-                $saleReturn = SaleReturnItem::where('product_id', $product->id)
-                    ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                    ->sum('qty');
+            foreach ($allProducts as $product) {
+                $variations = $product->variations->isNotEmpty()
+                    ? $product->variations
+                    : collect([(object)['id' => null, 'sku' => null]]);
 
-                $issued = ProductionDetail::where('product_id', $product->id)
-                    ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                    ->sum('qty');
+                foreach ($variations as $var) {
+                    $purchased = PurchaseInvoiceItem::where('item_id', $product->id)
+                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('quantity');
 
-                $received = ProductionReceivingDetail::where('product_id', $product->id)
-                    ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                    ->sum('received_qty');
+                    $purchaseReturn = PurchaseReturnItem::where('item_id', $product->id)
+                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('quantity');
 
-                $stockQty = ($purchased - $purchaseReturn + $saleReturn + $received) - ($sold + $issued);
+                    $sold = SaleInvoiceItem::where('product_id', $product->id)
+                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('quantity');
 
-                // get last purchase price fallback to product selling_price
-                $lastPurchase = PurchaseInvoiceItem::where('item_id', $product->id)
-                    ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                    ->latest('id')
-                    ->first();
+                    $saleReturn = SaleReturnItem::where('product_id', $product->id)
+                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('qty');
 
-                $price = $lastPurchase->price ?? $product->selling_price ?? 0;
+                    $issued = ProductionDetail::where('product_id', $product->id)
+                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('qty');
 
-                $stockInHand->push([
-                    'product'   => $product->name,
-                    'variation' => $var->sku ?? null,
-                    'quantity'  => $stockQty,
-                    'price'     => $price,
-                    'total'     => $stockQty * $price,
-                ]);
+                    $received = ProductionReceivingDetail::where('product_id', $product->id)
+                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('received_qty');
+
+                    $stockQty = ($purchased - $purchaseReturn + $saleReturn + $received) - ($sold + $issued);
+
+                    // ✅ last purchase price fallback to product selling_price
+                    $lastPurchase = PurchaseInvoiceItem::where('item_id', $product->id)
+                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
+                        ->latest('id')
+                        ->first();
+
+                    $price = $lastPurchase->price ?? $product->selling_price ?? 0;
+
+                    $stockInHand->push([
+                        'product'   => $product->name,
+                        'variation' => $var->sku ?? null,
+                        'quantity'  => $stockQty,
+                        'price'     => $price,
+                        'total'     => $stockQty * $price,
+                    ]);
+                }
             }
         }
 
