@@ -303,62 +303,59 @@
       return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
     
-  // 🔹 When product changes
-  function onItemChange(select) {
-      const row = select.closest('tr');
-      const itemId = select.value;
-      if (!row || !itemId) return;
+    // 🔹 When product changes
+    function onItemChange(select) {
+        const row = select.closest('tr');
+        const itemId = select.value;
+        if (!row || !itemId) return;
 
-      // --- Reset variation dropdown ---
-      const variationSelect = row.querySelector(`select[id^="variationSelect"]`);
-      variationSelect.innerHTML = `<option value="" disabled selected>Loading...</option>`;
-      
-      // --- Reset invoice dropdown ---
-      const invoiceSelect = row.querySelector(`select[id^="invoiceSelect"]`);
-      invoiceSelect.innerHTML = `<option value="" disabled selected>Select Invoice</option>`;
+        // --- Reset variation dropdown ---
+        const variationSelect = row.querySelector(`select[id^="variationSelect"]`);
+        variationSelect.innerHTML = `<option value="" disabled selected>Loading...</option>`;
 
-      // --- Reset qty, rate, total ---
-      row.querySelector(`input[id^="item_qty_"]`).value = '';
-      row.querySelector(`input[id^="item_rate_"]`).value = '';
-      row.querySelector(`input[id^="item_total_"]`).value = '';
+        // --- Reset invoice dropdown ---
+        const invoiceSelect = row.querySelector(`select[id^="invoiceSelect"]`);
+        invoiceSelect.innerHTML = `<option value="" disabled selected>Select Invoice</option>`;
 
-      // --- Reset unit ---
-      const unitSelect = row.querySelector(`select[id^="item_unit_"]`);
-      if (unitSelect) {
-          unitSelect.value = '';
-          $(unitSelect).select2({ width: '100%' });
-      }
+        // --- Reset qty, rate, total ---
+        row.querySelector(`input[id^="item_qty_"]`).value = '';
+        row.querySelector(`input[id^="item_rate_"]`).value = '';
+        row.querySelector(`input[id^="item_total_"]`).value = '';
 
-      // --- Fetch variations for this product ---
-      fetch(`/product/${itemId}/variations`)
-          .then(res => res.json())
-          .then(data => {
-              variationSelect.innerHTML = `<option value="" disabled selected>Select Variation</option>`;
-              if (data.success && data.variation.length) {
-                  data.variation.forEach(v => {
-                      variationSelect.innerHTML += `<option value="${v.id}" data-product-id="${itemId}">${v.sku}</option>`;
-                  });
+        // --- Auto-fill unit dropdown ---
+        const unitSelect = row.querySelector(`select[id^="item_unit_"]`);
+        if (unitSelect) {
+            const selectedOption = select.options[select.selectedIndex];
+            const unitId = selectedOption.getAttribute("data-unit");
 
-                  // --- Auto-set unit from first variation ---
-                  if (unitSelect) {
-                      // v.unit should be the **unit ID** that matches <option value="ID">
-                      unitSelect.value = data.variation[0].unit;
-                      $(unitSelect).select2({ width: '100%' });
-                  }
-              } else {
-                  variationSelect.innerHTML = `<option value="">No Variations</option>`;
-              }
+            if (unitId) {
+                unitSelect.value = unitId;
+                $(unitSelect).select2({ width: '100%' });
+            }
+        }
 
-              // Refresh Select2 for variation dropdown
-              $(variationSelect).select2({ width: '100%' });
-          })
-          .catch(() => {
-              variationSelect.innerHTML = `<option value="">Error loading variations</option>`;
-          });
+        // --- Fetch variations for this product ---
+        fetch(`/product/${itemId}/variations`)
+            .then(res => res.json())
+            .then(data => {
+                variationSelect.innerHTML = `<option value="" disabled selected>Select Variation</option>`;
+                if (data.success && data.variation.length) {
+                    data.variation.forEach(v => {
+                        variationSelect.innerHTML += `<option value="${v.id}" data-product-id="${itemId}">${v.sku}</option>`;
+                    });
+                } else {
+                    variationSelect.innerHTML = `<option value="">No Variations</option>`;
+                }
 
-      // --- Fetch invoices for this product ---
-      fetchInvoices(itemId, row);
-  }
+                $(variationSelect).select2({ width: '100%' });
+            })
+            .catch(() => {
+                variationSelect.innerHTML = `<option value="">Error loading variations</option>`;
+            });
+
+        // --- Fetch invoices for this product ---
+        fetchInvoices(itemId, row);
+    }
 
 
   // 🔹 When variation changes

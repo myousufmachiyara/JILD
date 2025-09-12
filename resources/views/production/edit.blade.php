@@ -383,55 +383,102 @@
 
   // ------------------ PRODUCT / VARIATION / INVOICE ------------------
 
-  function onItemChange(select) {
-      const row = select.closest('tr');
-      const itemId = select.value;
-      if (!row || !itemId) return;
+    // 🔹 When product changes
+    function onItemChange(select) {
+        const row = select.closest('tr');
+        const itemId = select.value;
+        if (!row || !itemId) return;
 
-      const variationSelect = row.querySelector(`select[id^="variationSelect"]`);
-      variationSelect.innerHTML = `<option value="" disabled selected>Loading...</option>`;
+        // --- Reset variation dropdown ---
+        const variationSelect = row.querySelector(`select[id^="variationSelect"]`);
+        variationSelect.innerHTML = `<option value="" disabled selected>Loading...</option>`;
 
-      const invoiceSelect = row.querySelector(`select[id^="invoiceSelect"]`);
-      invoiceSelect.innerHTML = `<option value="" disabled selected>Select Invoice</option>`;
+        // --- Reset invoice dropdown ---
+        const invoiceSelect = row.querySelector(`select[id^="invoiceSelect"]`);
+        invoiceSelect.innerHTML = `<option value="" disabled selected>Select Invoice</option>`;
 
-      row.querySelector(`input[id^="item_qty_"]`).value = '';
-      row.querySelector(`input[id^="item_rate_"]`).value = '';
-      row.querySelector(`input[id^="item_total_"]`).value = '';
+        // --- Reset qty, rate, total ---
+        row.querySelector(`input[id^="item_qty_"]`).value = '';
+        row.querySelector(`input[id^="item_rate_"]`).value = '';
+        row.querySelector(`input[id^="item_total_"]`).value = '';
 
-      fetch(`/product/${itemId}/variations`)
-          .then(res => res.json())
-          .then(data => {
-              variationSelect.innerHTML = `<option value="" disabled selected>Select Variation</option>`;
-              if (data.success && data.variation.length) {
-                  data.variation.forEach(v => {
-                      variationSelect.innerHTML += `<option value="${v.id}" data-product-id="${itemId}">${v.sku}</option>`;
-                  });
-              } else {
-                  variationSelect.innerHTML = `<option value="">No Variations</option>`;
-              }
-              $(variationSelect).select2({ width: '100%' });
-              regenerateChallanIfNeeded();
+        // --- Auto-fill unit dropdown ---
+        const unitSelect = row.querySelector(`select[id^="item_unit_"]`);
+        if (unitSelect) {
+            const selectedOption = select.options[select.selectedIndex];
+            const unitId = selectedOption.getAttribute("data-unit");
+
+            if (unitId) {
+                unitSelect.value = unitId;
+                $(unitSelect).select2({ width: '100%' });
+            }
+        }
+
+        // --- Fetch variations for this product ---
+        fetch(`/product/${itemId}/variations`)
+            .then(res => res.json())
+            .then(data => {
+                variationSelect.innerHTML = `<option value="" disabled selected>Select Variation</option>`;
+                if (data.success && data.variation.length) {
+                    data.variation.forEach(v => {
+                        variationSelect.innerHTML += `<option value="${v.id}" data-product-id="${itemId}">${v.sku}</option>`;
+                    });
+                } else {
+                    variationSelect.innerHTML = `<option value="">No Variations</option>`;
+                }
+
+                $(variationSelect).select2({ width: '100%' });
+            })
+            .catch(() => {
+                variationSelect.innerHTML = `<option value="">Error loading variations</option>`;
+            });
+
+        // --- Fetch invoices for this product ---
+        fetchInvoices(itemId, row);
+    }
+
+  // 🔹 Fetch invoices
+  function fetchInvoices(id, row, isVariation = false) {
+    const invoiceSelect = row.querySelector(`select[id^="invoiceSelect"]`);
+    invoiceSelect.innerHTML = `<option value="" disabled selected>Loading...</option>`;
+
+    fetch(`/product/${id}/invoices`)
+      .then(res => res.json())
+      .then(data => {
+        invoiceSelect.innerHTML = `<option value="" disabled selected>Select Invoice</option>`;
+        if (Array.isArray(data) && data.length > 0) {
+          data.forEach(inv => {
+            invoiceSelect.innerHTML += `<option value="${inv.id}" data-rate="${inv.rate}">${inv.id}</option>`;
           });
+        } else {
+          invoiceSelect.innerHTML = `<option value="">No Invoices Found</option>`;
+        }
 
-      fetchInvoices(itemId, row);
+        $(invoiceSelect).select2({ width: '100%' });
+      })
+      .catch(() => {
+        invoiceSelect.innerHTML = `<option value="">Error loading invoices</option>`;
+      });
   }
 
+  // 🔹 When invoice changes
   function onInvoiceChange(select) {
-      const row = select.closest('tr');
-      const option = select.selectedOptions[0];
-      if (!row || !option) return;
+    const row = select.closest('tr');
+    const option = select.selectedOptions[0];
+    if (!row || !option) return;
 
-      const rate = option.getAttribute('data-rate') || 0;
-      const rateInput = row.querySelector(`input[id^="item_rate_"]`);
-      const qtyInput = row.querySelector(`input[id^="item_qty_"]`);
-      const totalInput = row.querySelector(`input[id^="item_total_"]`);
+    const rate = option.getAttribute('data-rate') || 0;
 
-      if (rateInput) rateInput.value = rate;
-      if (qtyInput && totalInput) {
-          totalInput.value = ((parseFloat(qtyInput.value) || 0) * (parseFloat(rate) || 0)).toFixed(2);
-      }
-      tableTotal();
-      regenerateChallanIfNeeded();
+    const rateInput = row.querySelector(`input[id^="item_rate_"]`);
+    const qtyInput = row.querySelector(`input[id^="item_qty_"]`);
+    const totalInput = row.querySelector(`input[id^="item_total_"]`);
+
+    if (rateInput) rateInput.value = rate;
+    if (qtyInput && totalInput) {
+      totalInput.value = ((parseFloat(qtyInput.value) || 0) * (parseFloat(rate) || 0)).toFixed(2);
+    }
+
+    tableTotal();
   }
 
   // ------------------ CHALLAN ------------------
