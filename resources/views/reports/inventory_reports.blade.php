@@ -206,11 +206,15 @@
                     </div>
                     <div class="col-md-2">
                         <label>From Date</label>
-                        <input type="date" name="from_date" value="{{ request('from_date') }}" class="form-control">
+                        <input type="date" name="from_date" 
+                            value="{{ request('from_date', $from ?? now()->startOfMonth()->format('Y-m-d')) }}" 
+                            class="form-control">
                     </div>
                     <div class="col-md-2">
                         <label>To Date</label>
-                        <input type="date" name="to_date" value="{{ request('to_date') }}" class="form-control">
+                        <input type="date" name="to_date" 
+                            value="{{ request('to_date', $to ?? now()->format('Y-m-d')) }}" 
+                            class="form-control">
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100">Filter</button>
