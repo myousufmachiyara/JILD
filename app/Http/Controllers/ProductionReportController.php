@@ -11,20 +11,18 @@ class ProductionReportController extends Controller
 {
     public function productionReports(Request $request)
     {
-        $tab = $request->get('tab', 'RMI'); // default tab
+        $tab = $request->get('tab', 'RMI'); // default tab: Raw Issued
 
-        // Default date range (last 30 days)
-        $from = $request->get('from_date', Carbon::now()->subDays(30)->format('Y-m-d'));
+        // Default date range: 1st day of current month → today
+        $from = $request->get('from_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
         $to   = $request->get('to_date', Carbon::now()->format('Y-m-d'));
 
-        // ensure all variables the Blade might expect are defined
+        // Ensure all variables are defined for Blade
         $rawIssued   = collect();
         $produced    = collect();
-        $costings    = collect();   // <-- added to avoid "Undefined variable $costings"
-        $wip         = collect();
-        $yieldWaste  = collect();
+        $costings    = collect();
 
-        // --- RAW MATERIAL ISSUED (RMI) ---
+        // --- RAW MATERIAL ISSUED (Production Order) ---
         if ($tab === 'RMI') {
             $rawIssued = Production::with('details.product')
                 ->whereBetween('order_date', [$from, $to])
@@ -43,7 +41,7 @@ class ProductionReportController extends Controller
                 });
         }
 
-        // --- PRODUCTION RECEIVED (PR) ---
+        // --- PRODUCTION RECEIVING (FG Received) ---
         if ($tab === 'PR') {
             $produced = ProductionReceiving::with('production', 'details.product')
                 ->whereBetween('rec_date', [$from, $to])
@@ -62,53 +60,34 @@ class ProductionReportController extends Controller
                 });
         }
 
-        // --- COSTING (CR) ---
-        // Note: ProjectCosting model/table doesn't exist yet, so we leave $costings empty.
-        // When you add ProjectCosting, replace the following block with real query:
-        //
-        // use App\Models\ProjectCosting;
-        // $costings = ProjectCosting::with('project')->whereBetween('date', [$from,$to])->get()->map(...);
-        //
-
-        // --- WIP (WORK IN PROGRESS) ---
-        if ($tab === 'WIP') {
-            $wip = Production::with('details')
-                ->where('status', 'in-progress')
-                ->whereBetween('order_date', [$from, $to])
+        // --- PRODUCT COSTING (Each Item Average Cost) ---
+        if ($tab === 'CR') {
+            // You can replace this with your actual costing logic once you have ProjectCosting table
+            // For now, placeholder: calculate average cost per item from production received
+            $costings = ProductionReceiving::with('details.product')
+                ->whereBetween('rec_date', [$from, $to])
                 ->get()
-                ->map(function ($prod) {
+                ->groupBy('details.*.product_id')
+                ->map(function ($group, $productId) {
+                    $totalQty  = 0;
+                    $totalCost = 0;
+                    foreach ($group as $rec) {
+                        foreach ($rec->details as $detail) {
+                            $totalQty  += $detail->received_qty;
+                            $totalCost += $detail->received_qty * $detail->manufacturing_cost;
+                        }
+                    }
                     return (object)[
-                        'date'        => $prod->order_date,
-                        'production'  => $prod->id,
-                        'total_items' => $prod->details->count(),
-                        'status'      => ucfirst($prod->status),
-                    ];
-                });
-        }
-
-        // --- YIELD / WASTE (YW) ---
-        if ($tab === 'YW') {
-            $yieldWaste = Production::whereBetween('order_date', [$from, $to])
-                ->get()
-                ->map(function ($prod) {
-                    return (object)[
-                        'date'       => $prod->order_date,
-                        'production' => $prod->id,
-                        'yield'      => $prod->yield ?? 0,
-                        'waste'      => $prod->waste ?? 0,
+                        'product_name' => $group->first()->details->first()->product->name ?? 'N/A',
+                        'total_qty'    => $totalQty,
+                        'avg_cost'     => $totalQty ? $totalCost / $totalQty : 0,
+                        'total_cost'   => $totalCost,
                     ];
                 });
         }
 
         return view('reports.production_reports', compact(
-            'tab',
-            'from',
-            'to',
-            'rawIssued',
-            'produced',
-            'costings',   // <-- now passed to the view
-            'wip',
-            'yieldWaste'
+            'tab', 'from', 'to', 'rawIssued', 'produced', 'costings'
         ));
     }
 }
