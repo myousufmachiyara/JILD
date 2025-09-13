@@ -103,6 +103,7 @@
         <div id="CW" class="tab-pane fade {{ $tab==='CW'?'show active':'' }}">
             <form method="GET" action="{{ route('reports.sale') }}" class="row g-3 mb-3">
                 <input type="hidden" name="tab" value="CW">
+
                 <div class="col-md-3">
                     <label>From Date</label>
                     <input type="date" class="form-control" name="from_date" value="{{ $from }}">
@@ -111,6 +112,19 @@
                     <label>To Date</label>
                     <input type="date" class="form-control" name="to_date" value="{{ $to }}">
                 </div>
+
+                <div class="col-md-3">
+                    <label>Customer</label>
+                    <select name="customer_id" class="form-control">
+                        <option value="">All Customers</option>
+                        @foreach($customers as $cust)
+                            <option value="{{ $cust->id }}" {{ $customerId==$cust->id ? 'selected' : '' }}>
+                                {{ $cust->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
                 <div class="col-md-2 d-flex align-items-end">
                     <button type="submit" class="btn btn-primary w-100">Filter</button>
                 </div>
@@ -134,6 +148,7 @@
                 </tbody>
             </table>
         </div>
+
 
     </div>
 </div>
