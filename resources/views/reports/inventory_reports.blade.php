@@ -37,11 +37,11 @@
                     </div>
                     <div class="col-md-3">
                         <label>From Date</label>
-                        <input type="date" name="from_date" value="{{ request('from_date') }}" class="form-control">
+                        <input type="date" name="from_date" value="{{ request('from_date', $from) }}" class="form-control">
                     </div>
                     <div class="col-md-3">
                         <label>To Date</label>
-                        <input type="date" name="to_date" value="{{ request('to_date') }}" class="form-control">
+                        <input type="date" name="to_date" value="{{ request('to_date', $to) }}" class="form-control">
                     </div>
 
                     <div class="col-md-2 d-flex align-items-end">
