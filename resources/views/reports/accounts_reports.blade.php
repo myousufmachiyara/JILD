@@ -49,6 +49,8 @@
         <!-- Date Filter -->
         <form method="GET" action="{{ route('reports.accounts') }}" class="row g-2 mb-3">
             <input type="hidden" name="report" value="{{ $key }}">
+            <input type="hidden" name="tab" value="{{ $key }}">
+            
             <div class="col-md-3">
             <input type="date" name="from_date" value="{{ request('from_date', $from) }}" class="form-control" required>
             </div>
@@ -175,5 +177,30 @@
 
     </div>
     </div>
-    
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            let tab = urlParams.get('tab') || window.location.hash.replace('#', '');
+
+            if (tab) {
+                const selector = `.nav-link[href="#${tab}"]`;
+                const el = document.querySelector(selector);
+                if (el && typeof bootstrap !== 'undefined') {
+                    const tabInstance = new bootstrap.Tab(el);
+                    tabInstance.show();
+                    history.replaceState(null, null, window.location.pathname + window.location.search + '#' + tab);
+                } else if (el) {
+                    document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+                    el.classList.add('active');
+                    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('show','active'));
+                    const pane = document.querySelector(el.getAttribute('href'));
+                    if (pane) pane.classList.add('show','active');
+                }
+            }
+        } catch (e) {
+            console.error('Tab activation error', e);
+        }
+    });
+</script>
 @endsection
