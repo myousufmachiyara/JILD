@@ -133,7 +133,6 @@ Route::middleware(['auth'])->group(function () {
         Route::get('purchase', [PurchaseReportController::class, 'purchaseReports'])->name('purchase');
         Route::get('production', [ProductionReportController::class, 'productionReports'])->name('production');
         Route::get('sale', [SalesReportController::class, 'saleReports'])->name('sale');
-        Route::get('accounts', [AccountsReportController::class, 'accountsReports'])->name('accounts');
-        Route::get('summary', [SummaryReportController::class, 'summaryReports'])->name('summary');
+        Route::get('accounts', [AccountsReportController::class, 'accounts'])->name('accounts');
     });
 });
