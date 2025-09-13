@@ -6,20 +6,20 @@
 <div class="tabs">
     <ul class="nav nav-tabs">
         <li class="nav-item">
-            <a class="nav-link {{ $tab==='SR'?'active':'' }}" data-bs-toggle="tab" data-bs-target="#SR">Sales Register</a>
+            <a class="nav-link {{ $tab==='SR'?'active':'' }}" href="{{ route('reports.sale', ['tab'=>'SR','from_date'=>$from,'to_date'=>$to]) }}">Sales Register</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link {{ $tab==='SRET'?'active':'' }}" data-bs-toggle="tab" data-bs-target="#SRET">Sales Return</a>
+            <a class="nav-link {{ $tab==='SRET'?'active':'' }}" href="{{ route('reports.sale', ['tab'=>'SRET','from_date'=>$from,'to_date'=>$to]) }}">Sales Return</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link {{ $tab==='CW'?'active':'' }}" data-bs-toggle="tab" data-bs-target="#CW">Customer Wise</a>
+            <a class="nav-link {{ $tab==='CW'?'active':'' }}" href="{{ route('reports.sale', ['tab'=>'CW','from_date'=>$from,'to_date'=>$to]) }}">Customer Wise</a>
         </li>
     </ul>
 
-    <div class="tab-content">
+    <div class="tab-content mt-3">
         {{-- SALES REGISTER --}}
         <div id="SR" class="tab-pane fade {{ $tab==='SR'?'show active':'' }}">
-            <form method="GET" action="{{ route('reports.sale') }}" class="row g-3 mt-3">
+            <form method="GET" action="{{ route('reports.sale') }}" class="row g-3 mb-3">
                 <input type="hidden" name="tab" value="SR">
                 <div class="col-md-3">
                     <label>From Date</label>
@@ -34,37 +34,35 @@
                 </div>
             </form>
 
-            <div class="mt-3">
-                <table class="table table-bordered">
-                    <thead>
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Invoice</th>
+                        <th>Customer</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($sales as $row)
                         <tr>
-                            <th>Date</th>
-                            <th>Invoice</th>
-                            <th>Customer</th>
-                            <th>Total</th>
+                            <td>{{ $row->date }}</td>
+                            <td>{{ $row->invoice }}</td>
+                            <td>{{ $row->customer }}</td>
+                            <td>{{ number_format($row->total,2) }}</td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($sales as $row)
-                            <tr>
-                                <td>{{ $row->date }}</td>
-                                <td>{{ $row->invoice }}</td>
-                                <td>{{ $row->customer }}</td>
-                                <td>{{ number_format($row->total,2) }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
+                    @empty
+                        <tr><td colspan="4" class="text-center text-muted">No sales found.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
 
         {{-- SALES RETURN --}}
         <div id="SRET" class="tab-pane fade {{ $tab==='SRET'?'show active':'' }}">
-            <h5 class="mt-3">Sales Return Report</h5>
+            <h5 class="mt-3">Sales Return Report (Coming Soon)</h5>
             <table class="table table-bordered">
-                <thead>
-                    <tr><th>Date</th><th>Invoice</th><th>Customer</th><th>Total Return</th></tr>
-                </thead>
+                <thead><tr><th>Date</th><th>Invoice</th><th>Customer</th><th>Total Return</th></tr></thead>
                 <tbody>
                     @forelse($returns as $row)
                         <tr>
@@ -74,7 +72,7 @@
                             <td>{{ number_format($row->total,2) }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="text-center">No Data</td></tr>
+                        <tr><td colspan="4" class="text-center text-muted">No data available.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -84,17 +82,17 @@
         <div id="CW" class="tab-pane fade {{ $tab==='CW'?'show active':'' }}">
             <h5 class="mt-3">Customer Wise Sales</h5>
             <table class="table table-bordered">
-                <thead>
-                    <tr><th>Customer</th><th>No. of Invoices</th><th>Total Amount</th></tr>
-                </thead>
+                <thead><tr><th>Customer</th><th>No. of Invoices</th><th>Total Amount</th></tr></thead>
                 <tbody>
-                    @foreach($customerWise as $row)
+                    @forelse($customerWise as $row)
                         <tr>
                             <td>{{ $row->customer }}</td>
                             <td>{{ $row->count }}</td>
                             <td>{{ number_format($row->total,2) }}</td>
                         </tr>
-                    @endforeach
+                    @empty
+                        <tr><td colspan="3" class="text-center text-muted">No sales data found.</td></tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>

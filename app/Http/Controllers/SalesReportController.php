@@ -12,8 +12,8 @@ class SalesReportController extends Controller
     {
         $tab = $request->get('tab', 'SR'); // default Sales Register
 
-        // Default date range (last 30 days)
-        $from = $request->get('from_date', Carbon::now()->subDays(30)->format('Y-m-d'));
+        // ✅ Default date range: 1st day of current month → today
+        $from = $request->get('from_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
         $to   = $request->get('to_date', Carbon::now()->format('Y-m-d'));
 
         $sales        = collect();
@@ -37,22 +37,19 @@ class SalesReportController extends Controller
 
         // --- SALES RETURN (SRET) ---
         if ($tab === 'SRET') {
-            // Assuming you have SaleReturn model/table
-            // If not, leave it empty for now
-            // Example:
-            // $returns = SaleReturn::with('customer')->whereBetween('date', [$from, $to])->get()->map(...);
-            $returns = collect(); 
+            // 🚧 Placeholder (Sales Return module coming soon)
+            $returns = collect();
         }
 
         // --- CUSTOMER WISE (CW) ---
         if ($tab === 'CW') {
-            $customerWise = SaleInvoice::with('customer')
+            $customerWise = SaleInvoice::with('account')
                 ->whereBetween('date', [$from, $to])
                 ->get()
-                ->groupBy('customer_id')
-                ->map(function ($rows, $custId) {
+                ->groupBy('account_id')
+                ->map(function ($rows, $accountId) {
                     return (object)[
-                        'customer' => $rows->first()->customer->name ?? '',
+                        'customer' => $rows->first()->account->name ?? '',
                         'total'    => $rows->sum('total_amount'),
                         'count'    => $rows->count(),
                     ];
