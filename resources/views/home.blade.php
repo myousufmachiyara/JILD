@@ -64,7 +64,7 @@
 			</section>
 		</div>
 	</div>
-	<div class="tabs mt-3">
+	<!-- <div class="tabs mt-3">
 		<ul class="nav nav-tabs">
 			<li class="nav-item">
 				<a class="nav-link nav-link-dashboard-tab" data-bs-target="#PRODUCTS" href="#PENDING_INVOICES" data-bs-toggle="tab">Products</a>
@@ -94,7 +94,6 @@
 										</tr>
 									</thead>
 									<tbody id="Sale2NotTable" class="table-body-scroll">
-										<!-- Table rows will be populated dynamically -->
 									</tbody>
 								</table>
 							</div>
@@ -103,7 +102,7 @@
 				</div>
 			</div>
 		</div>
-	</div>
+	</div> -->
     <script>
 
 		$(document).ready(function() {
