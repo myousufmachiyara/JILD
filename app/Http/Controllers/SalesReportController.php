@@ -39,7 +39,7 @@ class SalesReportController extends Controller
         // --- SALES RETURN (SRET) ---
         if ($tab === 'SRET') {
             $returns = SaleReturn::with('account')
-                ->whereBetween('date', [$from, $to])
+                ->whereBetween('return_date', [$from, $to])
                 ->get()
                 ->map(function ($ret) {
                     return (object)[
