@@ -16534,7 +16534,7 @@ html.dark .table .actions-hover a {
 }
 
 .nav-tabs li .nav-link .badge {
-	border-radius: 100%;
+	border-radius: 25px;
 	padding: 6.4px 8.8px;
 	padding: 0.4rem 0.55rem;
 	margin-right: 5px;
