@@ -22,14 +22,14 @@ class SalesReportController extends Controller
 
         // --- SALES REGISTER (SR) ---
         if ($tab === 'SR') {
-            $sales = SaleInvoice::with('customer')
+            $sales = SaleInvoice::with('account')
                 ->whereBetween('date', [$from, $to])
                 ->get()
                 ->map(function ($sale) {
                     return (object)[
                         'date'      => $sale->date,
                         'invoice'   => $sale->id,
-                        'customer'  => $sale->customer->name ?? '',
+                        'customer'  => $sale->account->name ?? '',
                         'total'     => $sale->total_amount ?? 0,
                     ];
                 });
