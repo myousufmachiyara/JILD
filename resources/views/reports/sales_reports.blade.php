@@ -60,9 +60,30 @@
 
         {{-- SALES RETURN --}}
         <div id="SRET" class="tab-pane fade {{ $tab==='SRET'?'show active':'' }}">
-            <h5 class="mt-3">Sales Return Report (Coming Soon)</h5>
-            <table class="table table-bordered">
-                <thead><tr><th>Date</th><th>Invoice</th><th>Customer</th><th>Total Return</th></tr></thead>
+            <form method="GET" action="{{ route('reports.sale') }}" class="row g-3 mb-3">
+                <input type="hidden" name="tab" value="SRET">
+                <div class="col-md-3">
+                    <label>From Date</label>
+                    <input type="date" class="form-control" name="from_date" value="{{ $from }}">
+                </div>
+                <div class="col-md-3">
+                    <label>To Date</label>
+                    <input type="date" class="form-control" name="to_date" value="{{ $to }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Return No</th>
+                        <th>Customer</th>
+                        <th>Total Return</th>
+                    </tr>
+                </thead>
                 <tbody>
                     @forelse($returns as $row)
                         <tr>
@@ -72,7 +93,7 @@
                             <td>{{ number_format($row->total,2) }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="text-center text-muted">No data available.</td></tr>
+                        <tr><td colspan="4" class="text-center text-muted">No returns found.</td></tr>
                     @endforelse
                 </tbody>
             </table>
