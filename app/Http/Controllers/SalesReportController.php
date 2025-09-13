@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\SaleInvoice;
 use App\Models\SaleReturn;
 use Carbon\Carbon;
+use App\Models\ChartOfAccounts;
 
 class SalesReportController extends Controller
 {
@@ -16,6 +17,7 @@ class SalesReportController extends Controller
         // Default date range (last 30 days)
         $from = $request->get('from_date', Carbon::now()->subDays(30)->format('Y-m-d'));
         $to   = $request->get('to_date', Carbon::now()->format('Y-m-d'));
+        $customerId = $request->get('customer_id'); // new filter
 
         $sales        = collect();
         $returns      = collect();
@@ -53,9 +55,14 @@ class SalesReportController extends Controller
 
         // --- CUSTOMER WISE (CW) ---
         if ($tab === 'CW') {
-            $customerWise = SaleInvoice::with('account')
-                ->whereBetween('date', [$from, $to])
-                ->get()
+            $query = SaleInvoice::with('account')
+                ->whereBetween('date', [$from, $to]);
+
+            if ($customerId) {
+                $query->where('account_id', $customerId);
+            }
+
+            $customerWise = $query->get()
                 ->groupBy('account_id')
                 ->map(function ($rows) {
                     return (object)[
@@ -67,6 +74,8 @@ class SalesReportController extends Controller
                 ->values();
         }
 
+        // Get list of customers for dropdown
+        $customers = ChartOfAccounts::where('account_type', 'customer')->get();
 
         return view('reports.sales_reports', compact(
             'tab',
