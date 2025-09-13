@@ -7,7 +7,7 @@
         <li class="nav-item"><a class="nav-link {{ $tab=='RMI'?'active':'' }}" data-bs-toggle="tab" href="#RMI">Production Order (Raw Issued)</a></li>
         <li class="nav-item"><a class="nav-link {{ $tab=='PR'?'active':'' }}" data-bs-toggle="tab" href="#PR">Production Receiving (FG Received)</a></li>
         <li class="nav-item"><a class="nav-link {{ $tab=='CR'?'active':'' }}" data-bs-toggle="tab" href="#CR">Product Costing</a></li>
-        <li class="nav-item"><a class="nav-link" href="#">Production Return <span class="badge">Coming Soon</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="#">Production Return <span class="badge badge-danger">Coming Soon</span></a></li>
     </ul>
 
     <div class="tab-content mt-3">
