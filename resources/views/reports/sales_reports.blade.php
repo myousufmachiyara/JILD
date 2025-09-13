@@ -101,9 +101,26 @@
 
         {{-- CUSTOMER WISE --}}
         <div id="CW" class="tab-pane fade {{ $tab==='CW'?'show active':'' }}">
+            <form method="GET" action="{{ route('reports.sale') }}" class="row g-3 mb-3">
+                <input type="hidden" name="tab" value="CW">
+                <div class="col-md-3">
+                    <label>From Date</label>
+                    <input type="date" class="form-control" name="from_date" value="{{ $from }}">
+                </div>
+                <div class="col-md-3">
+                    <label>To Date</label>
+                    <input type="date" class="form-control" name="to_date" value="{{ $to }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+
             <h5 class="mt-3">Customer Wise Sales</h5>
-            <table class="table table-bordered">
-                <thead><tr><th>Customer</th><th>No. of Invoices</th><th>Total Amount</th></tr></thead>
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <tr><th>Customer</th><th>No. of Invoices</th><th>Total Amount</th></tr>
+                </thead>
                 <tbody>
                     @forelse($customerWise as $row)
                         <tr>
@@ -117,6 +134,7 @@
                 </tbody>
             </table>
         </div>
+
     </div>
 </div>
 @endsection

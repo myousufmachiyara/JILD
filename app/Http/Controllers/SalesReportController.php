@@ -67,6 +67,7 @@ class SalesReportController extends Controller
                 ->values();
         }
 
+
         return view('reports.sales_reports', compact(
             'tab',
             'from',
