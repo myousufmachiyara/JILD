@@ -8,9 +8,23 @@
 	</div>	
 	<div class="row">
 		<div class="col-12 col-md-3 mb-2">	
-			<section class="card card-featured-left card-featured-primary">
+			<section class="card card-featured-left card-featured-success">
 				<div class="card-body icon-container data-container">
 					<h3 class="amount text-dark"><strong>Today's Sales</strong></h3>	
+					<h2 class="amount m-0 text-success">
+						<strong data-value="">0</strong>
+						<span class="title text-end text-dark h6"> PKR</span>
+					</h2>	
+					<div class="summary-footer">
+						<a class="text-success text-uppercase" href="#">View Details</a>
+					</div>
+				</div>
+			</section>
+		</div>
+		<div class="col-12 col-md-3 mb-2">	
+			<section class="card card-featured-left card-featured-primary">
+				<div class="card-body icon-container data-container">
+					<h3 class="amount text-dark"><strong>Month's Sales</strong></h3>	
 					<h2 class="amount m-0 text-primary">
 						<strong data-value="">0</strong>
 						<span class="title text-end text-dark h6"> PKR</span>
@@ -24,27 +38,13 @@
 		<div class="col-12 col-md-3 mb-2">	
 			<section class="card card-featured-left card-featured-danger">
 				<div class="card-body icon-container data-container">
-					<h3 class="amount text-dark"><strong>Month's Sales</strong></h3>	
+					<h3 class="amount text-dark"><strong>Total Receivables</strong></h3>	
 					<h2 class="amount m-0 text-danger">
 						<strong data-value="">0</strong>
 						<span class="title text-end text-dark h6"> PKR</span>
 					</h2>	
 					<div class="summary-footer">
 						<a class="text-danger text-uppercase" href="#">View Details</a>
-					</div>
-				</div>
-			</section>
-		</div>
-		<div class="col-12 col-md-3 mb-2">	
-			<section class="card card-featured-left card-featured-quaternary">
-				<div class="card-body icon-container data-container">
-					<h3 class="amount text-dark"><strong>Total Receivables</strong></h3>	
-					<h2 class="amount m-0 text-quaternary">
-						<strong data-value="">0</strong>
-						<span class="title text-end text-dark h6"> PKR</span>
-					</h2>	
-					<div class="summary-footer">
-						<a class="text-quaternary text-uppercase" href="#">View Details</a>
 					</div>
 				</div>
 			</section>
