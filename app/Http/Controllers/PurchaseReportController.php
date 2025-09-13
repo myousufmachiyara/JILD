@@ -12,14 +12,13 @@ class PurchaseReportController extends Controller
 {
     public function purchaseReports(Request $request)
     {
-        $tab = $request->get('tab', 'PUR'); // default: Purchase Register
+        $tab = $request->get('tab', 'PUR'); // default tab
 
-        // Default date range (last 30 days)
-        $from = $request->get('from_date', Carbon::now()->subDays(30)->format('Y-m-d'));
+        // ✅ Set default from/to dates
+        $from = $request->get('from_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
         $to   = $request->get('to_date', Carbon::now()->format('Y-m-d'));
 
-        // ✅ Vendors actually come from  ChartOfAccounts
-        $vendors =  ChartOfAccounts::where('account_type', 'vendor')->get();
+        $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
 
         $purchaseRegister = collect();
         $purchaseReturns = collect();
@@ -107,17 +106,11 @@ class PurchaseReportController extends Controller
                     'total_amount' => $items->sum('total'),
                 ];
             })->values();
-
         }
 
         return view('reports.purchase_reports', compact(
-            'tab',
-            'from',
-            'to',
-            'vendors',
-            'purchaseRegister',
-            'purchaseReturns',
-            'vendorWisePurchase'
+            'tab', 'from', 'to', 'vendors',
+            'purchaseRegister', 'purchaseReturns', 'vendorWisePurchase'
         ));
     }
 }
