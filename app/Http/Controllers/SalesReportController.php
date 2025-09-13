@@ -84,7 +84,8 @@ class SalesReportController extends Controller
             'sales',
             'returns',
             'customerWise',
-            'customers'
+            'customers',
+            'customerId'
         ));
     }
 }
