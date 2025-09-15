@@ -33,9 +33,9 @@ class ProductionReportController extends Controller
                             'date'       => $prod->order_date,
                             'production' => $prod->id,
                             'item_name'  => $detail->product->name ?? '',
-                            'qty'        => $detail->quantity,
+                            'qty'        => $detail->qty,
                             'rate'       => $detail->rate,
-                            'total'      => $detail->quantity * $detail->rate,
+                            'total'      => $detail->qty * $detail->rate,
                         ];
                     });
                 });
