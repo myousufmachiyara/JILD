@@ -253,7 +253,7 @@ class AccountsReportController extends Controller
         $rows = $rows->merge(
             SaleInvoice::when($partyId, fn($q) => $q->where('account_id', $partyId))
                 ->whereBetween('date', [$from, $to])
-                ->with(['items','customer'])
+                ->with(['items','account'])
                 ->get()
                 ->map(function($s){
                     $total = $s->items->sum(fn($i) => $i->quantity * $i->price);
