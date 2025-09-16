@@ -255,11 +255,14 @@ class InventoryReportController extends Controller
                             break;
                     }
 
+                    dd($rate);
+                    
                     // ✅ Raw cost per piece
                     $rawCostPerPiece = $totalFinishedReceived > 0
                         ? ($totalRawIssued * ($rate ?? 0)) / $totalFinishedReceived
                         : 0;
-
+                        
+                    
                     // ✅ Manufacturing cost per piece
                     $totalManufacturingCost = ProductionReceivingDetail::where('product_id', $product->id)
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
