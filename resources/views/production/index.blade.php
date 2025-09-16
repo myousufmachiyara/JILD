@@ -54,11 +54,10 @@
                 </td>
                 <td>
                   <a href="{{ route('production.summary', $production->id) }}" class="text-dark" title="Summary"><i class="fa fa-book"></i></a>
+                  <a href="{{ route('production.gatepass', $production->id) }}" class="text-secondary" title="Gatepass"><i class="fa fa-tag"></i></a>
                   <a href="{{ route('production.print', $production->id) }}" class="text-success" title="Print"><i class="fa fa-print"></i></a>
                   <a href="{{ route('production.edit', $production->id) }}" class="text-primary" title="Edit"><i class="fa fa-edit"></i></a>
-                  <a href="{{ route('production_receiving.create', ['id'=> $production->id]) }}" class="text-warning" title="Receive">
-                    <i class="fa fa-download"></i>
-                  </a>
+                  <a href="{{ route('production_receiving.create', ['id'=> $production->id]) }}" class="text-warning" title="Receive"><i class="fa fa-download"></i></a>
                   <form action="{{ route('production.destroy', $production->id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this production order?');">
                     @csrf
                     @method('DELETE')

@@ -533,4 +533,86 @@ class ProductionController extends Controller
         return $pdf->Output('production_' . $production->id . '.pdf', 'I');
     }
 
+    public function printGatepass($id)
+    {
+        $production = Production::with(['vendor', 'details.variation', 'details.product', 'details.measurementUnit'])
+            ->findOrFail($id);
+
+        $pdf = new \TCPDF();
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->SetCreator('Your App');
+        $pdf->SetTitle('Production Gatepass #' . $production->id);
+        $pdf->SetMargins(10, 10, 10);
+        $pdf->AddPage();
+
+        // --- Logo ---
+        $logoPath = public_path('assets/img/Jild-Logo.png');
+        if (file_exists($logoPath)) {
+            $pdf->Image($logoPath, 10, 10, 30);
+        }
+
+        // --- Production Info ---
+        $pdf->SetXY(130, 12);
+        $infoHtml = '
+        <table cellpadding="2" style="font-size:10px; line-height:14px;">
+            <tr><td><b>Production Order #</b></td><td>' . $production->id . '</td></tr>
+            <tr><td><b>Date</b></td><td>' . \Carbon\Carbon::parse($production->date)->format('d/m/Y') . '</td></tr>
+            <tr><td><b>Vendor</b></td><td>' . ($production->vendor->name ?? '-') . '</td></tr>
+        </table>';
+        $pdf->writeHTML($infoHtml, false, false, false, false, '');
+
+        $pdf->Line(60, 52.25, 200, 52.25);
+
+        // --- Title Box ---
+        $pdf->SetXY(10, 48);
+        $pdf->SetFillColor(23, 54, 93);
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', 'B', 12);
+        $pdf->Cell(50, 8, 'Gate Pass', 0, 1, 'C', 1);
+        $pdf->SetTextColor(0, 0, 0);
+
+        // --- Items Table ---
+        $pdf->Ln(5);
+        $html = '<table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
+            <tr style="background-color:#f5f5f5; font-weight:bold;">
+                <th width="8%">S.No</th>
+                <th width="25%">Item</th>
+                <th width="25%">Variation</th>
+                <th width="17%">Qty</th>
+                <th width="25%">Remarks</th>
+            </tr>';
+
+        $count = 0;
+        foreach ($production->details as $detail) {
+            $count++;
+            $html .= '
+            <tr>
+                <td>' . $count . '</td>
+                <td>' . ($detail->product->name ?? '-') . '</td>
+                <td>' . ($detail->variation->sku ?? '-') . '</td>
+                <td>' . number_format($detail->qty, 2).' '.($detail->measurementUnit->shortcode). '</td>
+                <td>' . ($detail->remarks ?? '-') . '</td>
+            </tr>';
+        }
+
+        $html .= '</table>';
+        $pdf->writeHTML($html, true, false, true, false, '');
+
+        // --- Footer / Approval ---
+        $pdf->Ln(20);
+        $y = $pdf->GetY();
+        $lineWidth = 60;
+
+        $pdf->Line(20, $y, 20 + $lineWidth, $y);
+        $pdf->Line(120, $y, 120 + $lineWidth, $y);
+
+        $pdf->SetXY(20, $y + 2);
+        $pdf->Cell($lineWidth, 6, 'Issued By', 0, 0, 'C');
+        $pdf->SetXY(120, $y + 2);
+        $pdf->Cell($lineWidth, 6, 'Approved By', 0, 0, 'C');
+
+        return $pdf->Output('production_gatepass_' . $production->id . '.pdf', 'I');
+    }
+
 }
