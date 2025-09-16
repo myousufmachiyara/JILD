@@ -174,13 +174,11 @@ class InventoryReportController extends Controller
         }
 
         // STOCK INHAND
-        // STOCK IN HAND
         if ($tab == 'SR') {
             $selectedItem   = $request->item_id;
             $costingMethod  = $request->costing_method ?? 'avg'; // default avg
             $productsToProcess = $allProducts;
 
-            // If a specific product or variation is selected
             if ($selectedItem) {
                 if (str_contains($selectedItem, '-')) {
                     [$productIdSel, $variationIdSel] = explode('-', $selectedItem);
@@ -200,7 +198,7 @@ class InventoryReportController extends Controller
                     : collect([(object)['id' => null, 'sku' => null]]);
 
                 foreach ($variations as $var) {
-                    // Purchases & Returns
+                    // Net stock quantity (as you had)
                     $purchased = PurchaseInvoiceItem::where('item_id', $product->id)
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
                         ->sum('quantity');
@@ -209,7 +207,6 @@ class InventoryReportController extends Controller
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
                         ->sum('quantity');
 
-                    // Sales & Returns
                     $sold = SaleInvoiceItem::where('product_id', $product->id)
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
                         ->sum('quantity');
@@ -218,7 +215,6 @@ class InventoryReportController extends Controller
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
                         ->sum('qty');
 
-                    // Production (Issued & Received)
                     $issued = ProductionDetail::where('product_id', $product->id)
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
                         ->sum('qty');
@@ -227,28 +223,20 @@ class InventoryReportController extends Controller
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
                         ->sum('received_qty');
 
-                    // Net stock quantity
                     $stockQty = ($purchased - $purchaseReturn + $saleReturn + $received) - ($sold + $issued);
 
-                    // -------------------------------------
-                    // 🔹 COSTING CALCULATIONS
-                    // -------------------------------------
-
-                    // 1) Total raw issued & total finished received
+                    // ------------------------------
+                    // COSTING
+                    // ------------------------------
                     $totalRawIssued = ProductionDetail::where('product_id', $product->id)
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                        ->sum('qty');
+                        ->sum('qty'); // in sqft
 
                     $totalFinishedReceived = ProductionReceivingDetail::where('product_id', $product->id)
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                        ->sum('received_qty');
+                        ->sum('received_qty'); // in pcs
 
-                    // Raw qty required per piece
-                    $rawQtyPerPiece = $totalFinishedReceived > 0
-                        ? $totalRawIssued / $totalFinishedReceived
-                        : 0;
-
-                    // 2) Raw material rate based on costing method
+                    // Raw purchase rate based on method
                     $query = PurchaseInvoiceItem::where('item_id', $product->id)
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id));
 
@@ -267,7 +255,12 @@ class InventoryReportController extends Controller
                             break;
                     }
 
-                    // 3) Manufacturing cost per piece
+                    // ✅ Raw cost per piece
+                    $rawCostPerPiece = $totalFinishedReceived > 0
+                        ? ($totalRawIssued * ($rate ?? 0)) / $totalFinishedReceived
+                        : 0;
+
+                    // ✅ Manufacturing cost per piece
                     $totalManufacturingCost = ProductionReceivingDetail::where('product_id', $product->id)
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
                         ->sum('manufacturing_cost');
@@ -276,18 +269,15 @@ class InventoryReportController extends Controller
                         ? $totalManufacturingCost / $totalFinishedReceived
                         : 0;
 
-                    // 4) Final per unit cost price
-                    $costPrice = ($rate ?? 0) * $rawQtyPerPiece + $manufacturingCostPerPiece;
+                    // ✅ Final per unit cost
+                    $costPrice = $rawCostPerPiece + $manufacturingCostPerPiece;
 
-                    // -------------------------------------
-                    // 🔹 Push to stock report
-                    // -------------------------------------
                     $stockInHand->push([
                         'product'   => $product->name,
                         'variation' => $var->sku ?? null,
                         'quantity'  => $stockQty,
-                        'price'     => $costPrice,              // cost per unit
-                        'total'     => $stockQty * $costPrice,  // total valuation
+                        'price'     => round($costPrice, 2),             // per piece
+                        'total'     => round($stockQty * $costPrice, 2), // total valuation
                     ]);
                 }
             }
