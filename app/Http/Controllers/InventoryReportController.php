@@ -173,17 +173,16 @@ class InventoryReportController extends Controller
             }
         }
 
-        // --- STOCK INHAND (only build when SR tab requested, but $stockInHand already initialized above)
+        // STOCK INHAND
         if ($tab == 'SR') {
-            $selectedItem = $request->item_id;
-
-            // Filter products collection if a specific product/variation selected
+            $selectedItem   = $request->item_id;
+            $costingMethod  = $request->costing_method ?? 'avg'; // default avg
             $productsToProcess = $allProducts;
+
             if ($selectedItem) {
                 if (str_contains($selectedItem, '-')) {
                     [$productIdSel, $variationIdSel] = explode('-', $selectedItem);
                     $productsToProcess = $allProducts->where('id', (int)$productIdSel);
-                    // keep only the chosen variation on each product
                     $productsToProcess->transform(function ($product) use ($variationIdSel) {
                         $product->variations = $product->variations->where('id', (int)$variationIdSel);
                         return $product;
@@ -225,19 +224,46 @@ class InventoryReportController extends Controller
 
                     $stockQty = ($purchased - $purchaseReturn + $saleReturn + $received) - ($sold + $issued);
 
-                    $lastPurchase = PurchaseInvoiceItem::where('item_id', $product->id)
+                    // Raw qty issued
+                    $rawQtyUsed = ProductionDetail::where('product_id', $product->id)
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                        ->latest('id')
-                        ->first();
+                        ->sum('qty');
 
-                    $price = $lastPurchase->price ?? $product->selling_price ?? 0;
+                    // Manufacturing cost from production receiving
+                    $manufacturingCost = ProductionReceivingDetail::where('product_id', $product->id)
+                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
+                        ->sum('manufacturing_cost');
+
+                    // Decide raw purchase rate
+                    $query = PurchaseInvoiceItem::where('item_id', $product->id)
+                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id));
+
+                    switch ($costingMethod) {
+                        case 'max':
+                            $rate = $query->max('price');
+                            break;
+                        case 'min':
+                            $rate = $query->min('price');
+                            break;
+                        case 'latest':
+                            $rate = $query->latest('id')->value('price');
+                            break;
+                        default: // avg
+                            $rate = $query->avg('price');
+                            break;
+                    }
+
+                    $rawMaterialCost = $rawQtyUsed * ($rate ?? 0);
+
+                    // Final per unit cost
+                    $costPrice = ($rawMaterialCost + $manufacturingCost) / max(1, $stockQty);
 
                     $stockInHand->push([
                         'product'   => $product->name,
                         'variation' => $var->sku ?? null,
                         'quantity'  => $stockQty,
-                        'price'     => $price,
-                        'total'     => $stockQty * $price,
+                        'price'     => $costPrice,
+                        'total'     => $stockQty * $costPrice,
                     ]);
                 }
             }

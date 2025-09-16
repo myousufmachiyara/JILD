@@ -38,7 +38,7 @@
 		<div class="col-12 col-md-3 mb-2">	
 			<section class="card card-featured-left card-featured-danger">
 				<div class="card-body icon-container data-container">
-					<h3 class="amount text-dark"><strong>Total Receivables</strong></h3>	
+					<h3 class="amount text-dark"><strong>Receivables</strong></h3>	
 					<h2 class="amount m-0 text-danger">
 						<strong data-value="">0</strong>
 						<span class="title text-end text-dark h6"> PKR</span>
@@ -52,7 +52,7 @@
 		<div class="col-12 col-md-3 mb-2">	
 			<section class="card card-featured-left card-featured-tertiary">
 				<div class="card-body icon-container data-container">
-					<h3 class="amount text-dark"><strong>Total Payables</strong></h3>	
+					<h3 class="amount text-dark"><strong>Payables</strong></h3>	
 					<h2 class="amount m-0 text-tertiary">
 						<strong data-value="">0</strong>
 						<span class="title text-end text-dark h6"> PKR</span>
@@ -60,6 +60,46 @@
 					<div class="summary-footer">
 						<a class="text-tertiary text-uppercase" href="#">View Details</a>
 					</div>
+				</div>
+			</section>
+		</div>
+		<div class="col-12 col-md-3 mb-2">	
+			<section class="card card-featured-left card-featured-danger">
+				<div class="card-body icon-container data-container">
+					<h3 class="amount text-dark"><strong>Sale Returns</strong></h3>	
+					<h2 class="amount m-0 text-danger">
+						<strong data-value="">0</strong>
+						<span class="title text-end text-dark h6"> PKR</span>
+					</h2>	
+					<div class="summary-footer">
+						<a class="text-danger text-uppercase" href="#">View Details</a>
+					</div>
+				</div>
+			</section>
+		</div>
+	</div>
+	<div class="row">
+		<div class="col-12 col-md-6 mb-3 d-flex">
+			<section class="card flex-fill">
+				<header class="card-header">
+					<div class="card-actions">
+						<a href="#" class="card-action card-action-toggle" data-card-toggle></a>
+					</div>
+					<h2 class="card-title">Pending Production</h2>
+				</header>
+				<div class="card-body scrollable-div">
+					<table class="table table-responsive-md table-striped mb-0">
+						<thead class="sticky-tbl-header">
+							<tr>
+								<th>Order#</th>
+								<th>Date</th>
+								<th>Vendor</th>
+								<th>Status</th>
+							</tr>
+						</thead>
+						<tbody id="PendingProduction" class="table-body-scroll">
+						</tbody>
+					</table>
 				</div>
 			</section>
 		</div>

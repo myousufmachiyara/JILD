@@ -72,6 +72,8 @@ class DatabaseSeeder extends Seeder
             // Production
             'production',
             'production_receiving',
+            'production_return',
+
         ];
 
         $actions = ['index', 'create', 'edit', 'delete', 'print'];

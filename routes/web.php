@@ -28,7 +28,8 @@ use App\Http\Controllers\{
     SaleReturnController,
     PermissionController,
     LocationController,
-    StockTransferController
+    StockTransferController,
+    ProductionReturnController,
 };
 
 Auth::routes();
@@ -85,6 +86,7 @@ Route::middleware(['auth'])->group(function () {
         // Production
         'production' => ['controller' => ProductionController::class, 'permission' => 'production'],
         'production_receiving' => ['controller' => ProductionReceivingController::class, 'permission' => 'production_receiving'],
+        'production_return' => ['controller' => ProductionReturnController::class, 'permission' => 'production_return'],
 
         // POS (optional)
         'pos_system' => ['controller' => POSController::class, 'permission' => 'pos_system'],

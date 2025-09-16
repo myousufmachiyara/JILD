@@ -123,14 +123,24 @@
                                 @endforeach
                             @endforeach
                         </select>
-
                     </div>
+
+                    {{-- costing method --}}
+                    <div class="col-md-3">
+                        <label>Costing Method</label>
+                        <select name="costing_method" class="form-control">
+                            <option value="avg" {{ request('costing_method') == 'avg' ? 'selected' : '' }}>Average Rate</option>
+                            <option value="max" {{ request('costing_method') == 'max' ? 'selected' : '' }}>Max Rate</option>
+                            <option value="min" {{ request('costing_method') == 'min' ? 'selected' : '' }}>Min Rate</option>
+                            <option value="latest" {{ request('costing_method') == 'latest' ? 'selected' : '' }}>Latest Rate</option>
+                        </select>
+                    </div>
+
                     <div class="col-md-2 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100">Filter</button>
                     </div>
                 </div>
             </form>
-
 
             @php
                 $grandTotal = collect($stockInHand)->sum('total');
@@ -147,8 +157,8 @@
                         <th>Product</th>
                         <th>Variation</th>
                         <th>Quantity</th>
-                        <th>Price</th>
-                        <th>Total</th>
+                        <th>Cost Price (Per Unit)</th>
+                        <th>Total Cost</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -161,7 +171,9 @@
                             <td>{{ number_format($stock['total'], 2) }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="text-center">No stock data found.</td></tr>
+                        <tr>
+                            <td colspan="5" class="text-center">No stock data found.</td>
+                        </tr>
                     @endforelse
                 </tbody>
                 @if(count($stockInHand))
@@ -175,6 +187,7 @@
                 </tfoot>
                 @endif
             </table>
+
         </div>
 
         {{-- STOCK TRANSFER --}}

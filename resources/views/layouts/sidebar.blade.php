@@ -115,7 +115,7 @@
             <ul class="nav nav-children">
               <li><a class="nav-link" href="{{ route('production.index') }}">Order</a></li>
               <li><a class="nav-link" href="{{ route('production_receiving.index') }}">Receiving</a></li>
-              <li><a class="nav-link" >Return</a></li>
+              <li><a class="nav-link" href="{{ route('production_return.index') }}">Return</a></li>
             </ul>
           </li>
           @endif
