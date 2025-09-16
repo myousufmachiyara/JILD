@@ -240,8 +240,6 @@ class InventoryReportController extends Controller
                     $query = PurchaseInvoiceItem::where('item_id', $product->id)
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id));
 
-                    dd($costingMethod);
-
                     switch ($costingMethod) {
                         case 'max':
                             $rate = $query->max('price');
@@ -257,17 +255,17 @@ class InventoryReportController extends Controller
                             break;
                     }
 
-                    
                     // ✅ Raw cost per piece
                     $rawCostPerPiece = $totalFinishedReceived > 0
                         ? ($totalRawIssued * ($rate ?? 0)) / $totalFinishedReceived
                         : 0;
-                        
                     
                     // ✅ Manufacturing cost per piece
                     $totalManufacturingCost = ProductionReceivingDetail::where('product_id', $product->id)
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
                         ->sum('manufacturing_cost');
+
+                    dd($totalManufacturingCost);
 
                     $manufacturingCostPerPiece = $totalFinishedReceived > 0
                         ? $totalManufacturingCost / $totalFinishedReceived
