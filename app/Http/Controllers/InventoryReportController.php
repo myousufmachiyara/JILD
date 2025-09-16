@@ -240,7 +240,7 @@ class InventoryReportController extends Controller
                     $query = PurchaseInvoiceItem::where('item_id', $product->id)
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id));
 
-                    dd($query);
+                    dd($costingMethod);
 
                     switch ($costingMethod) {
                         case 'max':
