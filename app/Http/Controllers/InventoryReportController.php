@@ -173,151 +173,209 @@ class InventoryReportController extends Controller
             }
         }
 
-        // STOCK INHAND
-        if ($tab == 'SR') {
-            $selectedItem   = $request->item_id;
-            $costingMethod  = $request->costing_method ?? 'avg'; // default avg
-            $productsToProcess = $allProducts;
+// STOCK INHAND
+if ($tab == 'SR') {
+    $selectedItem   = $request->item_id;
+    $costingMethod  = $request->costing_method ?? 'avg'; // avg | max | min | latest
+    $productsToProcess = $allProducts;
 
-            if ($selectedItem) {
-                if (str_contains($selectedItem, '-')) {
-                    [$productIdSel, $variationIdSel] = explode('-', $selectedItem);
-                    $productsToProcess = $allProducts->where('id', (int)$productIdSel);
-                    $productsToProcess->transform(function ($product) use ($variationIdSel) {
-                        $product->variations = $product->variations->where('id', (int)$variationIdSel);
-                        return $product;
-                    });
-                } else {
-                    $productsToProcess = $allProducts->where('id', (int)$selectedItem);
-                }
-            }
-
-            foreach ($productsToProcess as $product) {
-                $variations = $product->variations->isNotEmpty()
-                    ? $product->variations
-                    : collect([(object)['id' => null, 'sku' => null]]);
-
-                foreach ($variations as $var) {
-                    // ------------------------------
-                    // STOCK MOVEMENTS
-                    // ------------------------------
-                    $purchased = PurchaseInvoiceItem::where('item_id', $product->id)
-                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                        ->sum('quantity');
-
-                    $purchaseReturn = PurchaseReturnItem::where('item_id', $product->id)
-                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                        ->sum('quantity');
-
-                    $sold = SaleInvoiceItem::where('product_id', $product->id)
-                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                        ->sum('quantity');
-
-                    $saleReturn = SaleReturnItem::where('product_id', $product->id)
-                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                        ->sum('qty');
-
-                    $issued = ProductionDetail::where('product_id', $product->id)
-                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                        ->sum('qty');
-
-                    $received = ProductionReceivingDetail::where('product_id', $product->id)
-                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                        ->sum('received_qty');
-
-                    $stockQty = ($purchased - $purchaseReturn + $saleReturn + $received) - ($sold + $issued);
-
-                    // ------------------------------
-                    // COSTING
-                    // ------------------------------
-                    // total raw issued (e.g. sqft) and total finished received (pcs)
-                    $totalRawIssued = ProductionDetail::where('product_id', $product->id)
-                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                        ->sum('qty'); // raw issued in raw unit (sqft)
-
-                    $totalFinishedReceived = ProductionReceivingDetail::where('product_id', $product->id)
-                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                        ->sum('received_qty'); // finished pcs
-
-                    // Consumption per finished piece (avg)
-                    $consumptionPerPiece = $totalFinishedReceived > 0
-                        ? ($totalRawIssued / $totalFinishedReceived)
-                        : 0;
-
-                    // ------------------------------
-                    // Raw purchase rate selection (weighted avg for 'avg' case)
-                    // ------------------------------
-                    $purchaseQuery = PurchaseInvoiceItem::where('item_id', $product->id)
-                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id));
-
-                    switch ($costingMethod) {
-                        case 'max':
-                            $rawRate = $purchaseQuery->max('price') ?? 0;
-                            break;
-                        case 'min':
-                            $rawRate = $purchaseQuery->min('price') ?? 0;
-                            break;
-                        case 'latest':
-                            $latestPurchase = $purchaseQuery->orderByDesc('id')->first();
-                            $rawRate = $latestPurchase ? (float)$latestPurchase->price : 0;
-                            break;
-                        default: // weighted average by quantity (most accurate)
-                            $purchaseAgg = $purchaseQuery
-                                ->selectRaw('SUM(quantity * price) as total_value, SUM(quantity) as total_qty')
-                                ->first();
-
-                            $totalValue = $purchaseAgg->total_value ?? 0;
-                            $totalQty   = $purchaseAgg->total_qty ?? 0;
-
-                            $rawRate = $totalQty > 0 ? ($totalValue / $totalQty) : 0;
-                            break;
-                    }
-
-                    // Raw cost per piece = consumption (raw units per piece) * raw purchase rate (per raw unit)
-                    $rawCostPerPiece = $consumptionPerPiece * ($rawRate ?? 0);
-
-                    // ------------------------------
-                    // Manufacturing cost per piece (weighted average across receivings)
-                    // If manufacturing_cost is stored per piece -> weighted average equals avg weighted by qty.
-                    // If manufacturing_cost stored as total for batch -> this will convert to per piece correctly.
-                    // ------------------------------
-                    $mfgAgg = ProductionReceivingDetail::where('product_id', $product->id)
-                        ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                        ->selectRaw('SUM(manufacturing_cost * received_qty) as total_mfg_value, SUM(received_qty) as total_mfg_qty')
-                        ->first();
-
-                    $totalMfgValue = $mfgAgg->total_mfg_value ?? 0;
-                    $totalMfgQty   = $mfgAgg->total_mfg_qty ?? 0;
-
-                    if ($totalMfgQty > 0) {
-                        $manufacturingCostPerPiece = $totalMfgValue / $totalMfgQty;
-                    } else {
-                        // fallback: simple avg of manufacturing_cost if no received_qty records or data inconsistent
-                        $manufacturingCostPerPiece = ProductionReceivingDetail::where('product_id', $product->id)
-                            ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                            ->avg('manufacturing_cost') ?? 0;
-                    }
-
-                    // ------------------------------
-                    // Final per unit cost and total valuation
-                    // ------------------------------
-                    $costPrice = $rawCostPerPiece + $manufacturingCostPerPiece;
-                    $costPrice = (float) $costPrice;
-
-                    $stockInHand->push([
-                        'product'        => $product->name,
-                        'variation'      => $var->sku ?? null,
-                        'quantity'       => $stockQty,
-                        'raw_rate'       => round($rawRate, 4),
-                        'consumption'    => round($consumptionPerPiece, 4),
-                        'raw_cost'       => round($rawCostPerPiece, 4),
-                        'mfg_cost'       => round($manufacturingCostPerPiece, 4),
-                        'price'          => round($costPrice, 2),             // per piece
-                        'total'          => round($stockQty * $costPrice, 2)  // total valuation
-                    ]);
-                }
-            }
+    // filter selected product/variation
+    if ($selectedItem) {
+        if (str_contains($selectedItem, '-')) {
+            [$productIdSel, $variationIdSel] = explode('-', $selectedItem);
+            $productsToProcess = $allProducts->where('id', (int)$productIdSel);
+            $productsToProcess->transform(function ($product) use ($variationIdSel) {
+                $product->variations = $product->variations->where('id', (int)$variationIdSel);
+                return $product;
+            });
+        } else {
+            $productsToProcess = $allProducts->where('id', (int)$selectedItem);
         }
+    }
+
+    foreach ($productsToProcess as $product) {
+        $variations = $product->variations->isNotEmpty()
+            ? $product->variations
+            : collect([(object)['id' => null, 'sku' => null]]);
+
+        foreach ($variations as $var) {
+            // ------------------------------
+            // STOCK MOVEMENTS
+            // ------------------------------
+            $purchased = PurchaseInvoiceItem::where('item_id', $product->id)
+                ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
+                ->sum('quantity');
+
+            $purchaseReturn = PurchaseReturnItem::where('item_id', $product->id)
+                ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
+                ->sum('quantity');
+
+            $sold = SaleInvoiceItem::where('product_id', $product->id)
+                ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
+                ->sum('quantity');
+
+            $saleReturn = SaleReturnItem::where('product_id', $product->id)
+                ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
+                ->sum('qty');
+
+            // total raw issued (we will re-calc more precisely below)
+            $issued = ProductionDetail::where('product_id', $product->id)
+                ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
+                ->sum('qty');
+
+            // total finished received (pcs)
+            $received = ProductionReceivingDetail::where('product_id', $product->id)
+                ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
+                ->sum('received_qty');
+
+            $stockQty = ($purchased - $purchaseReturn + $saleReturn + $received) - ($sold + $issued);
+
+            // ------------------------------
+            // COSTING: link raw usage to the productions that produced THIS finished product
+            // ------------------------------
+            // 1) find productions that produced this finished product (their ids)
+            $productionIds = ProductionReceivingDetail::where('product_id', $product->id)
+                ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
+                ->pluck('production_id')
+                ->unique()
+                ->filter() // remove nulls if any
+                ->values()
+                ->all();
+
+            // if no production ids found, we fall back to previous approach (best-effort)
+            if (empty($productionIds)) {
+                // fallback: try to use production_details directly keyed by product (existing data)
+                $rawDetailsQuery = ProductionDetail::where('product_id', $product->id)
+                    ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id));
+            } else {
+                // get production_detail rows that were used in those productions (these are RAW items)
+                $rawDetailsQuery = ProductionDetail::whereIn('production_id', $productionIds);
+            }
+
+            $rawDetails = $rawDetailsQuery
+                ->get(['product_id as raw_product_id', 'variation_id as raw_variation_id', 'qty']);
+
+            // group by raw product + variation to calculate total raw qty per raw item
+            $rawGrouped = $rawDetails->groupBy(function ($row) {
+                return $row->raw_product_id . '::' . ($row->raw_variation_id ?? '0');
+            });
+
+            $totalFinishedReceived = $received; // finished pcs (same as earlier variable)
+            $totalRawCostValue = 0.0; // total raw cost (currency)
+            $totalRawQtyAll = 0.0;    // total raw units used across all raw items (for info)
+
+            // 2) for each raw item used, get its total qty and determine purchase rate (based on costingMethod),
+            //    then add qty * rate to totalRawCostValue
+            foreach ($rawGrouped as $key => $rows) {
+                // parse key
+                [$rawProductId, $rawVariationId] = explode('::', $key);
+                $rawProductId = (int)$rawProductId;
+                $rawVariationId = (int)$rawVariationId ?: null;
+
+                $rawQty = $rows->sum('qty');
+                $totalRawQtyAll += $rawQty;
+
+                // find purchase rate for this raw item (same 4 methods)
+                $pq = PurchaseInvoiceItem::where('item_id', $rawProductId)
+                    ->when(!is_null($rawVariationId), fn($q) => $q->where('variation_id', $rawVariationId));
+
+                switch ($costingMethod) {
+                    case 'max':
+                        $rawRateForItem = $pq->max('price') ?? 0;
+                        break;
+                    case 'min':
+                        $rawRateForItem = $pq->min('price') ?? 0;
+                        break;
+                    case 'latest':
+                        $latest = $pq->orderByDesc('id')->first();
+                        $rawRateForItem = $latest ? (float)$latest->price : 0;
+                        break;
+                    default: // weighted avg by quantity (recommended)
+                        $agg = $pq->selectRaw('SUM(quantity * price) as total_value, SUM(quantity) as total_qty')->first();
+                        $totValue = $agg->total_value ?? 0;
+                        $totQty   = $agg->total_qty ?? 0;
+                        $rawRateForItem = $totQty > 0 ? ($totValue / $totQty) : 0;
+                        break;
+                }
+
+                // accumulate raw cost value
+                $totalRawCostValue += ($rawQty * ($rawRateForItem ?? 0));
+            }
+
+            // raw cost per finished piece = totalRawCostValue / totalFinishedReceived
+            $rawCostPerPiece = $totalFinishedReceived > 0
+                ? ($totalRawCostValue / $totalFinishedReceived)
+                : 0;
+
+            // ------------------------------
+            // manufacturing cost per piece:
+            // We'll compute total manufacturing value (so this works whether manufacturing_cost is per-piece or batch-total)
+            // Approach:
+            // - total_mfg_value_by_weight = SUM(manufacturing_cost * received_qty)  (works if manufacturing_cost is per-piece)
+            // - total_mfg_value_by_sum    = SUM(manufacturing_cost)                (works if manufacturing_cost is batch-total)
+            // We'll prefer weighted approach first; but if that produces absurd results (e.g. extremely large),
+            // we have a safe fallback to divide SUM(manufacturing_cost) by SUM(received_qty).
+            // ------------------------------
+            $mfgRows = ProductionReceivingDetail::where('product_id', $product->id)
+                ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
+                ->get(['manufacturing_cost', 'received_qty']);
+
+            $totalMfgValueByWeight = $mfgRows->sum(function ($r) {
+                // treat manufacturing_cost as per-piece if that's the case (manufacturing_cost * received_qty)
+                return ((float)$r->manufacturing_cost) * ((float)($r->received_qty ?? 0));
+            });
+
+            $totalMfgSum = $mfgRows->sum('manufacturing_cost'); // raw sum of column
+            $totalMfgQty = $mfgRows->sum('received_qty');
+
+            // compute candidate per-piece values
+            $mfgPerPiece_byWeight = $totalMfgQty > 0 ? ($totalMfgValueByWeight / $totalMfgQty) : null; // expected if manufacturing_cost is per-piece
+            $mfgPerPiece_bySum    = $totalMfgQty > 0 ? ($totalMfgSum / $totalMfgQty) : null;       // expected if manufacturing_cost is batch-total
+
+            // Choose the most plausible per-piece manufacturing cost:
+            // - If weighted value exists and is > 0, prefer it (handles per-piece storage).
+            // - Otherwise fall back to sum/qty (handles batch-total storage).
+            // - If both exist, pick the one that is numeric and reasonable (we'll choose the smaller of the two if they differ wildly).
+            if ($mfgPerPiece_byWeight !== null && $mfgPerPiece_byWeight > 0) {
+                // if both candidates exist and they differ significantly, choose the smaller one
+                if ($mfgPerPiece_bySum !== null && $mfgPerPiece_bySum > 0) {
+                    // if weight-based is > 5x the sum-based, it likely means manufacturing_cost was batch total and we multiplied wrongly;
+                    // choose the sum-based in that case. Otherwise choose weight-based.
+                    if ($mfgPerPiece_byWeight > ($mfgPerPiece_bySum * 5)) {
+                        $manufacturingCostPerPiece = $mfgPerPiece_bySum;
+                    } else {
+                        $manufacturingCostPerPiece = $mfgPerPiece_byWeight;
+                    }
+                } else {
+                    $manufacturingCostPerPiece = $mfgPerPiece_byWeight;
+                }
+            } else {
+                $manufacturingCostPerPiece = $mfgPerPiece_bySum ?? 0;
+            }
+
+            // ------------------------------
+            // Final per unit cost and total valuation
+            // ------------------------------
+            $costPrice = ($rawCostPerPiece ?? 0) + ($manufacturingCostPerPiece ?? 0);
+            $costPrice = (float) $costPrice;
+
+            $stockInHand->push([
+                'product'        => $product->name,
+                'variation'      => $var->sku ?? null,
+                'quantity'       => $stockQty,
+                // helpful intermediate fields for validation
+                'total_raw_qty'  => round($totalRawQtyAll, 4),
+                'total_raw_value'=> round($totalRawCostValue, 4),
+                'consumption'    => $totalFinishedReceived > 0 ? round($totalRawQtyAll / $totalFinishedReceived, 4) : 0,
+                'raw_cost'       => round($rawCostPerPiece, 4),
+                'mfg_cost'       => round($manufacturingCostPerPiece, 4),
+                'price'          => round($costPrice, 2),             // per piece
+                'total'          => round($stockQty * $costPrice, 2)  // total valuation
+            ]);
+        }
+    }
+}
+
 
         // STOCK TRANSFERS (kept as you had)
         $transferQuery = StockTransferDetail::with([
