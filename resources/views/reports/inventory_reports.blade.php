@@ -148,55 +148,46 @@
             @endphp
 
             <div class="mb-3 text-end">
-                <h3 class="card-title">Total Stock Value: 
-                    <span class="text-danger">{{ number_format($grandTotal, 2) }}</span>
-                </h3>
+                <h3 class="card-title">Total Stock Value: <span class="text-danger">{{ number_format($grandTotal, 2) }}</span></h3>
             </div>
 
-            <table class="table table-bordered table-striped table-sm">
-                <thead class="table-dark">
+        <table class="table table-bordered table-striped">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Variation</th>
+                    <th>Quantity</th>
+                    <th>Cost Price (Per Unit)</th>
+                    <th>Total Cost</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($stockInHand as $stock)
                     <tr>
-                        <th>Product</th>
-                        <th>Variation</th>
-                        <th>Quantity</th>
-                        <th>Raw Consumption</th>
-                        <th>Raw Rate</th>
-                        <th>Raw Cost</th>
-                        <th>Mfg Cost</th>
-                        <th>Final Cost / Unit</th>
-                        <th>Total Cost</th>
+                        <td>{{ $stock['product'] }}</td>
+                        <td>{{ $stock['variation'] ?? '-' }}</td>
+                        <td>{{ $stock['quantity'] }}</td>
+                        <td>{{ number_format($stock['price'], 2) }}</td>
+                        <td>{{ number_format($stock['total'], 2) }}</td>
                     </tr>
-                </thead>
-                <tbody>
-                    @forelse($stockInHand as $stock)
-                        <tr>
-                            <td>{{ $stock['product'] }}</td>
-                            <td>{{ $stock['variation'] ?? '-' }}</td>
-                            <td>{{ $stock['quantity'] }}</td>
-                            <td>{{ number_format($stock['raw_consumption'], 2) }}</td>
-                            <td>{{ number_format($stock['raw_rate'], 2) }}</td>
-                            <td>{{ number_format($stock['raw_cost'], 2) }}</td>
-                            <td>{{ number_format($stock['mfg_cost'], 2) }}</td>
-                            <td>{{ number_format($stock['price'], 2) }}</td>
-                            <td>{{ number_format($stock['total'], 2) }}</td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="9" class="text-center">No stock data found.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-                @if(count($stockInHand))
-                <tfoot class="table-light fw-bold">
+                @empty
                     <tr>
-                        <th colspan="2" class="text-end">Grand Total</th>
-                        <th>{{ $grandQty }}</th>
-                        <th colspan="5"></th>
-                        <th>{{ number_format($grandTotal, 2) }}</th>
+                        <td colspan="5" class="text-center">No stock data found.</td>
                     </tr>
-                </tfoot>
-                @endif
-            </table>
+                @endforelse
+            </tbody>
+            @if(count($stockInHand))
+            <tfoot>
+                <tr>
+                    <th colspan="2" class="text-end">Grand Total</th>
+                    <th>{{ $grandQty }}</th>
+                    <th>-</th>
+                    <th>{{ number_format($grandTotal, 2) }}</th>
+                </tr>
+            </tfoot>
+            @endif
+        </table>
+
         </div>
 
         {{-- STOCK TRANSFER --}}
