@@ -240,6 +240,8 @@ class InventoryReportController extends Controller
                     $query = PurchaseInvoiceItem::where('item_id', $product->id)
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id));
 
+                    dd($query);
+
                     switch ($costingMethod) {
                         case 'max':
                             $rate = $query->max('price');
@@ -255,7 +257,6 @@ class InventoryReportController extends Controller
                             break;
                     }
 
-                    dd($rate);
                     
                     // ✅ Raw cost per piece
                     $rawCostPerPiece = $totalFinishedReceived > 0
