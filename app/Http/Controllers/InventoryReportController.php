@@ -233,6 +233,8 @@ class InventoryReportController extends Controller
                     // ------------------------------
                     $rawConsumption = $product->consumption ?? 0; // e.g. sqft per piece
 
+                    dd($rawConsumption);
+                    
                     // fetch raw purchase rate
                     $pq = PurchaseInvoiceItem::query()->where('item_id', $product->id);
                     switch ($costingMethod) {
