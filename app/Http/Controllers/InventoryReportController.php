@@ -198,7 +198,7 @@ class InventoryReportController extends Controller
                     : collect([(object)['id' => null, 'sku' => null]]);
 
                 foreach ($variations as $var) {
-                    // Net stock quantity (as you had)
+                    // Net stock quantity
                     $purchased = PurchaseInvoiceItem::where('item_id', $product->id)
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
                         ->sum('quantity');
@@ -259,20 +259,14 @@ class InventoryReportController extends Controller
                     $rawCostPerPiece = $totalFinishedReceived > 0
                         ? ($totalRawIssued * ($rate ?? 0)) / $totalFinishedReceived
                         : 0;
-                    
-                    // ✅ Manufacturing cost per piece
-                    $totalManufacturingCost = ProductionReceivingDetail::where('product_id', $product->id)
+
+                    // ✅ Manufacturing cost per piece (already stored per piece)
+                    $manufacturingCostPerPiece = ProductionReceivingDetail::where('product_id', $product->id)
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                        ->sum('manufacturing_cost');
-
-                    dd($totalManufacturingCost);
-
-                    $manufacturingCostPerPiece = $totalFinishedReceived > 0
-                        ? $totalManufacturingCost / $totalFinishedReceived
-                        : 0;
+                        ->avg('manufacturing_cost');
 
                     // ✅ Final per unit cost
-                    $costPrice = $rawCostPerPiece + $manufacturingCostPerPiece;
+                    $costPrice = $rawCostPerPiece + ($manufacturingCostPerPiece ?? 0);
 
                     $stockInHand->push([
                         'product'   => $product->name,
