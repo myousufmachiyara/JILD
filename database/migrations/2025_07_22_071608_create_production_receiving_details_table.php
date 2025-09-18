@@ -16,7 +16,6 @@ return new class extends Migration
 
             // Relations
             $table->unsignedBigInteger('production_receiving_id');
-            $table->unsignedBigInteger('production_id'); // Add this to link directly to production
             $table->unsignedBigInteger('product_id');
             $table->unsignedBigInteger('variation_id')->nullable();
 
@@ -31,7 +30,6 @@ return new class extends Migration
 
             // Foreign Keys
             $table->foreign('production_receiving_id')->references('id')->on('production_receivings')->onDelete('cascade'); 
-            $table->foreign('production_id')->references('id')->on('productions')->onDelete('cascade');
             $table->foreign('product_id')->references('id')->on('products');
             $table->foreign('variation_id')->references('id')->on('product_variations');
         });

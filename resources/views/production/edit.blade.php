@@ -35,7 +35,7 @@
               <div class="col-12 col-md-2 mb-3">
                 <label>Category</label>
                 <select class="form-control" name="category_id">
-                  <option value="" disabled>Select Category</option>
+                  <option value="">Select Category</option>
                   @foreach($categories as $item)  
                     <option value="{{ $item->id }}" {{ $production->category_id == $item->id ? 'selected' : '' }}>{{ $item->name }}</option>
                   @endforeach

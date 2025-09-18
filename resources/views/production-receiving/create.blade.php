@@ -40,7 +40,7 @@
             <div class="col-md-2">
               <label>Vendor</label>
               <select name="vendor_id" class="form-control select2-js" required>
-                  <option value="" disabled>Select Vendor</option>
+                  <option value="">Select Vendor</option>
                   @foreach($accounts as $vendor)
                     <option value="{{ $vendor->id }}"> {{ $vendor->name }}</option>
                   @endforeach

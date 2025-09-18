@@ -12,7 +12,6 @@ class ProductionReceivingDetail extends Model
     protected $fillable = [
         'production_receiving_id',
         'product_id',
-        'production_id',
         'variation_id',
         'manufacturing_cost',
         'received_qty',

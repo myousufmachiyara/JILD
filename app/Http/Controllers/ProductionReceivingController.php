@@ -77,7 +77,6 @@ class ProductionReceivingController extends Controller
             foreach ($validated['item_details'] as $detail) {            
                 ProductionReceivingDetail::create([
                     'production_receiving_id' => $receiving->id,
-                    'production_id' => $validated['production_id'],
                     'product_id' => $detail['product_id'],
                     'variation_id' => $detail['variation_id'] ?? null,
                     'manufacturing_cost' => $detail['manufacturing_cost'],
@@ -153,7 +152,6 @@ class ProductionReceivingController extends Controller
             foreach ($validated['item_details'] as $detail) {
                 $detailData[] = [
                     'production_receiving_id' => $receiving->id,
-                    'production_id' => $validated['production_id'],
                     'product_id' => $detail['product_id'],
                     'variation_id' => $detail['variation_id'] ?? null,
                     'manufacturing_cost' => $detail['manufacturing_cost'],
