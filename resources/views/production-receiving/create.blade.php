@@ -90,7 +90,7 @@
                     <option value="">Select Variation</option>
                   </select>
                 </td>
-                <td><input type="number" class="form-control manufacturing_cost" name="item_details[0][manufacturing_cost]" step="any" value="0" readonly></td>
+                <td><input type="number" class="form-control manufacturing_cost" name="item_details[0][manufacturing_cost]" step="any" value="0"></td>
                 <td><input type="number" class="form-control received-qty" name="item_details[0][received_qty]" step="any" value="0" required></td>
                 <td><input type="text" class="form-control" name="item_details[0][remarks]"></td>
                 <td><input type="number" class="form-control row-total" name="item_details[0][total]" step="any" value="0" readonly></td>
@@ -280,7 +280,7 @@ function addRow() {
                     <option value="">Select Variation</option>
                 </select>
             </td>
-            <td><input type="number" class="form-control manufacturing_cost" name="item_details[${rowCount}][manufacturing_cost]" step="any" value="0" readonly></td>
+            <td><input type="number" class="form-control manufacturing_cost" name="item_details[${rowCount}][manufacturing_cost]" step="any" value="0"></td>
             <td><input type="number" class="form-control received-qty" name="item_details[${rowCount}][received_qty]" step="any" value="0" required></td>
             <td><input type="text" class="form-control" name="item_details[${rowCount}][remarks]"></td>
             <td><input type="number" class="form-control row-total" name="item_details[${rowCount}][total]" step="any" value="0" readonly></td>

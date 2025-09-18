@@ -42,9 +42,7 @@
                 <select name="vendor_id" class="form-control select2-js" required>
                     <option value="" disabled>Select Vendor</option>
                     @foreach($accounts as $vendor)
-                        <option value="{{ $vendor->id }}" {{ $receiving->vendor_id == $vendor->id ? 'selected' : '' }}>
-                            {{ $vendor->name }}
-                        </option>
+                        <option value="{{ $vendor->id }}" {{ $receiving->vendor_id == $vendor->id ? 'selected' : '' }}>{{ $vendor->name }}</option>
                     @endforeach
                 </select>
               </div>
