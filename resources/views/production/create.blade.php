@@ -33,8 +33,8 @@
                 </div>
 
                 <div class="col-12 col-md-2">
-                  <label>Category<span style="color: red;"><strong>*</strong></span></label>
-                  <select class="form-control" name="category_id" required>
+                  <label>Category</label>
+                  <select class="form-control" name="category_id">
                     <option value="" selected disabled>Select Category</option>
                       @foreach($categories as $item)  
                         <option value="{{$item->id}}">{{$item->name}}</option>

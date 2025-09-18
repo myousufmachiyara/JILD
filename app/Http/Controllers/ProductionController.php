@@ -59,7 +59,7 @@ class ProductionController extends Controller
 
         $request->validate([
             'vendor_id' => 'required|exists:chart_of_accounts,id',
-            'category_id' => 'required|exists:product_categories,id',
+            'category_id' => 'nullable|exists:product_categories,id',
             'order_date' => 'required|date',
             'production_type' => 'required|string',
             'att.*' => 'nullable|file|max:2048',
@@ -108,7 +108,7 @@ class ProductionController extends Controller
             // Create production
             $production = Production::create([
                 'vendor_id' => $request->vendor_id,
-                'category_id' => $request->category_id,
+                'category_id' => $request->category_id ?? null,
                 'voucher_id' => $voucher->id ?? null,
                 'order_date' => $request->order_date,
                 'production_type' => $request->production_type,
@@ -123,7 +123,7 @@ class ProductionController extends Controller
                 foreach ($request->item_details as $item) {
                     $production->details()->create([
                         'production_id' => $production->id,
-                        'invoice_id' => $item['invoice_id'],
+                        'invoice_id' => $item['invoice_id'] ?? null,
                         'variation_id' => $item['variation_id'] ?? null,
                         'product_id' => $item['product_id'],
                         'qty' => $item['qty'],
@@ -182,7 +182,7 @@ class ProductionController extends Controller
 
         $request->validate([
             'vendor_id' => 'required|exists:chart_of_accounts,id',
-            'category_id' => 'required|exists:product_categories,id',
+            'category_id' => 'nullable|exists:product_categories,id',
             'order_date' => 'required|date',
             'production_type' => 'required|string|in:cmt,sale_leather',
             'attachments.*' => 'nullable|file|max:2048',
@@ -232,7 +232,7 @@ class ProductionController extends Controller
             // --- Update production ---
             $production->update([
                 'vendor_id' => $request->vendor_id,
-                'category_id' => $request->category_id,
+                'category_id' => $request->category_id ?? null,
                 'voucher_id' => $voucher->id ?? null,
                 'order_date' => $request->order_date,
                 'production_type' => $request->production_type,
@@ -248,7 +248,7 @@ class ProductionController extends Controller
                     'production_id' => $id,
                     'product_id' => $item['item_id'],
                     'variation_id' => $item['variation_id'] ?? null,
-                    'invoice_id' => $item['invoice'],
+                    'invoice_id' => $item['invoice'] ?? null,
                     'qty' => $item['qty'],
                     'unit' => $item['item_unit'],
                     'rate' => $item['rate'],

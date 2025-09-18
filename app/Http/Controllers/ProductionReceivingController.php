@@ -65,7 +65,8 @@ class ProductionReceivingController extends Controller
             $grn_no = 'GRN-' . str_pad(ProductionReceiving::count() + 1, 5, '0', STR_PAD_LEFT);
 
             $receiving = ProductionReceiving::create([
-                'production_id' => $validated['production_id'],
+                'production_id' => $validated['production_id'] ?? null,
+                'vendor_id' => $validated['vendor_id'],
                 'rec_date' => $validated['rec_date'],
                 'grn_no' => $grn_no,
                 'convance_charges' => $validated['convance_charges'],
@@ -137,7 +138,8 @@ class ProductionReceivingController extends Controller
 
             // Update master
             $receiving->update([
-                'production_id' => $validated['production_id'],
+                'production_id' => $validated['production_id'] ?? null,
+                'vendor_id' => $validated['vendor_id'],
                 'rec_date' => $validated['rec_date'],
                 'convance_charges' => $validated['convance_charges'],
                 'bill_discount' => $validated['bill_discount'],
