@@ -27,7 +27,7 @@
             </div>
             <div class="col-md-2">
               <label>Production Order</label>
-              <select name="production_id" class="form-control select2-js" required>
+              <select name="production_id" class="form-control select2-js">
                   <option value="" disabled {{ empty($selectedProductionId) ? 'selected' : '' }}>Select Production</option>
                   @foreach($productions as $prod)
                       <option value="{{ $prod->id }}"
@@ -36,7 +36,15 @@
                       </option>
                   @endforeach
               </select>
-
+            </div>
+            <div class="col-md-2">
+              <label>Vendor</label>
+              <select name="vendor_id" class="form-control select2-js" required>
+                  <option value="" disabled>Select Vendor</option>
+                  @foreach($accounts as $vendor)
+                    <option value="{{ $vendor->id }}"> {{ $vendor->name }}</option>
+                  @endforeach
+              </select>
             </div>
           </div>
         </div>

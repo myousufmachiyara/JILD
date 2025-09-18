@@ -28,13 +28,24 @@
               </div>
               <div class="col-md-2">
                 <label>Production Order</label>
-                <select name="production_id" class="form-control select2-js" required>
+                <select name="production_id" class="form-control select2-js">
                   <option value="" disabled>Select Production</option>
                   @foreach($productions as $prod)
                     <option value="{{ $prod->id }}" {{ $receiving->production_id == $prod->id ? 'selected' : '' }}>
                       {{ $prod->id }}
                     </option>
                   @endforeach
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label>Vendor</label>
+                <select name="vendor_id" class="form-control select2-js" required>
+                    <option value="" disabled>Select Vendor</option>
+                    @foreach($accounts as $vendor)
+                        <option value="{{ $vendor->id }}" {{ $receiving->vendor_id == $vendor->id ? 'selected' : '' }}>
+                            {{ $vendor->name }}
+                        </option>
+                    @endforeach
                 </select>
               </div>
             </div>

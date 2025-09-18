@@ -29,6 +29,7 @@ class ProductionReceivingController extends Controller
     {
         $productions = Production::all();
         $products = Product::get();
+        $accounts = ChartOfAccounts::where('account_type','vendor')->get();
 
         // ✅ Get optional ID from query string
         $selectedProductionId = $request->query('id');
@@ -36,17 +37,18 @@ class ProductionReceivingController extends Controller
         return view('production-receiving.create', compact(
             'productions',
             'products',
-            'selectedProductionId'
+            'selectedProductionId',
+            'accounts'
         ));
     }
-
 
     public function store(Request $request)
     {
         Log::info('Production Receiving Store Request', $request->all());
 
         $validated = $request->validate([
-            'production_id' => 'required|exists:productions,id',
+            'production_id' => 'nullable|exists:productions,id',
+            'vendor_id' => 'required|exists:chart_of_accounts,id',
             'rec_date' => 'required|date',
             'item_details.*.product_id' => 'required|exists:products,id',
             'item_details.*.variation_id' => 'nullable|exists:product_variations,id',
@@ -106,8 +108,9 @@ class ProductionReceivingController extends Controller
         $receiving = ProductionReceiving::with(['details.product', 'details.variation'])->findOrFail($id);
         $productions = Production::all();
         $products = Product::get();
+        $accounts = ChartOfAccounts::where('account_type','vendor')->get();
 
-        return view('production-receiving.edit', compact('receiving', 'productions', 'products'));
+        return view('production-receiving.edit', compact('receiving', 'productions', 'products','accounts'));
     }
 
     public function update(Request $request, $id) 
@@ -115,7 +118,8 @@ class ProductionReceivingController extends Controller
         Log::info("Production Receiving Update Request: ", $request->all());
 
         $validated = $request->validate([
-            'production_id' => 'required|exists:productions,id',
+            'production_id' => 'nullable|exists:productions,id',
+            'vendor_id' => 'required|exists:chart_of_accounts,id',            
             'rec_date' => 'required|date',
             'item_details.*.product_id' => 'required|exists:products,id',
             'item_details.*.variation_id' => 'nullable|exists:product_variations,id', // nullable allowed

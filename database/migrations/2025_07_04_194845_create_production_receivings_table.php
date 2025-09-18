@@ -13,7 +13,8 @@ return new class extends Migration
     {
         Schema::create('production_receivings', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('production_id');
+            $table->unsignedBigInteger('production_id')->nullable();
+            $table->unsignedBigInteger('vendor_id');
             $table->date('rec_date');
             $table->string('grn_no')->unique();
             $table->decimal('convance_charges', 10, 2)->default(0);
@@ -23,6 +24,7 @@ return new class extends Migration
             $table->softDeletes();
             
             $table->foreign('production_id')->references('id')->on('productions')->onDelete('cascade');
+            $table->foreign('vendor_id')->references('id')->on('chart_of_accounts')->onDelete('cascade');
             $table->foreign('received_by')->references('id')->on('users');
         });
     }

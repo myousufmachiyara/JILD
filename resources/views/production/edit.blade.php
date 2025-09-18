@@ -120,7 +120,7 @@
                     </td>
 
                     <td>
-                      <select name="item_details[{{ $index }}][invoice]" id="invoiceSelect{{ $index }}" class="form-control" required onchange="onInvoiceChange(this)">
+                      <select name="item_details[{{ $index }}][invoice]" id="invoiceSelect{{ $index }}" class="form-control" onchange="onInvoiceChange(this)">
                         <option value="" disabled>Select Invoice</option>
                         @if($detail->invoice_id)
                           <option value="{{ $detail->invoice_id }}" selected>{{ $detail->invoice_id }}</option>
@@ -311,7 +311,7 @@
               </select>
           </td>
           <td>
-              <select name="item_details[${index}][invoice]" id="invoiceSelect${index}" class="form-control" onchange="onInvoiceChange(this)" required>
+              <select name="item_details[${index}][invoice]" id="invoiceSelect${index}" class="form-control" onchange="onInvoiceChange(this)">
                   <option value="" disabled selected>Select Invoice</option>
               </select>
           </td>

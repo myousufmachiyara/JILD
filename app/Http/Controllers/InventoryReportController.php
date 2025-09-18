@@ -173,10 +173,10 @@ class InventoryReportController extends Controller
             }
         }
 
-        // STOCK INHAND
+        // Stock Inhand
         if ($tab == 'SR') {
             $selectedItem   = $request->item_id;
-            $costingMethod  = $request->costing_method ?? 'avg'; // avg | max | min | latest
+            $costingMethod  = $request->costing_method ?? 'avg';
             $productsToProcess = $allProducts;
 
             // filter selected product/variation
@@ -231,39 +231,29 @@ class InventoryReportController extends Controller
                     // ------------------------------
                     // COST CALCULATION
                     // ------------------------------
-                    $rawConsumption = $product->consumption ?? 0; // sqft per piece
+                    $rawCostPerPiece = 0;
+                    $manufacturingCostPerPiece = 0;
 
                     if ($product->is_raw) {
                         // RAW ITEM → cost directly from purchases
                         $pq = PurchaseInvoiceItem::query()->where('item_id', $product->id);
-                        switch ($costingMethod) {
-                            case 'max':    $rawRate = $pq->max('price') ?? 0; break;
-                            case 'min':    $rawRate = $pq->min('price') ?? 0; break;
-                            case 'latest': $rawRate = optional($pq->latest('id')->first())->price ?? 0; break;
-                            default:
-                                $agg = $pq->selectRaw('SUM(quantity * price) as total_value, SUM(quantity) as total_qty')->first();
-                                $rawRate = ($agg->total_qty ?? 0) > 0 ? ($agg->total_value / $agg->total_qty) : 0;
-                                break;
-                        }
-                        $rawCostPerPiece = $rawRate; // for raw items, cost = purchase rate
-                        $manufacturingCostPerPiece = 0;
+                        $rawRate = match ($costingMethod) {
+                            'max'    => $pq->max('price') ?? 0,
+                            'min'    => $pq->min('price') ?? 0,
+                            'latest' => optional($pq->latest('id')->first())->price ?? 0,
+                            default  => ($agg = $pq->selectRaw('SUM(quantity*price) as v, SUM(quantity) as q')->first())
+                                        && $agg->q > 0 ? $agg->v / $agg->q : 0,
+                        };
+
+                        $rawCostPerPiece = $rawRate; // direct
                     } else {
-                        // FINISHED GOOD → combine raw + manufacturing
+                        // FINISHED GOOD
 
-                        // 1. RAW RATE (lookup from issued raw materials)
-                        $issuedRaw = ProductionDetail::where('production_id', function($q) use($product, $var) {
-                                $q->select('production_id')
-                                ->from('production_receiving_details')
-                                ->where('product_id', $product->id)
-                                ->when(!is_null($var->id), fn($x) => $x->where('variation_id', $var->id));
-                            })
-                            ->with('item') // raw material reference
-                            ->get();
+                        // 1. All raw materials issued (no need to filter by receivings)
+                        $issuedRaw = ProductionDetail::with('product')->get();
 
-                        $rawRate = 0;
-                        $rawCostPerPiece = 0;
                         foreach ($issuedRaw as $row) {
-                            $pq = PurchaseInvoiceItem::query()->where('item_id', $row->item_id);
+                            $pq = PurchaseInvoiceItem::query()->where('item_id', $row->product_id);
                             $rate = match ($costingMethod) {
                                 'max'    => $pq->max('price') ?? 0,
                                 'min'    => $pq->min('price') ?? 0,
@@ -271,7 +261,9 @@ class InventoryReportController extends Controller
                                 default  => ($agg = $pq->selectRaw('SUM(quantity*price) as v, SUM(quantity) as q')->first())
                                             && $agg->q > 0 ? $agg->v / $agg->q : 0,
                             };
-                            $rawCostPerPiece += $row->consumption * $rate; // consumption × raw rate
+
+                            $consumption = optional($row->product)->consumption ?? 0;
+                            $rawCostPerPiece += $consumption * $rate;
                         }
 
                         // 2. Manufacturing cost per piece
@@ -296,16 +288,14 @@ class InventoryReportController extends Controller
                         'product'        => $product->name,
                         'variation'      => $var->sku ?? null,
                         'quantity'       => $stockQty,
-                        'raw_consumption'=> $rawConsumption,
                         'raw_cost'       => round($rawCostPerPiece, 2),
                         'mfg_cost'       => round($manufacturingCostPerPiece, 2),
-                        'price'          => round($costPrice, 2),            // per piece
-                        'total'          => round($stockQty * $costPrice, 2) // total valuation
+                        'price'          => round($costPrice, 2),
+                        'total'          => round($stockQty * $costPrice, 2),
                     ]);
                 }
             }
         }
-
 
         // STOCK TRANSFERS (kept as you had)
         $transferQuery = StockTransferDetail::with([

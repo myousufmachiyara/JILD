@@ -106,7 +106,7 @@
                       </select>
                     </td>
                     <td>
-                      <select name="item_details[0][invoice_id]" id="invoiceSelect0" class="form-control" required onchange="onInvoiceChange(this)">
+                      <select name="item_details[0][invoice_id]" id="invoiceSelect0" class="form-control" onchange="onInvoiceChange(this)">
                         <option value="" disabled selected>Select Invoice</option>
                       </select>
                     </td>
@@ -243,7 +243,7 @@
             </select>
           </td>
           <td>
-            <select name="item_details[${index}][invoice_id]" id="invoiceSelect${index}" class="form-control" onchange="onInvoiceChange(this)" required>
+            <select name="item_details[${index}][invoice_id]" id="invoiceSelect${index}" class="form-control" onchange="onInvoiceChange(this)">
               <option value="" disabled selected>Select Invoice</option>
             </select>
           </td>
