@@ -65,14 +65,16 @@
         </div>
       </div>
 
-      <div class="modal fade" id="bulkUploadModal" tabindex="-1" aria-labelledby="bulkUploadModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
+      <!-- Add User Modal -->
+      <div id="bulkUploadModal" class="modal-block modal-block-primary mfp-hide">
+        <section class="card">
           <form action="{{ route('products.bulk-upload.store') }}" method="POST" enctype="multipart/form-data" class="modal-content">
             @csrf
-            <div class="modal-header">
-              <h5 class="modal-title" id="bulkUploadModalLabel">Bulk Upload Products</h5>
+            <header class="card-header">
+              <h5 class="card-title" id="bulkUploadModalLabel">Bulk Upload Products</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
+
             <div class="modal-body">
               <div class="mb-3">
                 <label for="file" class="form-label">Choose File</label>
@@ -92,9 +94,8 @@
               </button>
             </div>
           </form>
-        </div>
+        </section>
       </div>
-
     </section>
   </div>
 </div>
