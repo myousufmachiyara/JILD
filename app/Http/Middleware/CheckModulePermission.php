@@ -11,7 +11,7 @@ class CheckModulePermission
     {
         // If user is not logged in
         if (!auth()->user()) {
-            abort(403, 'Unauthorized action.');
+            return redirect()->route('unauthorized'); // redirect to route
         }
 
         // Map actions to logical permissions for CRUD routes
@@ -34,7 +34,7 @@ class CheckModulePermission
         }
 
         if (!auth()->user()->can($finalPermission)) {
-            abort(403, 'Unauthorized action.');
+            return redirect()->route('unauthorized');
         }
 
         return $next($request);
