@@ -8,6 +8,8 @@ use App\Models\Attribute;
 use App\Models\ProductCategory;
 use App\Models\MeasurementUnit;
 use App\Models\ProductVariation;
+use App\Models\AttributeValue;
+use App\Models\ProductVariationAttributeValue;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Picqer\Barcode\BarcodeGeneratorPNG;
@@ -414,28 +416,30 @@ class ProductController extends Controller
             "Expires" => "0"
         ];
 
-        $columns = [
+        // Fetch attributes dynamically
+        $attributes = Attribute::pluck('name')->toArray();
+
+        $columns = array_merge([
             'Product SKU', 'Product Name', 'Category ID', 'Unit ID', 'Item Type', 'Description',
             'Variation SKU', 'Variation Barcode', 'Variation Price', 'Variation Stock',
             'Image URL / Path'
-        ];
+        ], $attributes);
 
         $callback = function() use ($columns) {
             $file = fopen('php://output', 'w');
             fputcsv($file, $columns);
 
-            // sample data
+            // Example rows
             fputcsv($file, ['CHR001', 'Office Chair', '1', '2', 'finished', 'Ergonomic chair',
-                            'CHR001-B-M', '1234567890123', '5000', '20', 'images/chair1.jpg']);
+                            'CHR001-B-M', '1234567890123', '5000', '20', 'images/chair1.jpg',
+                            'Black', 'Medium']);
             fputcsv($file, ['CHR001', 'Office Chair', '1', '2', 'finished', 'Ergonomic chair',
-                            'CHR001-W-L', '1234567890124', '5200', '15', 'images/chair2.jpg']);
-            fputcsv($file, ['TBL001', 'Desk Table', '2', '3', 'finished', 'Large wooden desk',
-                            'TBL001-W-L', '1234567890125', '8000', '10', 'images/table1.jpg']);
-
+                            'CHR001-W-L', '1234567890124', '5200', '15', 'images/chair2.jpg',
+                            'White', 'Large']);
             fclose($file);
         };
 
-        return Response::stream($callback, 200, $headers);
+        return response()->stream($callback, 200, $headers);
     }
 
     public function bulkUploadStore(Request $request)
@@ -447,94 +451,85 @@ class ProductController extends Controller
         DB::beginTransaction();
 
         try {
-            \Log::info('Bulk Upload started.');
-
-            // Get file path
-            $path = $request->file('file')->getRealPath();
-            \Log::info('File uploaded', ['path' => $path]);
-
-            // Read file with Laravel Excel
-            $rows = Excel::toArray([], $path)[0] ?? [];
-            \Log::info('File parsed', ['row_count' => count($rows)]);
-
+            $rows = \Maatwebsite\Excel\Facades\Excel::toArray([], $request->file('file'))[0] ?? [];
             if (empty($rows)) {
                 throw new \Exception('Uploaded file is empty.');
             }
 
-            // Skip header row
-            $header = array_shift($rows);
-            \Log::info('Header row detected', ['header' => $header]);
+            // Read header row
+            $header = array_map('strtolower', array_shift($rows));
+
+            // Map DB attributes (slug → id)
+            $dbAttributes = Attribute::all()->keyBy(fn($a) => strtolower($a->name));
 
             foreach ($rows as $index => $row) {
-                if (empty($row[0]) && empty($row[1])) {
-                    \Log::warning("Row {$index} skipped (empty).");
-                    continue;
-                }
+                if (empty($row[0]) && empty($row[1])) continue;
 
-                \Log::info("Processing row {$index}", ['row' => $row]);
+                $rowData = array_combine($header, $row);
 
-                // Map row values safely
-                $productSku        = trim($row[0] ?? '');
-                $productName       = trim($row[1] ?? '');
-                $categoryId        = (int) ($row[2] ?? 0);
-                $unitId            = (int) ($row[3] ?? 0);
-                $itemType          = trim($row[4] ?? '');
-                $description       = $row[5] ?? null;
-                $variationSku      = trim($row[6] ?? '');
-                $variationBarcode  = $row[7] ?? null;
-                $varPrice          = isset($row[8]) ? (float) $row[8] : 0;
-                $varStock          = isset($row[9]) ? (float) $row[9] : 0;
-                $imagePath         = $row[10] ?? null;
+                $productSku       = trim($rowData['product sku'] ?? '');
+                $productName      = trim($rowData['product name'] ?? '');
+                $categoryId       = (int) ($rowData['category id'] ?? 0);
+                $unitId           = (int) ($rowData['unit id'] ?? 0);
+                $itemType         = trim($rowData['item type'] ?? '');
+                $description      = $rowData['description'] ?? null;
+                $variationSku     = trim($rowData['variation sku'] ?? '');
+                $variationBarcode = $rowData['variation barcode'] ?? null;
+                $varPrice         = (float) ($rowData['variation price'] ?? 0);
+                $varStock         = (float) ($rowData['variation stock'] ?? 0);
+                $imagePath        = $rowData['image url / path'] ?? null;
 
-                // 1️⃣ Create or get Product
+                // ✅ Create or find Product
                 $product = Product::firstOrCreate(
                     ['sku' => $productSku],
                     [
-                        'name'              => $productName,
-                        'category_id'       => $categoryId,
-                        'measurement_unit'  => $unitId,
-                        'item_type'         => $itemType,
-                        'description'       => $description,
-                        'manufacturing_cost'=> 0,
-                        'opening_stock'     => 0,
-                        'selling_price'     => 0,
+                        'name'             => $productName,
+                        'category_id'      => $categoryId,
+                        'measurement_unit' => $unitId,
+                        'item_type'        => $itemType,
+                        'description'      => $description,
                     ]
                 );
-                \Log::info("Product saved", ['product_id' => $product->id, 'sku' => $productSku]);
 
-                // 2️⃣ Create Variation
+                // ✅ Create or update Variation
                 $variation = ProductVariation::updateOrCreate(
                     ['sku' => $variationSku],
                     [
-                        'product_id'         => $product->id,
-                        'barcode'            => $variationBarcode,
-                        'selling_price'      => $varPrice,
-                        'stock_quantity'     => $varStock,
-                        'manufacturing_cost' => 0,
+                        'product_id'     => $product->id,
+                        'barcode'        => $variationBarcode,
+                        'selling_price'  => $varPrice,
+                        'stock_quantity' => $varStock,
                     ]
                 );
-                \Log::info("Variation saved", ['variation_id' => $variation->id, 'sku' => $variationSku]);
 
-                // 3️⃣ Attach image
-                if ($imagePath) {
-                    $image = $product->images()->firstOrCreate(['image_path' => $imagePath]);
-                    \Log::info("Image attached", ['image_id' => $image->id, 'path' => $imagePath]);
+                // ✅ Attach attributes dynamically
+                foreach ($dbAttributes as $attrName => $attribute) {
+                    $attrValue = $rowData[strtolower($attribute->name)] ?? null;
+                    if (!$attrValue) continue;
+
+                    $value = AttributeValue::firstOrCreate(
+                        ['attribute_id' => $attribute->id, 'value' => ucfirst(strtolower($attrValue))]
+                    );
+
+                    ProductVariationAttributeValue::firstOrCreate([
+                        'product_variation_id' => $variation->id,
+                        'attribute_value_id'   => $value->id,
+                    ]);
+                }
+
+                // ✅ Attach image if exists
+                if ($imagePath && method_exists($product, 'images')) {
+                    $product->images()->firstOrCreate(['image_path' => $imagePath]);
                 }
             }
 
             DB::commit();
-            \Log::info('Bulk Upload completed successfully.');
-            return back()->with('success', 'Bulk products uploaded successfully.');
+            return back()->with('success', 'Bulk products uploaded successfully with variations & attributes.');
 
         } catch (\Throwable $e) {
             DB::rollBack();
-            \Log::error('Bulk upload failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
             return back()->with('error', 'Bulk upload failed: ' . $e->getMessage());
         }
     }
-
 }
 
