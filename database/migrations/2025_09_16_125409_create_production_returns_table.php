@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('production_returns', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('production_id'); // link to production order
             $table->unsignedBigInteger('vendor_id'); // production unit/vendor
             $table->date('return_date');
             $table->text('remarks')->nullable();
@@ -21,7 +20,6 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->foreign('production_id')->references('id')->on('productions')->onDelete('cascade');
             $table->foreign('vendor_id')->references('id')->on('chart_of_accounts')->onDelete('cascade');
             $table->foreign('created_by')->references('id')->on('users')->onDelete('cascade');
         });

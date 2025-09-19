@@ -62,18 +62,18 @@
                   </td>
 
                   <td>
-                    <select name="items[0][variation_id]" class="form-control select2-js variation-select">
+                    <select name="items[0][variation_id]" class="form-control select2-js variation-select" disabled>
                       <option value="">Select Variation</option>
                     </select>
                   </td>
 
                   <td>
-                    <select name="items[0][production_id]" class="form-control production-select" required>
+                    <select name="items[0][production_id]" class="form-control production-select">
                       <option value="">Select Production Order</option>
                     </select>
                   </td>
 
-                  <td><input type="number" name="items[0][quantity]" class="form-control quantity" step="any" onchange="rowTotal(0)"></td>
+                  <td><input type="number" name="items[0][quantity]" class="form-control quantity" step="any" onchange="rowTotal(this)"></td>
 
                   <td>
                     <select name="items[0][unit]" class="form-control unit-select" required>
@@ -84,7 +84,7 @@
                     </select>
                   </td>
 
-                  <td><input type="number" name="items[0][price]" class="form-control price" step="any" onchange="rowTotal(0)"></td>
+                  <td><input type="number" name="items[0][price]" class="form-control price" step="any" onchange="rowTotal(this)"></td>
                   <td><input type="number" name="items[0][amount]" class="form-control amount" step="any" readonly></td>
                   <td>
                     <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button>
@@ -142,18 +142,18 @@
         </td>
 
         <td>
-          <select name="items[${index}][variation_id]" class="form-control select2-js variation-select">
+          <select name="items[${index}][variation_id]" class="form-control select2-js variation-select" disabled>
             <option value="">Select Variation</option>
           </select>
         </td>
 
         <td>
-          <select name="items[${index}][production_id]" class="form-control production-select" required>
+          <select name="items[${index}][production_id]" class="form-control production-select">
             <option value="">Select Production Order</option>
           </select>
         </td>
 
-        <td><input type="number" name="items[${index}][quantity]" class="form-control quantity" step="any" onchange="rowTotal(${index})"></td>
+        <td><input type="number" name="items[${index}][quantity]" class="form-control quantity" step="any" onchange="rowTotal(this)"></td>
 
         <td>
           <select name="items[${index}][unit]" class="form-control unit-select" required>
@@ -162,7 +162,7 @@
           </select>
         </td>
 
-        <td><input type="number" name="items[${index}][price]" class="form-control price" step="any" onchange="rowTotal(${index})"></td>
+        <td><input type="number" name="items[${index}][price]" class="form-control price" step="any" onchange="rowTotal(this)"></td>
         <td><input type="number" name="items[${index}][amount]" class="form-control amount" step="any" readonly></td>
         <td>
           <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button>
@@ -174,7 +174,6 @@
     index++;
   }
 
-  // product, variation, barcode handling → same as purchase return
   function onReturnItemChange(select) {
     const row = $(select).closest('tr');
     const productId = $(select).val();
@@ -184,20 +183,32 @@
     row.find('input.product-code').val(barcode);
     row.find('select.unit-select').val(unitId).trigger('change');
 
-    loadVariations(row, productId);
-    loadProductions(row, productId);
+    loadVariations(row, productId, function(hasVariations) {
+      if (!hasVariations) {
+        loadProductions(row, productId);
+      }
+    });
   }
 
-  function loadVariations(row, productId) {
+  function loadVariations(row, productId, callback) {
     const $variationSelect = row.find('.variation-select');
-    $variationSelect.html('<option>Loading...</option>');
+    $variationSelect.html('<option>Loading...</option>').prop('disabled', true);
 
     $.get(`/product/${productId}/variations`, function(data){
-      let options = '<option value="">Select Variation</option>';
-      (data.variation || []).forEach(v => {
-        options += `<option value="${v.id}">${v.sku}</option>`;
-      });
-      $variationSelect.html(options).select2({ width: '100%' });
+      if (data.length > 0) {
+        let options = '<option value="">Select Variation</option>';
+        data.forEach(v => {
+          options += `<option value="${v.id}">${v.sku}</option>`;
+        });
+        $variationSelect.html(options).prop('disabled', false).select2({ width: '100%' });
+        if (typeof callback === 'function') callback(true);
+      } else {
+        $variationSelect.html('<option value="">No Variations</option>').prop('disabled', true);
+        if (typeof callback === 'function') callback(false);
+      }
+    }).fail(() => {
+      $variationSelect.html('<option value="">Error loading</option>').prop('disabled', true);
+      if (typeof callback === 'function') callback(false);
     });
   }
 
@@ -205,9 +216,15 @@
     const $prodSelect = row.find('.production-select');
     const $priceInput = row.find('.price');
 
+    // Get variation id (if dropdown exists and enabled)
+    let variationId = row.find('.variation-select').val();
+    if (!variationId || variationId === "") {
+      variationId = null; // explicitly request null case
+    }
+
     $prodSelect.html('<option>Loading...</option>');
 
-    $.get(`/product/${productId}/productions`, function(data){
+    $.get(`/product/${productId}/productions`, { variation_id: variationId }, function(data){
       let options = '<option value="">Select Production Order</option>';
       data.forEach(p => {
         options += `<option value="${p.id}" data-rate="${p.rate}">#${p.id}</option>`;
@@ -221,14 +238,22 @@
     });
   }
 
+  $(document).on('change', '.variation-select', function() {
+    const row = $(this).closest('tr');
+    const productId = row.find('.product-select').val();
+    if (productId) {
+      loadProductions(row, productId);
+    }
+  });
+
   $(document).on('change', '.production-select', function() {
     const $row = $(this).closest('tr');
     const rate = $(this).find(':selected').data('rate') || 0;
     $row.find('.price').val(rate).trigger('change');
   });
 
-  function rowTotal(idx) {
-    const row = $('#ReturnTableBody tr').eq(idx);
+  function rowTotal(el) {
+    const row = $(el).closest('tr');
     const qty = parseFloat(row.find('input.quantity').val()) || 0;
     const price = parseFloat(row.find('input.price').val()) || 0;
     row.find('input.amount').val((qty * price).toFixed(2));

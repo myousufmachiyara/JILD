@@ -15,12 +15,14 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('production_return_id');
             $table->unsignedBigInteger('product_id');
+            $table->unsignedBigInteger('production_id')->nullable();
             $table->unsignedBigInteger('variation_id')->nullable();
             $table->unsignedBigInteger('unit_id');
             $table->decimal('quantity', 15, 2);
             $table->decimal('price', 15, 2)->default(0); // if costing needs to be recorded
             $table->timestamps();
 
+            $table->foreign('production_id')->references('id')->on('productions')->onDelete('cascade');
             $table->foreign('production_return_id')->references('id')->on('production_returns')->onDelete('cascade');
             $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');
             $table->foreign('unit_id')->references('id')->on('measurement_units')->onDelete('cascade');

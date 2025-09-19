@@ -9,7 +9,7 @@ class ProductionReturn extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['production_id', 'vendor_id', 'return_date', 'remarks', 'created_by'];
+    protected $fillable = ['vendor_id', 'return_date', 'remarks', 'created_by'];
 
     protected $casts = [
         'return_date' => 'date',

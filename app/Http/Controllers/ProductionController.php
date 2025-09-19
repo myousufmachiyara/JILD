@@ -274,6 +274,57 @@ class ProductionController extends Controller
         }
     }
 
+
+    public function getProductProductions(Request $request, $productId)
+    {
+        try {
+            $variationId = $request->get('variation_id'); // optional
+
+            Log::info("Fetching productions", [
+                'product_id'  => $productId,
+                'variation_id' => $variationId,
+            ]);
+
+            $query = ProductionDetail::with('production')
+                ->where('product_id', $productId);
+
+            if ($variationId) {
+                // Case 1: Product has variation selected → filter by variation
+                $query->where('variation_id', $variationId);
+            } else {
+                // Case 2: Product has no variation → only include rows where variation_id IS NULL
+                $query->whereNull('variation_id');
+            }
+
+            $productions = $query->get()->map(function ($detail) {
+                return [
+                    'id'   => $detail->production_id,
+                    'rate' => $detail->rate,
+                ];
+            });
+
+            Log::info("Productions fetched successfully", [
+                'count' => $productions->count(),
+                'productions' => $productions,
+            ]);
+
+            return response()->json($productions);
+
+        } catch (\Throwable $e) {
+            Log::error("Error fetching productions", [
+                'product_id' => $productId,
+                'variation_id' => $request->get('variation_id'),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'error' => 'Something went wrong while fetching productions.'
+            ], 500);
+        }
+    }
+
+
     public function show($id)
     {
         $production = Production::with(['vendor', 'details.product'])->findOrFail($id);
