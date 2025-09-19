@@ -85,7 +85,6 @@ Route::middleware(['auth'])->group(function () {
         'sale_return' => ['controller' => SaleReturnController::class, 'permission' => 'sale_return'],
 
         // Vouchers
-        'payment_vouchers' => ['controller' => PaymentVoucherController::class, 'permission' => 'payment_vouchers'],
         'vouchers' => ['controller' => VoucherController::class, 'permission' => 'vouchers'],
 
         // Production
