@@ -409,127 +409,196 @@ class ProductController extends Controller
     public function bulkUploadTemplate()
     {
         $headers = [
-            "Content-type" => "text/csv",
+            "Content-Type" => "text/csv",
             "Content-Disposition" => "attachment; filename=product_bulk_template.csv",
             "Pragma" => "no-cache",
             "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
-            "Expires" => "0"
+            "Expires" => "0",
         ];
 
-        // Fetch attributes dynamically
         $attributes = Attribute::pluck('name')->toArray();
+        $categories = ProductCategory::pluck('id', 'name')->toArray();
+        $units      = MeasurementUnit::pluck('id', 'name')->toArray();
 
         $columns = array_merge([
             'Product SKU', 'Product Name', 'Category ID', 'Unit ID', 'Item Type', 'Description',
-            'Variation SKU', 'Variation Barcode', 'Variation Price', 'Variation Stock',
-            'Image URL / Path'
+            'Variation SKU', 'Variation Barcode', 'Variation Price', 'Variation Stock'
         ], $attributes);
 
-        $callback = function() use ($columns) {
+        $callback = function() use ($columns, $categories, $units) {
             $file = fopen('php://output', 'w');
             fputcsv($file, $columns);
 
-            // Example rows
-            fputcsv($file, ['CHR001', 'Office Chair', '1', '2', 'finished', 'Ergonomic chair',
-                            'CHR001-B-M', '1234567890123', '5000', '20', 'images/chair1.jpg',
-                            'Black', 'Medium']);
-            fputcsv($file, ['CHR001', 'Office Chair', '1', '2', 'finished', 'Ergonomic chair',
-                            'CHR001-W-L', '1234567890124', '5200', '15', 'images/chair2.jpg',
-                            'White', 'Large']);
+            $catIds  = array_values($categories);
+            $unitIds = array_values($units);
+
+            // Finished goods with variations
+            $finishedGoods = [
+                ['CHR001', 'Office Chair', 'Ergonomic chair', [['CHR001-B-M','1234567890123','5000','20','Black','Medium'], ['CHR001-W-L','1234567890124','5200','15','White','Large']]],
+                ['DSK001', 'Wooden Desk', 'Solid oak office desk', [['DSK001-B-STD','2234567890123','12000','10','Brown','Standard'], ['DSK001-W-STD','2234567890124','12500','8','White','Standard']]],
+                ['LPT001', 'Laptop Table', 'Adjustable laptop table', [['LPT001-B-S','3234567890123','3000','30','Black','Small'], ['LPT001-B-L','3234567890124','3500','25','Black','Large']]],
+            ];
+
+            foreach ($finishedGoods as $fg) {
+                foreach ($fg[3] as $variation) {
+                    fputcsv($file, [
+                        $fg[0], $fg[1], $catIds[0] ?? 1, $unitIds[0] ?? 1, 'fg', $fg[2],
+                        $variation[0], $variation[1], $variation[2], $variation[3],
+                        $variation[4] ?? '', $variation[5] ?? ''
+                    ]);
+                }
+            }
+
+            // Raw materials (no variations)
+            $rawProducts = [
+                ['RAW001', 'Wood Plank', 'Solid oak plank 2x4 feet'],
+                ['RAW002', 'Steel Rod', 'High-strength steel rod 12mm'],
+                ['RAW003', 'Foam Sheet', 'High density foam sheet'],
+                ['RAW004', 'Leather Roll', 'Genuine brown leather roll'],
+                ['RAW005', 'Glass Sheet', 'Tempered glass sheet 4x6'],
+            ];
+
+            foreach ($rawProducts as $raw) {
+                fputcsv($file, [
+                    $raw[0], $raw[1], $catIds[1] ?? 1, $unitIds[1] ?? 1, 'raw', $raw[2],
+                    '', '', '0', '0'
+                ]);
+            }
+
             fclose($file);
         };
 
         return response()->stream($callback, 200, $headers);
     }
 
-    public function bulkUploadStore(Request $request)
+    public function bulkExport()
+    {
+        $headers = [
+            "Content-Type" => "text/csv",
+            "Content-Disposition" => "attachment; filename=products_export.csv",
+            "Pragma" => "no-cache",
+            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
+            "Expires" => "0",
+        ];
+
+        $attributes = Attribute::pluck('name')->toArray();
+        $columns = array_merge([
+            'Product SKU', 'Product Name', 'Category ID', 'Unit ID', 'Item Type', 'Description',
+            'Variation SKU', 'Variation Barcode', 'Variation Price', 'Variation Stock'
+        ], $attributes);
+
+        $callback = function() use ($columns, $attributes) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $columns);
+
+            $products = Product::with(['variations.attributeValues.attribute'])->get();
+
+            foreach ($products as $product) {
+                if ($product->variations->isEmpty()) {
+                    fputcsv($file, [
+                        $product->sku, $product->name, $product->category_id, $product->measurement_unit,
+                        $product->item_type, $product->description,
+                        '', '', 0, 0
+                    ]);
+                } else {
+                    foreach ($product->variations as $variation) {
+                        $row = [
+                            $product->sku, $product->name, $product->category_id, $product->measurement_unit,
+                            $product->item_type, $product->description,
+                            $variation->sku, $variation->barcode, $variation->selling_price, $variation->stock_quantity
+                        ];
+
+                        foreach ($attributes as $attr) {
+                            $value = $variation->attributeValues->firstWhere('attribute.name', $attr)->value ?? '';
+                            $row[] = $value;
+                        }
+
+                        fputcsv($file, $row);
+                    }
+                }
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function bulkImport(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,csv,txt'
+            'file' => 'required|mimes:xlsx,csv,txt',
+            'delete_missing' => 'nullable|boolean',
         ]);
 
         DB::beginTransaction();
-
         try {
-            $rows = \Maatwebsite\Excel\Facades\Excel::toArray([], $request->file('file'))[0] ?? [];
-            if (empty($rows)) {
-                throw new \Exception('Uploaded file is empty.');
-            }
+            $rows = Excel::toArray([], $request->file('file'))[0] ?? [];
+            if (empty($rows)) throw new \Exception('Uploaded file is empty.');
 
-            // Read header row
             $header = array_map('strtolower', array_shift($rows));
-
-            // Map DB attributes (slug → id)
             $dbAttributes = Attribute::all()->keyBy(fn($a) => strtolower($a->name));
 
-            foreach ($rows as $index => $row) {
-                if (empty($row[0]) && empty($row[1])) continue;
+            $importedSKUs = [];
+            $importedVariationSKUs = [];
 
+            foreach ($rows as $row) {
+                if (empty($row[0]) && empty($row[1])) continue;
                 $rowData = array_combine($header, $row);
 
-                $productSku       = trim($rowData['product sku'] ?? '');
-                $productName      = trim($rowData['product name'] ?? '');
-                $categoryId       = (int) ($rowData['category id'] ?? 0);
-                $unitId           = (int) ($rowData['unit id'] ?? 0);
-                $itemType         = trim($rowData['item type'] ?? '');
-                $description      = $rowData['description'] ?? null;
-                $variationSku     = trim($rowData['variation sku'] ?? '');
-                $variationBarcode = $rowData['variation barcode'] ?? null;
-                $varPrice         = (float) ($rowData['variation price'] ?? 0);
-                $varStock         = (float) ($rowData['variation stock'] ?? 0);
-                $imagePath        = $rowData['image url / path'] ?? null;
+                $productSku = trim($rowData['product sku'] ?? '');
+                $variationSku = trim($rowData['variation sku'] ?? '');
 
-                // ✅ Create or find Product
-                $product = Product::firstOrCreate(
+                $importedSKUs[] = $productSku;
+                $importedVariationSKUs[] = $variationSku;
+
+                $product = Product::updateOrCreate(
                     ['sku' => $productSku],
                     [
-                        'name'             => $productName,
-                        'category_id'      => $categoryId,
-                        'measurement_unit' => $unitId,
-                        'item_type'        => $itemType,
-                        'description'      => $description,
+                        'name' => trim($rowData['product name'] ?? ''),
+                        'category_id' => (int)($rowData['category id'] ?? 0),
+                        'measurement_unit' => (int)($rowData['unit id'] ?? 0),
+                        'item_type' => trim($rowData['item type'] ?? ''),
+                        'description' => $rowData['description'] ?? null,
                     ]
                 );
 
-                // ✅ Create or update Variation
                 $variation = ProductVariation::updateOrCreate(
                     ['sku' => $variationSku],
                     [
-                        'product_id'     => $product->id,
-                        'barcode'        => $variationBarcode,
-                        'selling_price'  => $varPrice,
-                        'stock_quantity' => $varStock,
+                        'product_id' => $product->id,
+                        'barcode' => $rowData['variation barcode'] ?? null,
+                        'selling_price' => (float)($rowData['variation price'] ?? 0),
+                        'stock_quantity' => (float)($rowData['variation stock'] ?? 0),
                     ]
                 );
 
-                // ✅ Attach attributes dynamically
-                foreach ($dbAttributes as $attrName => $attribute) {
-                    $attrValue = $rowData[strtolower($attribute->name)] ?? null;
-                    if (!$attrValue) continue;
+                $variation->attributeValues()->sync(
+                    collect($dbAttributes)->mapWithKeys(function($attribute) use ($rowData) {
+                        $value = $rowData[strtolower($attribute->name)] ?? null;
+                        if (!$value) return [];
+                        $attrValue = AttributeValue::firstOrCreate([
+                            'attribute_id' => $attribute->id,
+                            'value' => ucfirst(strtolower($value))
+                        ]);
+                        return [$attrValue->id => []];
+                    })->toArray()
+                );
+            }
 
-                    $value = AttributeValue::firstOrCreate(
-                        ['attribute_id' => $attribute->id, 'value' => ucfirst(strtolower($attrValue))]
-                    );
-
-                    ProductVariationAttributeValue::firstOrCreate([
-                        'product_variation_id' => $variation->id,
-                        'attribute_value_id'   => $value->id,
-                    ]);
-                }
-
-                // ✅ Attach image if exists
-                if ($imagePath && method_exists($product, 'images')) {
-                    $product->images()->firstOrCreate(['image_path' => $imagePath]);
-                }
+            // Delete missing products/variations if checkbox is checked
+            if ($request->delete_missing) {
+                ProductVariation::whereNotIn('sku', $importedVariationSKUs)->delete();
+                Product::whereNotIn('sku', $importedSKUs)->delete();
             }
 
             DB::commit();
-            return back()->with('success', 'Bulk products uploaded successfully with variations & attributes.');
-
+            return back()->with('success', 'Products imported successfully. Deleted missing products/variations: ' . ($request->delete_missing ? 'Yes' : 'No'));
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->with('error', 'Bulk upload failed: ' . $e->getMessage());
+            return back()->with('error', 'Bulk import failed: ' . $e->getMessage());
         }
     }
+
 }
 

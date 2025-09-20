@@ -46,8 +46,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/get-product-by-code/{barcode}', [ProductController::class, 'getByBarcode'])->name('product.byBarcode');
     Route::get('/product/{product}/variations', [ProductController::class, 'getVariations'])->name('product.variations');
     Route::get('/product/{product}/productions', [ProductionController::class, 'getProductProductions'])->name('product.productions');
-    Route::post('/products/bulk-upload', [ProductController::class, 'bulkUploadStore'])->name('products.bulk-upload.store');
-    Route::get('/products/bulk-upload/template', [ProductController::class, 'bulkUploadTemplate'])->name('products.bulk-upload.template');
+    
+    Route::get('/products/bulk-upload/template', [ProductController::class, 'bulkUploadTemplate'])->name('products.bulk-upload.template')->middleware('check.permission:products.create');
+    Route::get('/products/bulk-export', [ProductController::class, 'bulkExport'])->name('products.bulk-export')->middleware('check.permission:products.create');
+    Route::post('/products/bulk-import', [ProductController::class, 'bulkImport'])->name('products.bulk-import')->middleware('check.permission:products.create');
 
     //Purchase Helper
     Route::get('/product/{product}/invoices', [PurchaseInvoiceController::class, 'getProductInvoices']);

@@ -16,7 +16,9 @@
         <div style="display: flex;justify-content: space-between;">
           <h2 class="card-title">All Products</h2>
           <div>
-            <a href="#bulkUploadModal" class="modal-with-form btn btn-success me-2" data-bs-target="#bulkUploadModal"><i class="fas fa-upload"></i> Bulk Upload</button>
+            <!-- Export button -->
+            <a href="{{ route('products.bulk-export') }}" class="btn btn-warning me-2"><i class="fas fa-download"></i> Export Products</a>
+            <a href="#bulkImportModal" class="modal-with-form btn btn-success me-2"><i class="fas fa-file-import"></i> Bulk Edit Import</a>
             <a href="{{ route('products.barcode.selection') }}" class="btn btn-danger">Print Barcodes</a>
             <a href="{{ route('products.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Products</a>
           </div>
@@ -66,34 +68,43 @@
       </div>
     </section>
 
-    <!-- Bulk upload Modal -->
-    <div id="bulkUploadModal" class="modal-block mfp-hide">
+    <!-- Bulk Import Modal -->
+    <div id="bulkImportModal" class="modal-block mfp-hide">
       <section class="card">
-        <form action="{{ route('products.bulk-upload.store') }}" method="POST" enctype="multipart/form-data">
+        <form action="{{ route('products.bulk-import') }}" method="POST" enctype="multipart/form-data">
           @csrf
           <header class="card-header">
-            <h2 class="card-title">Bulk Upload Products</h2>
+            <h2 class="card-title">Bulk Import / Update Products</h2>
           </header>
 
           <div class="card-body">
+
             <div class="mb-3">
-              <label for="file" class="form-label">Choose File</label>
-              <input type="file" name="file" id="file" class="form-control" accept=".csv,.xlsx" required>
-              <small class="text-danger">Allowed formats: CSV, XLSX</small>
+              <label for="file_import" class="form-label">Choose edited export file</label>
+              <input type="file" name="file" id="file_import" class="form-control" accept=".csv,.xlsx" required>
+              <small class="text-danger">Upload exported file after editing. Allowed: CSV, XLSX</small>
             </div>
-            <div class="mt-2">
-              <a href="{{ route('products.bulk-upload.template') }}" class="btn btn-outline-primary btn-sm">
-                <i class="fas fa-download"></i> Download Template
-              </a>
+
+            <div class="mt-2 mb-2">
+              <input type="checkbox" class="perm-checkbox index-checkbox" name="delete_missing" value="1" id="delete_missing">
+              <label class="form-check-label" for="delete_missing">
+                Delete products and variations not present in this file
+              </label>
             </div>
+
+            <a href="{{ route('products.bulk-upload.template') }}" class="btn btn-primary mb-3">
+              <i class="fas fa-download"></i> Download Template
+            </a>
           </div>
+
           <footer class="card-footer text-end">
             <button class="btn btn-default modal-dismiss">Cancel</button>
-            <button type="submit" class="btn btn-success"><i class="fas fa-upload"></i> Upload</button>
+            <button type="submit" class="btn btn-success"><i class="fas fa-upload"></i> Import</button>
           </footer>
         </form>
       </section>
     </div>
+
   </div>
 </div>
 
