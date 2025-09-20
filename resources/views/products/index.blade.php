@@ -16,7 +16,7 @@
         <div style="display: flex;justify-content: space-between;">
           <h2 class="card-title">All Products</h2>
           <div>
-            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#bulkUploadModal"><i class="fas fa-upload"></i> Bulk Upload</button>
+            <a href="#bulkUploadModal" class="modal-with-form btn btn-success me-2" data-bs-target="#bulkUploadModal"><i class="fas fa-upload"></i> Bulk Upload</button>
             <a href="{{ route('products.barcode.selection') }}" class="btn btn-danger">Print Barcodes</a>
             <a href="{{ route('products.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Products</a>
           </div>
@@ -65,16 +65,15 @@
         </div>
       </div>
     </section>
-    
+
     <!-- Bulk upload Modal -->
-    <div id="bulkUploadModal" class="modal-block modal-block-primary mfp-hide">
+    <div id="bulkUploadModal" class="modal-block mfp-hide">
       <section class="card">
         <form action="{{ route('products.bulk-upload.store') }}" method="POST" enctype="multipart/form-data">
           @csrf
           <header class="card-header">
-            <h5 class="card-title" id="bulkUploadModalLabel">Bulk Upload Products</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
+            <h2 class="card-title">Bulk Upload Products</h2>
+          </header>
 
           <div class="card-body">
             <div class="mb-3">
@@ -89,7 +88,7 @@
             </div>
           </div>
           <footer class="card-footer text-end">
-            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-default modal-dismiss">Cancel</button>
             <button type="submit" class="btn btn-success"><i class="fas fa-upload"></i> Upload</button>
           </footer>
         </form>
@@ -97,8 +96,6 @@
     </div>
   </div>
 </div>
-
-
 
 <script>
   $(document).ready(function () {
