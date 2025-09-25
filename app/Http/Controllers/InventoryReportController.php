@@ -43,7 +43,7 @@ class InventoryReportController extends Controller
 
         // initialize variables so view always receives them
         $itemLedger   = collect();
-        $stockInHand  = collect(); // <<-- IMPORTANT: initialize here
+        $stockInHand  = collect();
         $stockTransfers = collect();
         $nonMovingItems = collect();
         $reorderLevel = collect();
@@ -173,7 +173,9 @@ class InventoryReportController extends Controller
             }
         }
 
-        // Stock Inhand
+        // --------------------------
+        // STOCK IN HAND (FIXED with Opening Stock)
+        // --------------------------
         if ($tab == 'SR') {
             $selectedItem   = $request->item_id;
             $costingMethod  = $request->costing_method ?? 'avg';
@@ -199,9 +201,15 @@ class InventoryReportController extends Controller
                     : collect([(object)['id' => null, 'sku' => null]]);
 
                 foreach ($variations as $var) {
-                    // ------------------------------
-                    // STOCK MOVEMENTS
-                    // ------------------------------
+                    // Opening Stock
+                    $openingStock = 0;
+                    if (!is_null($var->id)) {
+                        $openingStock = $var->stock_quantity ?? 0;
+                    } else {
+                        $openingStock = $product->opening_stock ?? 0;
+                    }
+
+                    // Stock Movements
                     $purchased = PurchaseInvoiceItem::where('item_id', $product->id)
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
                         ->sum('quantity');
@@ -226,16 +234,14 @@ class InventoryReportController extends Controller
                         ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
                         ->sum('received_qty');
 
-                    $stockQty = ($purchased - $purchaseReturn + $saleReturn + $received) - ($sold + $issued);
+                    // Final stock with opening
+                    $stockQty = $openingStock + ($purchased - $purchaseReturn + $saleReturn + $received) - ($sold + $issued);
 
-                    // ------------------------------
-                    // COST CALCULATION
-                    // ------------------------------
+                    // Cost Calculation
                     $rawCostPerPiece = 0;
                     $manufacturingCostPerPiece = 0;
 
                     if ($product->is_raw) {
-                        // RAW ITEM → cost directly from purchases
                         $pq = PurchaseInvoiceItem::query()->where('item_id', $product->id);
                         $rawRate = match ($costingMethod) {
                             'max'    => $pq->max('price') ?? 0,
@@ -244,14 +250,9 @@ class InventoryReportController extends Controller
                             default  => ($agg = $pq->selectRaw('SUM(quantity*price) as v, SUM(quantity) as q')->first())
                                         && $agg->q > 0 ? $agg->v / $agg->q : 0,
                         };
-
-                        $rawCostPerPiece = $rawRate; // direct
+                        $rawCostPerPiece = $rawRate;
                     } else {
-                        // FINISHED GOOD
-
-                        // 1. All raw materials issued (no need to filter by receivings)
                         $issuedRaw = ProductionDetail::with('product')->get();
-
                         foreach ($issuedRaw as $row) {
                             $pq = PurchaseInvoiceItem::query()->where('item_id', $row->product_id);
                             $rate = match ($costingMethod) {
@@ -261,27 +262,19 @@ class InventoryReportController extends Controller
                                 default  => ($agg = $pq->selectRaw('SUM(quantity*price) as v, SUM(quantity) as q')->first())
                                             && $agg->q > 0 ? $agg->v / $agg->q : 0,
                             };
-
                             $consumption = optional($row->product)->consumption ?? 0;
                             $rawCostPerPiece += $consumption * $rate;
                         }
 
-                        // 2. Manufacturing cost per piece
                         $mfgRows = ProductionReceivingDetail::where('product_id', $product->id)
                             ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
                             ->get(['manufacturing_cost', 'received_qty']);
 
                         $totalMfgValue = $mfgRows->sum(fn($r) => (float)$r->manufacturing_cost * (float)($r->received_qty ?? 0));
                         $totalMfgQty   = $mfgRows->sum('received_qty');
-
-                        $manufacturingCostPerPiece = $totalMfgQty > 0
-                            ? $totalMfgValue / $totalMfgQty
-                            : 0;
+                        $manufacturingCostPerPiece = $totalMfgQty > 0 ? $totalMfgValue / $totalMfgQty : 0;
                     }
 
-                    // ------------------------------
-                    // FINAL COST
-                    // ------------------------------
                     $costPrice = $rawCostPerPiece + $manufacturingCostPerPiece;
 
                     $stockInHand->push([
@@ -297,7 +290,7 @@ class InventoryReportController extends Controller
             }
         }
 
-        // STOCK TRANSFERS (kept as you had)
+        // STOCK TRANSFERS
         $transferQuery = StockTransferDetail::with([
                 'transfer',
                 'product',
@@ -326,9 +319,6 @@ class InventoryReportController extends Controller
             'to' => $row->transfer->toLocation->name ?? '',
             'quantity' => $row->quantity,
         ]);
-
-        // NON-MOVING & REORDER (kept as before)...
-        // (your existing logic for $nonMovingItems and $reorderLevel remains unchanged)
 
         return view('reports.inventory_reports', [
             'products'       => $allProducts,

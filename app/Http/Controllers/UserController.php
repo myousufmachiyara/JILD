@@ -58,12 +58,12 @@ class UserController extends Controller
         return redirect()->route('users.index')->with('success', 'User created successfully.');
     }
 
-    public function update(Request $request, User $user)
+    public function update(Request $request, $id)
     {
         // Validate the request
         $request->validate([
             'name' => 'required|string|max:255',
-            'username'  => 'required|string|unique:users,username,' . $user->id,
+            'username'  => 'required|string|unique:users,username,' . $id,
             'role' => 'required|exists:roles,id',
             'signature' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
