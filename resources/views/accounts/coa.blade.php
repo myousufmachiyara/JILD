@@ -6,6 +6,11 @@
     <div class="row">
         <div class="col">
             <section class="card">
+                @if (session('success'))
+                    <div class="alert alert-success">{{ session('success') }}</div>
+                @elseif (session('error'))
+                    <div class="alert alert-danger">{{ session('error') }}</div>
+                @endif
                 <header class="card-header">
                     <div style="display: flex;justify-content: space-between;">
                         <h2 class="card-title">All Accounts</h2>
@@ -17,9 +22,6 @@
                             @endcan
                         </div>
                     </div>
-                    @if ($errors->has('error'))
-                        <strong class="text-danger">{{ $errors->first('error') }}</strong>
-                    @endif
                 </header>
                 
                 <div class="card-body">
@@ -73,7 +75,9 @@
                                             <form action="{{ route('coa.destroy', $item->id) }}" method="POST" style="display:inline;">
                                                 @csrf
                                                 @method('DELETE')
-                                                <a class="btn btn-link p-0 m-0 text-danger" onclick="return confirm('Are you sure?')"><i class="fa fa-trash-alt"></i></a>
+                                                <button type="submit" class="btn btn-link p-0 m-0 text-danger" onclick="return confirm('Are you sure?')">
+                                                    <i class="fa fa-trash-alt"></i>
+                                                </button>                                            
                                             </form>
                                         @endcan
                                     </td>

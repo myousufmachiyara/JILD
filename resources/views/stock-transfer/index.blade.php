@@ -44,7 +44,7 @@
                   <form action="{{ route('stock_transfer.destroy', $transfer->id) }}" method="POST" style="display:inline;">
                     @csrf
                     @method('DELETE')
-                    <button class="btn btn-link p-0 m-0 text-danger" onclick="return confirm('Are you sure?')"><i class="fas fa-trash"></i></button>
+                    <button class="btn btn-link p-0 m-0 text-danger" onclick="return confirm('Are you sure?')"><i class="fas fa-trash-alt"></i></button>
                   </form>
                 </td>
             </tr>

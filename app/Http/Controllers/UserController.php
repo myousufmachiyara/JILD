@@ -123,9 +123,53 @@ class UserController extends Controller
         ]);
     }
 
-    public function destroy(User $user)
+    public function changePassword(Request $request, $id)
     {
+        $request->validate([
+            'password' => 'required|string|min:6|confirmed',
+        ]);
+
+        $user = User::findOrFail($id);
+
+        // Prevent changing password of super admin if needed
+        if ($user->id == 1 || $user->hasRole('super-admin')) {
+            return redirect()->back()->with('error', 'Cannot change password of the super admin user.');
+        }
+
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        return redirect()->route('users.index')->with('success', 'Password changed successfully.');
+    }
+
+    public function toggleActive($id)
+    {
+        $user = User::findOrFail($id);
+
+        // Prevent super admin from being deactivated (assuming ID=1 or role 'super-admin')
+        if ($user->id == 1 || $user->hasRole('super-admin')) {
+            return redirect()->back()->with('error', 'Cannot deactivate the super admin user.');
+        }
+
+        $user->is_active = !$user->is_active;
+        $user->save();
+
+        $status = $user->is_active ? 'activated' : 'deactivated';
+
+        return redirect()->back()->with('success', "User {$status} successfully.");
+    }
+
+    public function destroy($id)
+    {
+        $user = User::findOrFail($id);
+
+        // Prevent deleting super admin by ID or role
+        if ($user->id == 1 || $user->hasRole('superadmin')) {
+            return redirect()->back()->with('error', 'Cannot delete the superadmin user.');
+        }
+
         $user->delete();
-        return redirect()->back();
+
+        return redirect()->back()->with('success', 'User deleted successfully.');
     }
 }

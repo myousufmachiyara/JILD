@@ -38,27 +38,42 @@ class AttributeController extends Controller
         return redirect()->route('attributes.index')->with('success', 'Attribute created successfully.');
     }
 
-    public function update(Request $request, Attribute $attribute)
+    public function update(Request $request, $id)
     {
+        // Find the attribute or fail
+        $attribute = Attribute::findOrFail($id);
+
+        // Validate input
         $request->validate([
-            'name' => 'required|string|max:255',
-            'slug' => 'required|string|max:255|unique:attributes,slug,' . $attribute->id,
-            'values' => 'required|string' // comma-separated string
+            'name'   => 'required|string|max:255',
+            'slug'   => 'required|string|max:255|unique:attributes,slug,' . $attribute->id,
+            'values' => 'required|string' // comma-separated
         ]);
 
-        // Update attribute itself
+        // Update attribute fields
         $attribute->update($request->only('name', 'slug'));
 
-        // Parse and sanitize new values
-        $incomingValues = array_map('trim', explode(',', $request->input('values')));
+        // Parse and normalize incoming values
+        $incomingValues = collect(explode(',', $request->input('values')))
+            ->map(fn($val) => trim($val))
+            ->filter() // removes empty strings
+            ->unique()
+            ->values();
 
-        // Get existing values as plain array
-        $existingValues = $attribute->values->pluck('value')->map('strtolower')->toArray();
+        // Existing values
+        $existing = $attribute->values;
 
-        // Add only new values (case-insensitive)
-        foreach ($incomingValues as $val) {
-            if (!in_array(strtolower($val), $existingValues) && !empty($val)) {
-                $attribute->values()->create(['value' => $val]);
+        // Create values not in existing
+        foreach ($incomingValues as $value) {
+            if (!$existing->contains(fn($v) => strtolower($v->value) === strtolower($value))) {
+                $attribute->values()->create(['value' => $value]);
+            }
+        }
+
+        // Delete values that were removed
+        foreach ($existing as $val) {
+            if (!$incomingValues->contains(fn($v) => strtolower($v) === strtolower($val->value))) {
+                $val->delete();
             }
         }
 

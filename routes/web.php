@@ -39,6 +39,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::view('/unauthorized', 'unauthorized')->name('unauthorized');
 
+    Route::put('/users/{id}/change-password', [UserController::class, 'changePassword'])->name('users.changePassword');
+    Route::put('/users/{id}/toggle-active', [UserController::class, 'toggleActive'])->name('users.toggleActive');
+
     // Product Helpers
     Route::get('/products/details', [ProductController::class, 'details'])->name('products.receiving');
     Route::get('/products/barcode-selection', [ProductController::class, 'barcodeSelection'])->name('products.barcode.selection');
