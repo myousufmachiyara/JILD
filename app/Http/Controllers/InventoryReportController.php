@@ -292,23 +292,29 @@ class InventoryReportController extends Controller
 
         // STOCK TRANSFERS
         $transferQuery = StockTransferDetail::with([
-                'transfer',
-                'product',
-                'variation',
-                'transfer.fromLocation',
-                'transfer.toLocation'
-            ])
-            ->when($request->from_location_id, function ($q) use ($request) {
-                $q->whereHas('transfer', fn($t) => $t->where('from_location_id', $request->from_location_id));
-            })
-            ->when($request->to_location_id, function ($q) use ($request) {
-                $q->whereHas('transfer', fn($t) => $t->where('to_location_id', $request->to_location_id));
-            })
-            ->when($request->from_date && $request->to_date, function ($q) use ($request) {
-                $q->whereHas('transfer', fn($t) => $t->whereBetween('date', [$request->from_date, $request->to_date]));
-            });
+            'product',
+            'variation',
+            'transfer.fromLocation',
+            'transfer.toLocation'
+        ])
+        ->whereHas('transfer', function ($query) use ($request) {
+            $query->whereNull('deleted_at'); // ✅ Exclude soft-deleted StockTransfer
+
+            if ($request->from_location_id) {
+                $query->where('from_location_id', $request->from_location_id);
+            }
+
+            if ($request->to_location_id) {
+                $query->where('to_location_id', $request->to_location_id);
+            }
+
+            if ($request->from_date && $request->to_date) {
+                $query->whereBetween('date', [$request->from_date, $request->to_date]);
+            }
+        });
 
         $transfers = $transferQuery->get();
+
 
         $stockTransfers = $transfers->map(fn($row) => [
             'date' => $row->transfer->date ?? null,
@@ -335,3 +341,4 @@ class InventoryReportController extends Controller
         ]);
     }
 }
+    

@@ -175,14 +175,27 @@ class StockTransferController extends Controller
             $logoPath = public_path('assets/img/Jild-Logo.png');
             if (file_exists($logoPath)) $pdf->Image($logoPath, 10, 10, 30);
 
-            $pdf->SetXY(130, 12);
+            $pdf->SetXY(120, 12);
             $transferInfo = '
-            <table cellpadding="2" style="font-size:10px; line-height:14px;">
-                <tr><td><b>Transfer #</b></td><td>' . $transfer->id . '</td></tr>
-                <tr><td><b>Date</b></td><td>' . \Carbon\Carbon::parse($transfer->date)->format('d/m/Y') . '</td></tr>
-                <tr><td><b>From</b></td><td>' . ($transfer->fromLocation->name ?? '-') . '</td></tr>
-                <tr><td><b>To</b></td><td>' . ($transfer->toLocation->name ?? '-') . '</td></tr>
+            <table cellpadding="4" border="1" style="font-size:10px; line-height:14px; border-collapse:collapse;">
+                <tr>
+                    <td><b>Transfer #</b></td>
+                    <td>' . $transfer->id . '</td>
+                </tr>
+                <tr>
+                    <td><b>Date</b></td>
+                    <td>' . \Carbon\Carbon::parse($transfer->date)->format('d/m/Y') . '</td>
+                </tr>
+                <tr>
+                    <td><b>From</b></td>
+                    <td>' . ($transfer->fromLocation->name ?? '-') . '</td>
+                </tr>
+                <tr>
+                    <td><b>To</b></td>
+                    <td>' . ($transfer->toLocation->name ?? '-') . '</td>
+                </tr>
             </table>';
+
             $pdf->writeHTML($transferInfo, false, false, false, false, '');
 
             $pdf->Line(60, 52.25, 200, 52.25);
@@ -198,7 +211,8 @@ class StockTransferController extends Controller
             $html = '<table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
                 <tr style="background-color:#f5f5f5; font-weight:bold;">
                     <th width="8%">S.No</th>
-                    <th width="38%">Product</th>
+                    <th width="18%">Code</th>
+                    <th width="20%">Name</th>
                     <th width="38%">Variation</th>
                     <th width="16%">Quantity</th>
                 </tr>';
@@ -213,6 +227,7 @@ class StockTransferController extends Controller
                 $html .= '
                 <tr>
                     <td align="center">' . $count . '</td>
+                    <td>' . ($variation->barcode ?? $product->barcode ?? '-') . '</td>
                     <td>' . ($product->name ?? '-') . '</td>
                     <td>' . ($variation->sku ?? '-') . '</td>
                     <td align="center">' .number_format($item->quantity, 2).' '.$unit.'</td>
@@ -228,9 +243,9 @@ class StockTransferController extends Controller
             $pdf->Line(28, $yPos, 28 + $lineWidth, $yPos);
             $pdf->Line(130, $yPos, 130 + $lineWidth, $yPos);
             $pdf->SetXY(28, $yPos + 2);
-            $pdf->Cell($lineWidth, 6, 'Received By', 0, 0, 'C');
-            $pdf->SetXY(130, $yPos + 2);
             $pdf->Cell($lineWidth, 6, 'Authorized By', 0, 0, 'C');
+            $pdf->SetXY(130, $yPos + 2);
+            $pdf->Cell($lineWidth, 6, 'Received By', 0, 0, 'C');
 
             return $pdf->Output('stock_transfer_' . $transfer->id . '.pdf', 'I');
         } catch (\Exception $e) {
