@@ -194,10 +194,12 @@
     const $variationSelect = row.find('.variation-select');
     $variationSelect.html('<option>Loading...</option>').prop('disabled', true);
 
-    $.get(`/product/${productId}/variations`, function(data){
-      if (data.length > 0) {
+    $.get(`/product/${productId}/variations`, function(data) {
+      const variations = data.variation || data; // support both formats
+
+      if (Array.isArray(variations) && variations.length > 0) {
         let options = '<option value="">Select Variation</option>';
-        data.forEach(v => {
+        variations.forEach(v => {
           options += `<option value="${v.id}">${v.sku}</option>`;
         });
         $variationSelect.html(options).prop('disabled', false).select2({ width: '100%' });
@@ -213,6 +215,7 @@
   }
 
   function loadProductions(row, productId) {
+    console.log("hello");
     const $prodSelect = row.find('.production-select');
     const $priceInput = row.find('.price');
 
@@ -225,17 +228,25 @@
     $prodSelect.html('<option>Loading...</option>');
 
     $.get(`/product/${productId}/productions`, { variation_id: variationId }, function(data){
+      console.log("Productions response:", data);
       let options = '<option value="">Select Production Order</option>';
-      data.forEach(p => {
+
+      // If data is wrapped in 'productions' key:
+      const productions = data.productions || data;
+
+      productions.forEach(p => {
         options += `<option value="${p.id}" data-rate="${p.rate}">#${p.id}</option>`;
       });
+
       $prodSelect.html(options);
       $priceInput.val('');
-    }).fail(() => {
+    })
+    .fail(() => {
       alert('Failed to load production orders.');
       $prodSelect.html('<option value="">Select Production Order</option>');
       $priceInput.val('');
     });
+
   }
 
   $(document).on('change', '.variation-select', function() {

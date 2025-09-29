@@ -206,12 +206,25 @@ class ProductionReceivingController extends Controller
         // --- Info Box ---
         $pdf->SetXY(130, 12);
         $infoHtml = '
-        <table cellpadding="2" style="font-size:10px; line-height:14px;">
-            <tr><td><b>Receiving #</b></td><td>' . $receiving->id . '</td></tr>
-            <tr><td><b>Date</b></td><td>' . \Carbon\Carbon::parse($receiving->rec_date)->format('d/m/Y') . '</td></tr>
-            <tr><td><b>Production</b></td><td>PROD-' . ($receiving->production->id ?? '-') . '</td></tr>
-            <tr><td><b>Vendor</b></td><td>' . ($receiving->production->vendor->name ?? '-') . '</td></tr>
+        <table border="1" cellpadding="4" cellspacing="0" style="font-size:10px; line-height:14px; border-collapse: collapse;">
+            <tr>
+                <td><b>Receiving #</b></td>
+                <td>' . $receiving->id . '</td>
+            </tr>
+            <tr>
+                <td><b>Date</b></td>
+                <td>' . \Carbon\Carbon::parse($receiving->rec_date)->format('d/m/Y') . '</td>
+            </tr>
+            <tr>
+                <td><b>Production</b></td>
+                <td>PROD-' . ($receiving->production->id ?? '-') . '</td>
+            </tr>
+            <tr>
+                <td><b>Vendor</b></td>
+                <td>' . ($receiving->production->vendor->name ?? '-') . '</td>
+            </tr>
         </table>';
+
         $pdf->writeHTML($infoHtml, false, false, false, false, '');
 
         $pdf->Line(60, 52.25, 200, 52.25);

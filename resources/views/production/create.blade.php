@@ -94,7 +94,7 @@
                 <tbody id="PurPOTbleBody">
                   <tr class="item-row">
                     <td>
-                      <select name="item_details[0][product_id]" id="productSelect0" class="form-control select2-js" onchange="onItemChange(this)" required>
+                      <select name="item_details[0][product_id]" id="productSelect_0" class="form-control select2-js" onchange="onItemChange(this)" required>
                         <option value="" selected disabled>Select Raw</option>
                         @foreach($allProducts as $product)
                           <option value="{{ $product->id }}" data-unit="{{ $product->unit }}">{{ $product->name }}</option>
@@ -234,7 +234,7 @@
 
         newRow.innerHTML = `
           <td>
-            <select data-plugin-selecttwo name="item_details[${index}][product_id]" required id="productSelect${index}" class="form-control select2-js" onchange="onItemChange(this)">
+            <select data-plugin-selecttwo name="item_details[${index}][product_id]" required id="productSelect_${index}" class="form-control select2-js" onchange="onItemChange(this)">
               <option value="" disabled selected>Select Raw</option>
               ${options}
             </select>

@@ -235,9 +235,11 @@
     $variationSelect.html('<option>Loading...</option>').prop('disabled', true);
 
     $.get(`/product/${productId}/variations`, function(data){
-      if (data.length > 0) {
+      const variations = data.variation || data; // ✅ Works with both array or wrapped
+
+      if (Array.isArray(variations) && variations.length > 0) {
         let options = '<option value="">Select Variation</option>';
-        data.forEach(v => {
+        variations.forEach(v => {
           options += `<option value="${v.id}">${v.sku}</option>`;
         });
         $variationSelect.html(options).prop('disabled', false).select2({ width: '100%' });

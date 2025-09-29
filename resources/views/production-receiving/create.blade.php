@@ -265,14 +265,24 @@
 // 🔹 Add new row
 function addRow() {
     const rowCount = $('#itemTable tbody tr').length;
-    const protoOptions = $('#itemTable tbody tr:first .product-select').html() || '<option value="">Select Product</option>';
+
+    const productOptions = `
+        <option value="">Select Item</option>
+        @foreach($products as $item)
+          <option value="{{ $item->id }}" 
+                  data-mfg-cost="{{ $item->manufacturing_cost }}"
+                  data-barcode="{{ $item->barcode }}">
+            {{ $item->name }}
+          </option>
+        @endforeach
+    `;
 
     const $newRow = $(`
         <tr>
             <td><input type="text" class="form-control product-code" placeholder="Enter Product Code"></td>
             <td>
                 <select name="item_details[${rowCount}][product_id]" class="form-control select2-js product-select" required>
-                    ${protoOptions}
+                    ${productOptions}
                 </select>
             </td>
             <td>
@@ -289,9 +299,12 @@ function addRow() {
     `);
 
     $('#itemTable tbody').append($newRow);
-    $newRow.find('.select2-js').select2({ width: '100%', dropdownAutoWidth: true });
 
+    // Reinitialize Select2
+    $newRow.find('.select2-js').select2({ width: '100%', dropdownAutoWidth: true });
 }
+
+
 
 // 🔹 Load variations for a product + always set product manufacturing cost
 function loadVariations(row, productId, preselectVariationId = null) {

@@ -103,7 +103,7 @@
                     </select>
                   </td>
                   <td>
-                    <input type="number" class="form-control manufacturing_cost" name="item_details[{{ $index }}][manufacturing_cost]" step="any" value="{{ $detail->manufacturing_cost }}" readonly>
+                    <input type="number" class="form-control manufacturing_cost" name="item_details[{{ $index }}][manufacturing_cost]" step="any" value="{{ $detail->manufacturing_cost }}">
                   </td>
                   <td>
                     <input type="number" class="form-control received-qty" name="item_details[{{ $index }}][received_qty]" step="any" value="{{ $detail->received_qty }}" required>
@@ -184,8 +184,8 @@
     mfgCostInput.val(parseFloat(mfgCost).toFixed(2));
 
     if ($(this).val()) {
-      const preselect = $(this).data('preselectVariationId') || null;
-      $(this).removeData('preselectVariationId');
+      const preselect = $(this).attr('data-preselect-variation-id') || null;
+      $(this).removeAttr('data-preselect-variation-id');
       loadVariations(row, $(this).val(), preselect);
     } else {
       row.find('.variation-select').html('<option value="">Select Variation</option>');
@@ -261,7 +261,7 @@
           <option value="">Select Variation</option>
         </select>
       </td>
-      <td><input type="number" name="item_details[${newIndex}][manufacturing_cost]" class="form-control manufacturing_cost" step="any" value="0" readonly></td>
+      <td><input type="number" name="item_details[${newIndex}][manufacturing_cost]" class="form-control manufacturing_cost" step="any" value="0"></td>
       <td><input type="number" name="item_details[${newIndex}][received_qty]" class="form-control received-qty" step="any" value="0" required></td>
       <td><input type="text" name="item_details[${newIndex}][remarks]" class="form-control"></td>
       <td><input type="number" name="item_details[${newIndex}][total]" class="form-control row-total" step="any" value="0" readonly></td>
@@ -344,7 +344,7 @@
         if (res.type === 'variation') {
           const v = res.variation;
           // set product and ask loadVariations to preselect variation
-          $productSelect.data('preselectVariationId', v.id).val(v.product_id).trigger('change');
+          $productSelect.attr('data-preselect-variation-id', v.id).val(v.product_id).trigger('change');
 
           // m.cost might come in v or in product; try both keys
           if (v['m.cost'] !== undefined) $mCostInput.val(parseFloat(v['m.cost']).toFixed(2));
