@@ -57,7 +57,7 @@
                 <select class="form-control" name="production_type" id="production_type" required>
                   <option value="" disabled>Select Type</option>
                   <option value="cmt" {{ $production->production_type == 'cmt' ? 'selected' : '' }}>CMT</option>
-                  <option value="sale_leather" {{ $production->production_type == 'sale_leather' ? 'selected' : '' }}>Sale Leather</option>
+                  <option value="sale_leather" {{ $production->production_type == 'sale_leather' ? 'selected' : '' }}>Sale Raw</option>
                 </select>
                 <input type="hidden" name="challan_generated" value="{{ $production->challan_no ? 1 : 0 }}">
               </div>
@@ -84,6 +84,7 @@
                   <th>Raw</th>
                   <th>Variation</th>
                   <th>Invoice #</th>
+                  <th>Description<th>
                   <th>Rate</th>
                   <th>Qty</th>
                   <th>Unit</th>
@@ -127,6 +128,7 @@
                         @endif
                       </select>
                     </td>
+                    <td><input type="text" name="item_details[{{ $index }}][desc]" id="item_desc_{{ $index }}" value="{{ $detail->desc }}" class="form-control"/></td>
                     <td><input type="number" name="item_details[{{ $index }}][rate]" id="item_rate_{{ $index }}" step="any" value="{{ $detail->rate }}" onchange="rowTotal({{ $index }})" class="form-control" required/></td>
                     <td><input type="number" name="item_details[{{ $index }}][qty]" id="item_qty_{{ $index }}" step="any" value="{{ $detail->qty }}" onchange="rowTotal({{ $index }})" class="form-control" required/></td>
                     <td>
@@ -315,6 +317,7 @@
                   <option value="" disabled selected>Select Invoice</option>
               </select>
           </td>
+          <td><input type="text" name="item_details[${index}][desc]" id="item_desc_${index}" class="form-control"/></td>
           <td><input type="number" name="item_details[${index}][rate]" id="item_rate_${index}" step="any" value="0" onchange="rowTotal(${index})" class="form-control" required/></td>
           <td><input type="number" name="item_details[${index}][qty]" id="item_qty_${index}" step="any" value="0" onchange="rowTotal(${index})" class="form-control" required/></td>
           <td>

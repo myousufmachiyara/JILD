@@ -50,7 +50,7 @@ class PurchaseReturnController extends Controller
             // Validate each item row
             'items.*.item_id' => 'required|exists:products,id',
             'items.*.variation_id' => 'nullable|exists:product_variations,id',
-            'items.*.invoice_id' => 'required|exists:purchase_invoices,id',
+            'items.*.invoice_id' => 'nullable|exists:purchase_invoices,id',
             'items.*.quantity' => 'required|numeric|min:0',
             'items.*.unit' => 'required|exists:measurement_units,id',
             'items.*.price' => 'required|numeric|min:0',
@@ -74,7 +74,7 @@ class PurchaseReturnController extends Controller
                     'purchase_return_id' => $purchaseReturn->id,
                     'item_id' => $item['item_id'],
                     'variation_id' => $item['variation_id'] ?? null, // <- variation_id
-                    'purchase_invoice_id' => $item['invoice_id'],
+                    'purchase_invoice_id' => $item['invoice_id'] ?? null,
                     'quantity' => $item['quantity'],
                     'unit_id' => $item['unit'],
                     'price' => $item['price'],
@@ -125,17 +125,14 @@ class PurchaseReturnController extends Controller
             'vendor_id' => 'required|exists:chart_of_accounts,id',
             'return_date' => 'required|date',
             'remarks' => 'nullable|string|max:1000',
-            'total_amount' => 'required|numeric|min:0',
-            'net_amount_hidden' => 'required|numeric|min:0',
 
             // Validate nested items
             'items.*.item_id' => 'required|exists:products,id',
             'items.*.variation_id' => 'nullable|exists:product_variations,id',
-            'items.*.invoice_id' => 'required|exists:purchase_invoices,id',
+            'items.*.invoice_id' => 'nullable|exists:purchase_invoices,id',
             'items.*.quantity' => 'required|numeric|min:0',
             'items.*.unit' => 'required|exists:measurement_units,id',
             'items.*.price' => 'required|numeric|min:0',
-            'items.*.amount' => 'required|numeric|min:0',
         ]);
 
         try {
@@ -147,8 +144,6 @@ class PurchaseReturnController extends Controller
                 'vendor_id' => $request->vendor_id,
                 'return_date' => $request->return_date,
                 'remarks' => $request->remarks,
-                'total_amount' => $request->total_amount,
-                'net_amount' => $request->net_amount_hidden,
             ]);
 
             Log::info('PurchaseReturn updated', ['id' => $purchaseReturn->id]);
@@ -163,12 +158,10 @@ class PurchaseReturnController extends Controller
                     'purchase_return_id' => $purchaseReturn->id,
                     'item_id' => $item['item_id'],
                     'variation_id' => $item['variation_id'] ?? null,
-                    'purchase_invoice_id' => $item['invoice_id'],
+                    'purchase_invoice_id' => $item['invoice_id'] ?? null,
                     'quantity' => $item['quantity'],
                     'unit_id' => $item['unit'],
                     'price' => $item['price'],
-                    'amount' => $item['amount'],
-                    'remarks' => $item['remarks'] ?? null,
                 ];
 
                 Log::info('Creating PurchaseReturnItem', $data);

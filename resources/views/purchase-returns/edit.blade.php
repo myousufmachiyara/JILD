@@ -56,7 +56,7 @@
                       <input type="text" name="items[{{ $idx }}][barcode]" class="form-control product-code" value="{{ $item->item->barcode }}">
                     </td>
                     <td>
-                      <select name="items[{{ $idx }}][item_id]" class="form-control select2-js product-select" onchange="onReturnItemChange(this)">
+                      <select name="items[{{ $idx }}][item_id]" class="form-control select2-js product-select" onchange="onReturnItemChange(this)" required>
                         <option value="">Select Item</option>
                         @foreach($products as $product)
                           <option value="{{ $product->id }}" data-barcode="{{ $product->barcode }}" data-unit="{{ $product->measurement_unit }}"
@@ -79,7 +79,7 @@
                     </td>
 
                     <td>
-                      <select name="items[{{ $idx }}][invoice_id]" class="form-control invoice-select" data-selected-id="{{ $item->purchase_invoice_id }}" required>
+                      <select name="items[{{ $idx }}][invoice_id]" class="form-control invoice-select" data-selected-id="{{ $item->purchase_invoice_id }}"  >
                         <option value="">Select Invoice</option>
                       </select>
                     </td>
@@ -99,7 +99,7 @@
                     </td>
 
                     <td>
-                      <input type="number" name="items[{{ $idx }}][price]" class="form-control price" step="any" value="{{ $item->price }}" onchange="rowTotal({{ $idx }})">
+                      <input type="number" name="items[{{ $idx }}][price]" class="form-control price" step="any" value="{{ $item->price }}" onchange="rowTotal({{ $idx }})" required>
                     </td>
 
                     <td>
@@ -160,7 +160,7 @@ function addReturnRow() {
     <tr>
       <td><input type="text" name="items[${index}][barcode]" class="form-control product-code"></td>
       <td>
-        <select name="items[${index}][item_id]" class="form-control select2-js product-select" onchange="onReturnItemChange(this)">
+        <select name="items[${index}][item_id]" class="form-control select2-js product-select" onchange="onReturnItemChange(this)" required>
           <option value="">Select Item</option>
           ${products.map(p => `<option value="${p.id}" data-barcode="${p.barcode}" data-unit="${p.measurement_unit}">${p.name}</option>`).join('')}
         </select>
@@ -171,18 +171,18 @@ function addReturnRow() {
         </select>
       </td>
       <td>
-        <select name="items[${index}][invoice_id]" class="form-control invoice-select" required>
+        <select name="items[${index}][invoice_id]" class="form-control invoice-select">
           <option value="">Select Invoice</option>
         </select>
       </td>
-      <td><input type="number" name="items[${index}][quantity]" class="form-control quantity" step="any" onchange="rowTotal(${index})"></td>
+      <td><input type="number" name="items[${index}][quantity]" class="form-control quantity" step="any" onchange="rowTotal(${index})" required ></td>
       <td>
         <select name="items[${index}][unit]" class="form-control unit-select" required>
           <option value="">-- Select --</option>
           ${units.map(u => `<option value="${u.id}">${u.name} (${u.shortcode})</option>`).join('')}
         </select>
       </td>
-      <td><input type="number" name="items[${index}][price]" class="form-control price" step="any" onchange="rowTotal(${index})"></td>
+      <td><input type="number" name="items[${index}][price]" class="form-control price" step="any" onchange="rowTotal(${index})" required></td>
       <td><input type="number" name="items[${index}][amount]" class="form-control amount" step="any" readonly></td>
       <td>
         <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button>
@@ -224,42 +224,56 @@ function loadVariations(row, productId) {
 }
 
 // ----------------- Load invoices -----------------
-function loadInvoices(row, productId, updatePrice=false, selectedInvoiceId=null) {
+function loadInvoices(row, productId, updatePrice = false, selectedInvoiceId = null) {
   const $invoiceSelect = row.find('.invoice-select');
   const $priceInput = row.find('.price');
 
   $invoiceSelect.html('<option>Loading...</option>');
 
-  $.get(`/product/${productId}/invoices`, function(data){
+  $.get(`/product/${productId}/invoices`, function (data) {
     let options = '<option value="">Select Invoice</option>';
     data.forEach(inv => {
       options += `<option value="${inv.id}" data-rate="${inv.rate}">#${inv.id}</option>`;
     });
     $invoiceSelect.html(options);
 
-    // Preselect invoice
-    if(selectedInvoiceId){
-      $invoiceSelect.val(selectedInvoiceId).trigger('change');
-    }
+    // ✅ Preselect invoice if given
+    if (selectedInvoiceId) {
+      $invoiceSelect.val(selectedInvoiceId);
+      const selected = $invoiceSelect.find(':selected');
 
-    // Update price
-    if(updatePrice){
-      const rate = $invoiceSelect.find(':selected').data('rate') || 0;
-      $priceInput.val(rate);
-      const idx = $('#ReturnTableBody tr').index(row);
-      rowTotal(idx);
+      // ✅ Only update price if selected invoice has a rate
+      if (selected.length && updatePrice) {
+        const rate = selected.data('rate');
+        if (rate !== undefined) {
+          $priceInput.val(rate);
+          const idx = $('#ReturnTableBody tr').index(row);
+          rowTotal(idx);
+        }
+      }
     }
   });
 }
 
+
 // ----------------- Invoice selection changes price -----------------
-$(document).on('change', '.invoice-select', function() {
+$(document).on('change', '.invoice-select', function () {
   const $row = $(this).closest('tr');
-  const rate = $(this).find(':selected').data('rate') || 0;
-  $row.find('.price').val(rate);
+  const selected = $(this).find(':selected');
+
+  // ✅ Only update price if an invoice is selected and has a data-rate
+  if (selected.val()) {
+    const rate = selected.data('rate');
+    if (rate !== undefined) {
+      $row.find('.price').val(rate);
+    }
+  }
+
   const idx = $('#ReturnTableBody tr').index($row);
   rowTotal(idx);
 });
+
+
 
 // ----------------- Barcode scanning -----------------
 $(document).on('blur', '.product-code', function () {

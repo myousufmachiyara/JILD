@@ -16,7 +16,7 @@ return new class extends Migration
             $table->unsignedBigInteger('purchase_return_id');
             $table->unsignedBigInteger('item_id');
             $table->unsignedBigInteger('variation_id')->nullable();
-            $table->unsignedBigInteger('purchase_invoice_id'); // <- Add this line
+            $table->unsignedBigInteger('purchase_invoice_id')->nullable(); // <- Add this line
             $table->decimal('quantity', 15, 2);
             $table->unsignedBigInteger('unit_id');
             $table->decimal('price', 15, 2);

@@ -325,13 +325,11 @@ class PurchaseInvoiceController extends Controller
         // --- Invoice Info Box ---
         $pdf->SetXY(130, 12);
         $invoiceInfo = '
-        <table cellpadding="2" style="font-size:10px; line-height:14px;">
+        <table border="1" cellpadding="4" style="font-size:10px; line-height:14px; border-collapse:collapse;">
             <tr><td><b>Invoice #</b></td><td>' . $invoice->id . '</td></tr>
             <tr><td><b>Date</b></td><td>' . \Carbon\Carbon::parse($invoice->invoice_date)->format('d/m/Y') . '</td></tr>
             <tr><td><b>Bill No</b></td><td>' . ($invoice->bill_no ?? '-') . '</td></tr>
-            <tr><td><b>Ref.</b></td><td>' . ($invoice->ref_no ?? '-') . '</td></tr>
             <tr><td><b>Vendor</b></td><td>' . ($invoice->vendor->name ?? '-') . '</td></tr>
-            <tr><td><b>Payment Terms</b></td><td>' . ($invoice->payment_terms ?? '-') . '</td></tr>
         </table>';
         $pdf->writeHTML($invoiceInfo, false, false, false, false, '');
 
@@ -349,12 +347,12 @@ class PurchaseInvoiceController extends Controller
         $pdf->Ln(5);
         $html = '<table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
             <tr style="background-color:#f5f5f5; font-weight:bold;">
-                <th width="8%">S.No</th>
-                <th width="25%">Item Name</th>
-                <th width="25%">Variation</th>
-                <th width="20%">Qty</th>
-                <th width="10%">Rate</th>
-                <th width="12%">Total</th>
+                <th width="7%">S.No</th>
+                <th width="20%">Item Name</th>
+                <th width="28%">Variation</th>
+                <th width="18%">Qty</th>
+                <th width="12%">Rate</th>
+                <th width="15%">Total</th>
             </tr>';
 
         $count = 0;

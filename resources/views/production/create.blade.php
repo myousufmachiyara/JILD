@@ -57,7 +57,7 @@
                   <select class="form-control" name="production_type" id="production_type" required>
                     <option value="" selected disabled>Select Type</option>
                     <option value="cmt">CMT</option>
-                    <option value="sale_leather">Sale Leather</option>
+                    <option value="sale_leather">Sale Raw</option>
                   </select>
                   <input type="hidden" name="challan_generated" value="0">
                 </div>
@@ -83,18 +83,19 @@
                     <th>Raw</th>
                     <th>Variation</th> <!-- ✅ New Column -->
                     <th>Purchase #</th>
+                    <th>Description</th>
                     <th>Rate</th>
                     <th>Qty</th>
                     <th>Unit</th>
                     <th>Total</th>
-                    <th width="10%"></th>
+                    <th width="8%"></th>
                   </tr>
                 </thead>
                 <tbody id="PurPOTbleBody">
                   <tr class="item-row">
                     <td>
                       <select name="item_details[0][product_id]" id="productSelect0" class="form-control select2-js" onchange="onItemChange(this)" required>
-                        <option value="" selected disabled>Select Leather</option>
+                        <option value="" selected disabled>Select Raw</option>
                         @foreach($allProducts as $product)
                           <option value="{{ $product->id }}" data-unit="{{ $product->unit }}">{{ $product->name }}</option>
                         @endforeach
@@ -110,6 +111,7 @@
                         <option value="" disabled selected>Select Invoice</option>
                       </select>
                     </td>
+                    <td><input type="text" name="item_details[0][desc]" id="item_desc_0" class="form-control" placeholder="Description"/></td>
                     <td><input type="number" name="item_details[0][item_rate]" id="item_rate_0" onchange="rowTotal(0)" step="any" value="0" class="form-control" placeholder="Rate" required/></td>
                     <td><input type="number" name="item_details[0][qty]" id="item_qty_0" onchange="rowTotal(0)" step="any" value="0" class="form-control" placeholder="Quantity" required/></td>
                     <td>
@@ -233,7 +235,7 @@
         newRow.innerHTML = `
           <td>
             <select data-plugin-selecttwo name="item_details[${index}][product_id]" required id="productSelect${index}" class="form-control select2-js" onchange="onItemChange(this)">
-              <option value="" disabled selected>Select Leather</option>
+              <option value="" disabled selected>Select Raw</option>
               ${options}
             </select>
           </td>
@@ -247,6 +249,7 @@
               <option value="" disabled selected>Select Invoice</option>
             </select>
           </td>
+          <td><input type="text" name="item_details[${index}][desc]" id="item_desc_${index}" class="form-control" placeholder="Description"/></td>
           <td><input type="number" name="item_details[${index}][item_rate]" id="item_rate_${index}" step="any" value="0" onchange="rowTotal(${index})" class="form-control" required/></td>
           <td><input type="number" name="item_details[${index}][qty]" id="item_qty_${index}" step="any" value="0" onchange="rowTotal(${index})" class="form-control" required/></td>
           <td>

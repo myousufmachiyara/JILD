@@ -196,7 +196,6 @@
             </table>
         </div>
 
-
         {{-- STOCK TRANSFER --}}
         <div id="STR" class="tab-pane fade {{ $tab=='STR'?'show active':'' }}">
             <form method="GET" class="mb-3">
@@ -258,7 +257,11 @@
                     @forelse($stockTransfers as $st)
                         <tr>
                             <td>{{ $st['date'] }}</td>
-                            <td>{{ $st['reference'] }}</td>
+                            <td>
+                                <a href="{{ url('/stock_transfer/' . $st['reference'] . '/print') }}" target="_blank">
+                                    ST#{{ $st['reference'] }}
+                                </a>
+                            </td>                            
                             <td>{{ $st['product'] }}</td>
                             <td>{{ $st['variation'] ?? '-' }}</td>
                             <td>{{ $st['from'] }}</td>

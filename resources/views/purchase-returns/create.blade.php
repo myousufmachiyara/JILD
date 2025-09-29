@@ -51,7 +51,7 @@
                   <td><input type="text" name="items[0][barcode]" class="form-control product-code"></td>
 
                   <td>
-                    <select name="items[0][item_id]" class="form-control select2-js product-select" onchange="onReturnItemChange(this)">
+                    <select name="items[0][item_id]" class="form-control select2-js product-select" onchange="onReturnItemChange(this)" required>
                       <option value="">Select Item</option>
                       @foreach ($products as $product)
                         <option value="{{ $product->id }}" data-barcode="{{ $product->barcode }}" data-unit="{{ $product->measurement_unit }}">
@@ -68,12 +68,12 @@
                   </td>
 
                   <td>
-                    <select name="items[0][invoice_id]" class="form-control invoice-select" required>
+                    <select name="items[0][invoice_id]" class="form-control invoice-select">
                       <option value="">Select Invoice</option>
                     </select>
                   </td>
 
-                  <td><input type="number" name="items[0][quantity]" class="form-control quantity" step="any" onchange="rowTotal(0)"></td>
+                  <td><input type="number" name="items[0][quantity]" class="form-control quantity" step="any" onchange="rowTotal(0)" required></td>
 
                   <td>
                     <select name="items[0][unit]" class="form-control unit-select" required>
@@ -84,7 +84,7 @@
                     </select>
                   </td>
 
-                  <td><input type="number" name="items[0][price]" class="form-control price" step="any" onchange="rowTotal(0)"></td>
+                  <td><input type="number" name="items[0][price]" class="form-control price" step="any" onchange="rowTotal(0)" required></td>
                   <td><input type="number" name="items[0][amount]" class="form-control amount" step="any" readonly></td>
                   <td>
                     <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button>
@@ -136,7 +136,7 @@
         <td><input type="text" name="items[${index}][barcode]" class="form-control product-code"></td>
 
         <td>
-          <select name="items[${index}][item_id]" class="form-control select2-js product-select" onchange="onReturnItemChange(this)">
+          <select name="items[${index}][item_id]" class="form-control select2-js product-select" onchange="onReturnItemChange(this)" required>
             <option value="">Select Item</option>
             ${products.map(p => `<option value="${p.id}" data-barcode="${p.barcode}" data-unit="${p.measurement_unit}">${p.name}</option>`).join('')}
           </select>
@@ -149,12 +149,12 @@
         </td>
 
         <td>
-          <select name="items[${index}][invoice_id]" class="form-control invoice-select" required>
+          <select name="items[${index}][invoice_id]" class="form-control invoice-select">
             <option value="">Select Invoice</option>
           </select>
         </td>
 
-        <td><input type="number" name="items[${index}][quantity]" class="form-control quantity" step="any" onchange="rowTotal(${index})"></td>
+        <td><input type="number" name="items[${index}][quantity]" class="form-control quantity" step="any" onchange="rowTotal(${index})" required></td>
 
         <td>
           <select name="items[${index}][unit]" class="form-control unit-select" required>
@@ -163,7 +163,7 @@
           </select>
         </td>
 
-        <td><input type="number" name="items[${index}][price]" class="form-control price" step="any" onchange="rowTotal(${index})"></td>
+        <td><input type="number" name="items[${index}][price]" class="form-control price" step="any" onchange="rowTotal(${index})" required></td>
         <td><input type="number" name="items[${index}][amount]" class="form-control amount" step="any" readonly></td>
         <td>
           <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button>

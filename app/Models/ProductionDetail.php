@@ -17,6 +17,7 @@ class ProductionDetail extends Model
         'rate',
         'unit',
         'invoice_id',
+        'desc'
     ];
 
     public function production()

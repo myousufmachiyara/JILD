@@ -17,6 +17,7 @@ return new class extends Migration
             $table->unsignedBigInteger('product_id');
             $table->unsignedBigInteger('variation_id')->nullable();
             $table->unsignedBigInteger('invoice_id')->nullable();
+            $table->string('desc')->nullable();
             $table->decimal('rate', 15, 2);
             $table->decimal('qty', 15, 2);
             $table->string('unit');

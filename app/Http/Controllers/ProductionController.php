@@ -70,7 +70,7 @@ class ProductionController extends Controller
             'item_details.*.qty' => 'required|numeric|min:0.01',
             'item_details.*unit' => 'required|exists:measurement_units,id',
             'item_details.*.item_rate' => 'required|numeric|min:0',
-            'item_details.*.remarks' => 'nullable|string',
+            'item_details.*.desc' => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -129,8 +129,7 @@ class ProductionController extends Controller
                         'qty' => $item['qty'],
                         'unit' => $item['item_unit'],
                         'rate' => $item['item_rate'],
-                        'total_cost' => $item['item_rate'] * $item['qty'],
-                        'remarks' => $item['remarks'] ?? null,
+                        'desc' => $item['desc'] ?? null,
                     ]);
                 }
             } else {
@@ -193,6 +192,7 @@ class ProductionController extends Controller
             'item_details.*.qty' => 'required|numeric|min:0.01',
             'item_details.*.item_unit' => 'required|exists:measurement_units,id',
             'item_details.*.rate' => 'required|numeric|min:0',
+            'item_details.*.desc' => 'nullable|string',
             'challan_no' => 'nullable|string',
         ]);
 
@@ -252,6 +252,7 @@ class ProductionController extends Controller
                     'qty' => $item['qty'],
                     'unit' => $item['item_unit'],
                     'rate' => $item['rate'],
+                    'desc' => $item['desc'] ?? null,
                 ]);
             }
 
