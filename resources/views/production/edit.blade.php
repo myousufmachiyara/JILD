@@ -84,7 +84,7 @@
                   <th>Raw</th>
                   <th>Variation</th>
                   <th>Invoice #</th>
-                  <th>Description<th>
+                  <th>Description</th>
                   <th>Rate</th>
                   <th>Qty</th>
                   <th>Unit</th>
@@ -223,22 +223,27 @@
   const allProducts = @json($allProducts);
 
   document.addEventListener("DOMContentLoaded", function () {
-
-      // Initialize Select2 for all existing selects
       $('.select2-js').select2({ width: '100%' });
 
-      // Prefill variation and invoice selects for existing rows
       @foreach($production->details as $index => $detail)
           (function(i) {
               const row = document.querySelector('#PurPOTbleBody tr:nth-child(' + (i+1) + ')');
               if (!row) return;
 
-              const productSelect = row.querySelector('#productSelect' + i);
-              const variationSelect = row.querySelector('#variationSelect' + i);
-              const invoiceSelect = row.querySelector('#invoiceSelect' + i);
+              const productSelect = row.querySelector('#productSelect{{ $index }}');
+              const variationSelect = row.querySelector('#variationSelect{{ $index }}');
+              const invoiceSelect = row.querySelector('#invoiceSelect{{ $index }}');
+
+              @php
+                  $product = $allProducts->firstWhere('id', $detail->product_id);
+                  $productVariations = $product?->variations ?? [];
+              @endphp
 
               if (variationSelect) {
-                  variationSelect.innerHTML = `<option value="{{ $detail->variation_id }}" selected>{{ $detail->variation->sku ?? 'Variation' }}</option>`;
+                  variationSelect.innerHTML = `<option value="" disabled>Select Variation</option>`;
+                  @foreach ($productVariations as $var)
+                      variationSelect.innerHTML += `<option value="{{ $var->id }}" {{ $detail->variation_id == $var->id ? 'selected' : '' }}>{{ $var->sku }}</option>`;
+                  @endforeach
                   $(variationSelect).select2({ width: '100%' });
               }
 
@@ -250,13 +255,11 @@
           })({{ $index }});
       @endforeach
 
-      // Auto-generate challan on edit load if production_type is sale_leather
       const productionType = document.getElementById('production_type').value;
       if (productionType === 'sale_leather') {
           generateVoucher();
       }
 
-      // Update challan live whenever qty, rate, product, or unit changes
       $('#PurPOTbleBody').on('change', 'select, input', function () {
           const productionType = document.getElementById('production_type').value;
           if (productionType === 'sale_leather') {
@@ -264,7 +267,6 @@
           }
       });
 
-      // Prevent form submit if challan not generated for sale_leather
       const form = document.getElementById('productionForm');
       form.addEventListener('submit', function (e) {
           const challanGenerated = $('#productionForm input[name="challan_generated"]').val();
@@ -277,8 +279,6 @@
           }
       });
   });
-
-  // ------------------ ROW FUNCTIONS ------------------
 
   function removeRow(button) {
       const tableRows = $("#PurPOTbleBody tr").length;
@@ -339,8 +339,6 @@
       $('#myTable select[data-plugin-selecttwo]').select2({ width: '100%' });
   }
 
-  // ------------------ TOTAL & CHALLAN ------------------
-
   function rowTotal(i) {
       const rate = parseFloat($(`#item_rate_${i}`).val()) || 0;
       const qty = parseFloat($(`#item_qty_${i}`).val()) || 0;
@@ -384,107 +382,97 @@
       }
   }
 
-  // ------------------ PRODUCT / VARIATION / INVOICE ------------------
+  function onItemChange(select) {
+      const row = select.closest('tr');
+      const itemId = select.value;
+      if (!row || !itemId) return;
 
-    // 🔹 When product changes
-    function onItemChange(select) {
-        const row = select.closest('tr');
-        const itemId = select.value;
-        if (!row || !itemId) return;
+      console.log("Product changed:", itemId); // Optional debug
 
-        // --- Reset variation dropdown ---
-        const variationSelect = row.querySelector(`select[id^="variationSelect"]`);
-        variationSelect.innerHTML = `<option value="" disabled selected>Loading...</option>`;
+      const variationSelect = row.querySelector(`select[id^="variationSelect"]`);
+      const invoiceSelect = row.querySelector(`select[id^="invoiceSelect"]`);
 
-        // --- Reset invoice dropdown ---
-        const invoiceSelect = row.querySelector(`select[id^="invoiceSelect"]`);
-        invoiceSelect.innerHTML = `<option value="" disabled selected>Select Invoice</option>`;
+      variationSelect.innerHTML = `<option value="" disabled selected>Loading...</option>`;
+      invoiceSelect.innerHTML = `<option value="" disabled selected>Select Invoice</option>`;
 
-        // --- Reset qty, rate, total ---
-        row.querySelector(`input[id^="item_qty_"]`).value = '';
-        row.querySelector(`input[id^="item_rate_"]`).value = '';
-        row.querySelector(`input[id^="item_total_"]`).value = '';
+      row.querySelector(`input[id^="item_qty_"]`).value = '';
+      row.querySelector(`input[id^="item_rate_"]`).value = '';
+      row.querySelector(`input[id^="item_total_"]`).value = '';
 
-        // --- Auto-fill unit dropdown ---
-        const unitSelect = row.querySelector(`select[id^="item_unit_"]`);
-        if (unitSelect) {
-            const selectedOption = select.options[select.selectedIndex];
-            const unitId = selectedOption.getAttribute("data-unit");
+      const unitSelect = row.querySelector(`select[id^="item_unit_"]`);
+      if (unitSelect) {
+          const selectedOption = select.options[select.selectedIndex];
+          const unitId = selectedOption.getAttribute("data-unit");
+          if (unitId) {
+              unitSelect.value = unitId;
+              $(unitSelect).select2({ width: '100%' });
+          }
+      }
 
-            if (unitId) {
-                unitSelect.value = unitId;
-                $(unitSelect).select2({ width: '100%' });
-            }
-        }
+      fetch(`/product/${itemId}/variations`)
+          .then(res => res.json())
+          .then(data => {
+              variationSelect.innerHTML = `<option value="" disabled selected>Select Variation</option>`;
+              if (data.success && data.variation.length) {
+                  data.variation.forEach(v => {
+                      variationSelect.innerHTML += `<option value="${v.id}" data-product-id="${itemId}">${v.sku}</option>`;
+                  });
+              } else {
+                  variationSelect.innerHTML = `<option value="">No Variations</option>`;
+              }
 
-        // --- Fetch variations for this product ---
-        fetch(`/product/${itemId}/variations`)
-            .then(res => res.json())
-            .then(data => {
-                variationSelect.innerHTML = `<option value="" disabled selected>Select Variation</option>`;
-                if (data.success && data.variation.length) {
-                    data.variation.forEach(v => {
-                        variationSelect.innerHTML += `<option value="${v.id}" data-product-id="${itemId}">${v.sku}</option>`;
-                    });
-                } else {
-                    variationSelect.innerHTML = `<option value="">No Variations</option>`;
-                }
-
-                $(variationSelect).select2({ width: '100%' });
-            })
-            .catch(() => {
-                variationSelect.innerHTML = `<option value="">Error loading variations</option>`;
-            });
-
-        // --- Fetch invoices for this product ---
-        fetchInvoices(itemId, row);
-    }
-
-  // 🔹 Fetch invoices
-  function fetchInvoices(id, row, isVariation = false) {
-    const invoiceSelect = row.querySelector(`select[id^="invoiceSelect"]`);
-    invoiceSelect.innerHTML = `<option value="" disabled selected>Loading...</option>`;
-
-    fetch(`/product/${id}/invoices`)
-      .then(res => res.json())
-      .then(data => {
-        invoiceSelect.innerHTML = `<option value="" disabled selected>Select Invoice</option>`;
-        if (Array.isArray(data) && data.length > 0) {
-          data.forEach(inv => {
-            invoiceSelect.innerHTML += `<option value="${inv.id}" data-rate="${inv.rate}">${inv.id}</option>`;
+              $(variationSelect).select2({ width: '100%' });
+          })
+          .catch(err => {
+              console.error("Variation fetch error:", err);
+              variationSelect.innerHTML = `<option value="">Error loading variations</option>`;
           });
-        } else {
-          invoiceSelect.innerHTML = `<option value="">No Invoices Found</option>`;
-        }
 
-        $(invoiceSelect).select2({ width: '100%' });
-      })
-      .catch(() => {
-        invoiceSelect.innerHTML = `<option value="">Error loading invoices</option>`;
-      });
+      fetchInvoices(itemId, row);
   }
 
-  // 🔹 When invoice changes
+  function fetchInvoices(id, row) {
+      const invoiceSelect = row.querySelector(`select[id^="invoiceSelect"]`);
+      invoiceSelect.innerHTML = `<option value="" disabled selected>Loading...</option>`;
+
+      fetch(`/product/${id}/invoices`)
+          .then(res => res.json())
+          .then(data => {
+              invoiceSelect.innerHTML = `<option value="" disabled selected>Select Invoice</option>`;
+              if (Array.isArray(data) && data.length > 0) {
+                  data.forEach(inv => {
+                      invoiceSelect.innerHTML += `<option value="${inv.id}" data-rate="${inv.rate}">${inv.id}</option>`;
+                  });
+              } else {
+                  invoiceSelect.innerHTML = `<option value="">No Invoices Found</option>`;
+              }
+
+              $(invoiceSelect).select2({ width: '100%' });
+          })
+          .catch(err => {
+              console.error("Invoice fetch error:", err);
+              invoiceSelect.innerHTML = `<option value="">Error loading invoices</option>`;
+          });
+  }
+
   function onInvoiceChange(select) {
-    const row = select.closest('tr');
-    const option = select.selectedOptions[0];
-    if (!row || !option) return;
+      const row = select.closest('tr');
+      const option = select.selectedOptions[0];
+      if (!row || !option) return;
 
-    const rate = option.getAttribute('data-rate') || 0;
+      const rate = option.getAttribute('data-rate') || 0;
 
-    const rateInput = row.querySelector(`input[id^="item_rate_"]`);
-    const qtyInput = row.querySelector(`input[id^="item_qty_"]`);
-    const totalInput = row.querySelector(`input[id^="item_total_"]`);
+      const rateInput = row.querySelector(`input[id^="item_rate_"]`);
+      const qtyInput = row.querySelector(`input[id^="item_qty_"]`);
+      const totalInput = row.querySelector(`input[id^="item_total_"]`);
 
-    if (rateInput) rateInput.value = rate;
-    if (qtyInput && totalInput) {
-      totalInput.value = ((parseFloat(qtyInput.value) || 0) * (parseFloat(rate) || 0)).toFixed(2);
-    }
+      if (rateInput) rateInput.value = rate;
+      if (qtyInput && totalInput) {
+          totalInput.value = ((parseFloat(qtyInput.value) || 0) * (parseFloat(rate) || 0)).toFixed(2);
+      }
 
-    tableTotal();
+      tableTotal();
   }
-
-  // ------------------ CHALLAN ------------------
 
   function generateVoucher() {
       const voucherContainer = $("#voucher-container");
@@ -552,7 +540,6 @@
 
       voucherContainer.html(html);
 
-      // Update hidden inputs in the form
       $('#productionForm input[name="challan_generated"]').val(1);
       if ($('#productionForm input[name="voucher_amount"]').length === 0) {
           $('#productionForm').append(`<input type="hidden" name="voucher_amount" value="${grandTotal.toFixed(2)}">`);
@@ -562,5 +549,6 @@
   }
 
 </script>
+
 
 @endsection
