@@ -73,6 +73,8 @@ class DatabaseSeeder extends Seeder
             'production_receiving',
             'production_return',
 
+            // POS
+            'pos_system',
         ];
 
         $actions = ['index', 'create', 'edit', 'delete', 'print'];
@@ -191,14 +193,14 @@ class DatabaseSeeder extends Seeder
 
         // 📦 Product Categories
         ProductCategory::insert([
-            ['id' => 1, 'name' => 'Raw Leather', 'description' => null, 'status' => 'active', 'created_at' => '2025-07-11 18:04:58', 'updated_at' => '2025-07-11 18:04:58'],
-            ['id' => 2, 'name' => 'Women Jackets', 'description' => null, 'status' => 'active', 'created_at' => '2025-07-11 19:04:47', 'updated_at' => '2025-07-11 19:04:47'],
-            ['id' => 3, 'name' => 'Bags', 'description' => null, 'status' => 'active', 'created_at' => '2025-07-11 19:05:02', 'updated_at' => '2025-07-11 19:05:02'],
-            ['id' => 4, 'name' => 'Skirts', 'description' => null, 'status' => 'active', 'created_at' => '2025-07-11 19:05:16', 'updated_at' => '2025-07-11 19:05:16'],
-            ['id' => 5, 'name' => 'Mens Jackets', 'description' => null, 'status' => 'active', 'created_at' => '2025-07-11 19:05:32', 'updated_at' => '2025-07-11 19:05:32'],
-            ['id' => 6, 'name' => 'Pant', 'description' => null, 'status' => 'active', 'created_at' => '2025-07-11 19:10:57', 'updated_at' => '2025-07-11 19:10:57'],
-            ['id' => 7, 'name' => 'Wallets', 'description' => null, 'status' => 'active', 'created_at' => '2025-07-11 19:11:23', 'updated_at' => '2025-07-11 19:11:23'],
-            ['id' => 8, 'name' => 'Rugs', 'description' => null, 'status' => 'active', 'created_at' => '2025-07-11 19:11:33', 'updated_at' => '2025-07-11 19:11:33'],
+            ['id' => 1, 'name' => 'Raw Leather', 'code'=> 'raw-leather', 'created_at' => '2025-07-11 18:04:58', 'updated_at' => '2025-07-11 18:04:58'],
+            ['id' => 2, 'name' => 'Women Jackets', 'code'=> 'women-jackets', 'created_at' => '2025-07-11 19:04:47', 'updated_at' => '2025-07-11 19:04:47'],
+            ['id' => 3, 'name' => 'Bags', 'code'=> 'bags', 'created_at' => '2025-07-11 19:05:02', 'updated_at' => '2025-07-11 19:05:02'],
+            ['id' => 4, 'name' => 'Skirts', 'code'=> 'skirts', 'created_at' => '2025-07-11 19:05:16', 'updated_at' => '2025-07-11 19:05:16'],
+            ['id' => 5, 'name' => 'Mens Jackets', 'code'=> 'men-jacket', 'created_at' => '2025-07-11 19:05:32', 'updated_at' => '2025-07-11 19:05:32'],
+            ['id' => 6, 'name' => 'Pant',  'code'=> 'pant', 'created_at' => '2025-07-11 19:10:57', 'updated_at' => '2025-07-11 19:10:57'],
+            ['id' => 7, 'name' => 'Wallets',  'code'=> 'wallets', 'created_at' => '2025-07-11 19:11:23', 'updated_at' => '2025-07-11 19:11:23'],
+            ['id' => 8, 'name' => 'Rugs',  'code'=> 'rugs', 'created_at' => '2025-07-11 19:11:33', 'updated_at' => '2025-07-11 19:11:33'],
         ]);
 
         // 📏 Measurement Units
