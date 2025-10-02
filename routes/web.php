@@ -48,6 +48,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/products/generate-multiple-barcodes', [ProductController::class, 'generateMultipleBarcodes'])->name('products.generateBarcodes');
     Route::get('/get-product-by-code/{barcode}', [ProductController::class, 'getByBarcode'])->name('product.byBarcode');
     Route::get('/product/{product}/variations', [ProductController::class, 'getVariations'])->name('product.variations');
+    Route::get('/product/{product}/variations2', [ProductController::class, 'getVariations2'])->name('product.variations2');
     Route::get('/product/{product}/productions', [ProductionController::class, 'getProductProductions'])->name('product.productions');
     
     Route::get('/products/bulk-upload/template', [ProductController::class, 'bulkUploadTemplate'])->name('products.bulk-upload.template')->middleware('check.permission:products.create');
@@ -145,4 +146,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('sale', [SalesReportController::class, 'saleReports'])->name('sale');
         Route::get('accounts', [AccountsReportController::class, 'accounts'])->name('accounts');
     });
+
+
+    Route::get('/sale-2', [SaleInvoiceController::class, 'create2'])->name("sale_invoices2.create");
+
 });

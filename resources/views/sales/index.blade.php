@@ -14,7 +14,10 @@
 
       <header class="card-header d-flex justify-content-between align-items-center">
         <h2 class="card-title">All Sale Invoices</h2>
-        <a href="{{ route('sale_invoices.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Sale Invoice</a>
+        <div>
+          <a href="{{ route('sale_invoices.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Sale Invoice</a>
+          <a href="{{ route('sale_invoices2.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Sale Invoice 2</a>
+        </div>
       </header>
 
       <div class="card-body">

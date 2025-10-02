@@ -383,7 +383,7 @@ class ProductController extends Controller
         }
 
         $unitId = $product->measurementUnit->id ?? null;
-
+        
         $variations = $product->variations->map(function ($v) use ($unitId) {
             return [
                 'id'   => $v->id,
@@ -401,6 +401,52 @@ class ProductController extends Controller
                 'id'                 => $product->id,
                 'name'               => $product->name,
                 'manufacturing_cost' => $product->manufacturing_cost, // ✅ always included
+                'unit'               => $unitId,
+            ],
+        ]);
+    }
+
+    public function getVariations2($productId)
+    {
+        $product = Product::with([
+            'variations.attributeValues.attribute', // eager load attributes for variation
+            'measurementUnit'
+        ])->find($productId);
+
+        if (!$product) {
+            return response()->json([
+                'success'   => false,
+                'variation' => [],
+            ]);
+        }
+
+        $unitId = $product->measurementUnit->id ?? null;
+
+        $variations = $product->variations->map(function ($v) use ($unitId) {
+            return [
+                'id'         => $v->id,
+                'sku'        => $v->sku,
+                'unit'       => $unitId,
+                'attributes' => $v->attributeValues->map(function ($av) {
+                    return [
+                        'id'        => $av->id,
+                        'value'     => $av->value,
+                        'attribute' => [
+                            'id'   => $av->attribute->id,
+                            'name' => $av->attribute->name,
+                        ],
+                    ];
+                })->toArray(),
+            ];
+        })->toArray();
+
+        return response()->json([
+            'success'   => true,
+            'variation' => $variations,
+            'product'   => [
+                'id'                 => $product->id,
+                'name'               => $product->name,
+                'manufacturing_cost' => $product->manufacturing_cost,
                 'unit'               => $unitId,
             ],
         ]);

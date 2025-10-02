@@ -23,6 +23,15 @@ class SaleInvoiceController extends Controller
         ]);
     }
 
+    public function create2()
+    {
+        return view('sales.create-2', [
+            'products' => Product::get(),
+            'productions' => Production::latest()->get(),
+            'accounts' => ChartOfAccounts::where('account_type', 'customer')->get(), // or your logic
+        ]);
+    }
+
     public function store(Request $request)
     {
 
