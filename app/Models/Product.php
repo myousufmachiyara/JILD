@@ -11,6 +11,7 @@ class Product extends Model
 
     protected $fillable = [
         'category_id',
+        'vendor_id',            // ← NEW: optional vendor/manufacturer
         'name',
         'sku',
         'barcode',
@@ -23,7 +24,7 @@ class Product extends Model
         'max_stock_level',
         'minimum_order_qty',
         'measurement_unit',
-        'item_type',    // fg, raw, service
+        'item_type',            // fg, raw, service
         'is_active',
     ];
 
@@ -43,34 +44,35 @@ class Product extends Model
         });
     }
 
-
     /* ----------------- Relationships ----------------- */
 
-    // Belongs to category
     public function category()
     {
         return $this->belongsTo(ProductCategory::class, 'category_id');
     }
 
-    // Has many variations
+    // ← NEW: optional vendor/manufacturer
+    public function vendor()
+    {
+        return $this->belongsTo(Vendor::class, 'vendor_id');
+    }
+
     public function variations()
     {
         return $this->hasMany(ProductVariation::class);
     }
 
-    // Has many images
     public function images()
     {
         return $this->hasMany(ProductImage::class);
     }
 
-    // Belongs to measurement unit
     public function measurementUnit()
     {
         return $this->belongsTo(MeasurementUnit::class, 'measurement_unit');
     }
 
-    public function purchaseInvoices() 
+    public function purchaseInvoices()
     {
         return $this->hasMany(PurchaseInvoiceItem::class, 'item_id');
     }

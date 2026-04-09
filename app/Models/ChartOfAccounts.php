@@ -15,8 +15,10 @@ class ChartOfAccounts extends Model
         'name',
         'account_code',
         'account_type',
+        'visibility', // NEW FIELD
         'receivables',
         'payables',
+        'credit_limit',
         'opening_date',
         'remarks',
         'address',
@@ -35,4 +37,5 @@ class ChartOfAccounts extends Model
     {
         return $this->hasMany(PurchaseInvoice::class, 'vendor_id');
     }
+
 }

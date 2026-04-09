@@ -39,6 +39,18 @@
               @error('category_id')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
             <div class="col-md-2">
+              <label>Vendor / Manufacturer</label>
+              <select name="vendor_id" class="form-control select2-js">
+                <option value="">-- None --</option>
+                @foreach($vendors as $v)
+                  <option value="{{ $v->id }}" {{ old('vendor_id') == $v->id ? 'selected' : '' }}>
+                    {{ $v->name }}
+                  </option>
+                @endforeach
+              </select>
+              @error('vendor_id')<div class="text-danger">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-md-2">
               <label>SKU *</label>
               <input type="text" name="sku" id="sku" class="form-control" value="{{ old('sku') }}" required>
               @error('sku')<div class="text-danger">{{ $message }}</div>@enderror
@@ -64,7 +76,7 @@
               </select>
             </div>
 
-            <div class="col-md-2">
+            <div class="col-md-2 mt-3">
               <label>Consumption</label>
               <input type="number" step="any" name="consumption" class="form-control" value="{{ old('consumption', '0') }}">
               @error('consumption')<div class="text-danger">{{ $message }}</div>@enderror
