@@ -30,7 +30,10 @@ class ProductController extends Controller
 
     public function barcodeSelection()
     {
-        $variations = ProductVariation::with('product')->get();
+        $variations = ProductVariation::with('product')
+            ->whereHas('product')   // ← only variations that have a live product
+            ->get();
+
         return view('products.barcode-selection', compact('variations'));
     }
 

@@ -49,17 +49,19 @@
                     </thead>
                     <tbody>
                         @foreach($variations as $variation)
-                            <tr>
-                                <td>
-                                    <input type="checkbox" name="selected_variations[]" value="{{ $variation->id }}">
-                                </td>
-                                <td class="product-name">{{ $variation->product->name }}</td>
-                                <td>{{ $variation->sku }}</td>
-                                <td>{{ number_format($variation->product->selling_price, 2) }}</td>
-                                <td>
-                                    <input type="number" name="quantity[{{ $variation->id }}]" value="0" min="0" class="form-control form-control-sm">
-                                </td>
-                            </tr>
+                            @if($variation->product)   {{-- skip orphaned variations --}}
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" name="selected_variations[]" value="{{ $variation->id }}">
+                                    </td>
+                                    <td class="product-name">{{ $variation->product->name }}</td>
+                                    <td>{{ $variation->sku }}</td>
+                                    <td>{{ number_format($variation->product->selling_price, 2) }}</td>
+                                    <td>
+                                        <input type="number" name="quantity[{{ $variation->id }}]" value="1" min="1" class="form-control form-control-sm">
+                                    </td>
+                                </tr>
+                            @endif
                         @endforeach
                     </tbody>
                 </table>
