@@ -41,5 +41,10 @@ class PurchaseInvoice extends Model
     {
         return $this->hasMany(PurchaseInvoiceAttachment::class);
     }
+
+    public function voucher()
+    {
+        return $this->morphOne(Voucher::class, 'source');
+    }
 }
 

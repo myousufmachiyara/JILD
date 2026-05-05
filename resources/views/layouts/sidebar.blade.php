@@ -94,9 +94,6 @@
           <li class="nav-parent">
             <a class="nav-link" href="#"><i class="fa fa-shopping-cart"></i> <span>Purchase</span></a>
             <ul class="nav nav-children">
-              @can('purchase_orders.index')
-                <li><a class="nav-link" href="{{ route('purchase_orders.index') }}">Orders</a></li>
-              @endcan
               @can('purchase_invoices.index')
               <li><a class="nav-link" href="{{ route('purchase_invoices.index') }}">Invoices</a></li>
               @endcan
@@ -126,9 +123,6 @@
           <li class="nav-parent">
             <a class="nav-link" href="#"><i class="fa fa-cash-register"></i> <span>Sale</span></a>
             <ul class="nav nav-children">
-              @can('sale_orders.index')
-              <li><a class="nav-link" href="{{ route('sale_orders.index') }}">Order</a></li>
-              @endcan
               @can('sale_invoices.index')
               <li><a class="nav-link" href="{{ route('sale_invoices.index') }}">Invoices</a></li>
               @endcan
@@ -139,26 +133,14 @@
           </li>
           @endif
           
-          {{-- Vouchers --}}
-          @if(auth()->user()->can('vouchers.index'))
-            <li class="nav-parent">
-                <a class="nav-link" href="#">
-                    <i class="fa fa-money-check"></i>
-                    <span>Vouchers</span>
-                </a>
-                <ul class="nav nav-children">
-                    @can('vouchers.index')
-                      <li><a class="nav-link" href="{{ route('vouchers.index', 'journal') }}">Journal Vouchers</a></li>
-                    @endcan
-                    @can('vouchers.index')
-                      <li><a class="nav-link" href="{{ route('vouchers.index', 'payment') }}">Payment Vouchers</a></li>
-                    @endcan
-                    @can('vouchers.index')
-                      <li><a class="nav-link" href="{{ route('vouchers.index', 'receipt') }}">Receipt Vouchers</a></li>
-                    @endcan
-                </ul>
+          @can('vouchers.index')
+            <li>
+              <a class="nav-link" href="{{ route('vouchers.all') }}">
+                <i class="fa fa-money-check"></i>
+                <span>Vouchers</span>
+              </a>
             </li>
-          @endif
+          @endcan
 
 
           {{-- Reports --}}
@@ -189,9 +171,6 @@
               @endcan
               @can('reports.accounts')
                 <li><a class="nav-link" href="{{ route('reports.accounts') }}">Accounts</a></li>
-              @endcan
-              @can('reports.summary')
-                <li><a class="nav-link" href="{{ route('reports.summary') }}">Summary</a></li>
               @endcan
             </ul>
           </li>

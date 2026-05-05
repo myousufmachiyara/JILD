@@ -4,250 +4,365 @@
 @section('content')
 <div class="tabs">
     <ul class="nav nav-tabs">
-        <li class="nav-item"><a class="nav-link {{ $tab=='PUR'?'active':'' }}" data-bs-toggle="tab" href="#PUR">Purchase Register</a></li>
-        <li class="nav-item"><a class="nav-link {{ $tab=='PR'?'active':'' }}" data-bs-toggle="tab" href="#PR">Purchase Returns</a></li>
-        <li class="nav-item"><a class="nav-link {{ $tab=='VWP'?'active':'' }}" data-bs-toggle="tab" href="#VWP">Vendor-wise Purchases</a></li>
+        <li class="nav-item">
+            <a class="nav-link {{ $tab=='PUR' ? 'active' : '' }}" data-bs-toggle="tab" href="#PUR">
+                <i class="fas fa-shopping-cart me-1"></i> Purchase Register
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {{ $tab=='PR' ? 'active' : '' }}" data-bs-toggle="tab" href="#PR">
+                <i class="fas fa-undo me-1"></i> Purchase Returns
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {{ $tab=='VWP' ? 'active' : '' }}" data-bs-toggle="tab" href="#VWP">
+                <i class="fas fa-users me-1"></i> Vendor-wise Purchases
+            </a>
+        </li>
     </ul>
 
     <div class="tab-content mt-3">
-        {{-- PURCHASE REGISTER --}}
-        <div id="PUR" class="tab-pane fade {{ $tab=='PUR'?'show active':'' }}">
+
+        {{-- ── PURCHASE REGISTER ─────────────────────────────────── --}}
+        <div id="PUR" class="tab-pane fade {{ $tab=='PUR' ? 'show active' : '' }}">
+
             <form method="GET" action="{{ route('reports.purchase') }}">
                 <input type="hidden" name="tab" value="PUR">
                 <div class="row g-3 mb-3">
                     <div class="col-md-3">
                         <label>From Date</label>
-                        <input type="date" name="from_date" class="form-control" value="{{ request('from_date', $from) }}">
+                        <input type="date" name="from_date" class="form-control"
+                               value="{{ request('from_date', $from) }}">
                     </div>
                     <div class="col-md-3">
                         <label>To Date</label>
-                        <input type="date" name="to_date" class="form-control" value="{{ request('to_date', $to) }}">
+                        <input type="date" name="to_date" class="form-control"
+                               value="{{ request('to_date', $to) }}">
                     </div>
                     <div class="col-md-3">
                         <label>Vendor</label>
-                        <select name="vendor_id" class="form-control">
+                        <select name="vendor_id" class="form-control select2">
                             <option value="">-- All Vendors --</option>
                             @foreach($vendors as $vendor)
-                                <option value="{{ $vendor->id }}" {{ request('vendor_id')==$vendor->id?'selected':'' }}>{{ $vendor->name }}</option>
+                                <option value="{{ $vendor->id }}"
+                                    {{ request('vendor_id') == $vendor->id ? 'selected' : '' }}>
+                                    {{ $vendor->name }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary">Filter</button>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-filter me-1"></i> Filter
+                        </button>
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end">
+                        <a href="{{ route('reports.purchase') }}?tab=PUR" class="btn btn-secondary w-100">
+                            Reset
+                        </a>
                     </div>
                 </div>
             </form>
 
             @php
-                $grandTotal = $purchaseRegister->sum('total');
-                $grandQty   = $purchaseRegister->sum('quantity');
+                $grandTotal = collect($purchaseRegister)->sum(fn($r) => $r->total);
+                $grandQty   = collect($purchaseRegister)->sum(fn($r) => $r->quantity);
             @endphp
 
-            <div class="mb-3 text-end">
-                <h5>Total Qty: <span class="text-primary">{{ $grandQty }}</span></h5>
-                <h3>Total Purchase: <span class="text-danger">{{ number_format($grandTotal, 2) }}</span></h3>
+            <div class="row mb-3">
+                <div class="col text-end">
+                    <span class="me-4">Total Qty: <strong class="text-primary">{{ number_format($grandQty, 2) }}</strong></span>
+                    <span>Total Purchase: <strong class="text-danger fs-5">{{ number_format($grandTotal, 2) }}</strong></span>
+                </div>
             </div>
 
-            <table class="table table-bordered table-striped">
-                <thead>
-                    <tr>
-                        <th>Date</th><th>Invoice No</th><th>Vendor</th><th>Item</th>
-                        <th>Qty</th><th>Rate</th><th>Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($purchaseRegister as $pur)
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped table-sm align-middle">
+                    <thead class="table-light">
                         <tr>
-                            <td>{{ $pur->date }}</td>
-                            <td>{{ $pur->invoice_no }}</td>
-                            <td>{{ $pur->vendor_name }}</td>
-                            <td>{{ $pur->item_name }}</td>
-                            <td>{{ $pur->quantity }}</td>
-                            <td>{{ number_format($pur->rate, 2) }}</td>
-                            <td>{{ number_format($pur->total, 2) }}</td>
+                            <th>#</th>
+                            <th>Date</th>
+                            <th>Invoice No</th>
+                            <th>Vendor</th>
+                            <th>Item</th>
+                            <th>Variation</th>
+                            <th>Unit</th>
+                            <th class="text-end">Qty</th>
+                            <th class="text-end">Rate</th>
+                            <th class="text-end">Total</th>
                         </tr>
-                    @empty
-                        <tr><td colspan="7" class="text-center text-muted">No purchase records found.</td></tr>
-                    @endforelse
-                </tbody>
-                @if(count($purchaseRegister))
-                <tfoot>
-                    <tr>
-                        <th colspan="4" class="text-end">Grand Total</th>
-                        <th>{{ $grandQty }}</th>
-                        <th>-</th>
-                        <th>{{ number_format($grandTotal, 2) }}</th>
-                    </tr>
-                </tfoot>
-                @endif
-            </table>
+                    </thead>
+                    <tbody>
+                        @forelse($purchaseRegister as $i => $pur)
+                            <tr>
+                                <td>{{ $i + 1 }}</td>
+                                <td>{{ \Carbon\Carbon::parse($pur->date)->format('d-m-Y') }}</td>
+                                <td>{{ $pur->invoice_no }}</td>
+                                <td>{{ $pur->vendor_name }}</td>
+                                <td>{{ $pur->item_name }}</td>
+                                <td>{{ $pur->variation !== '-' ? $pur->variation : '' }}</td>
+                                <td>{{ $pur->unit }}</td>
+                                <td class="text-end">{{ number_format($pur->quantity, 2) }}</td>
+                                <td class="text-end">{{ number_format($pur->rate, 2) }}</td>
+                                <td class="text-end">{{ number_format($pur->total, 2) }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="10" class="text-center text-muted py-3">
+                                    No purchase records found for selected criteria.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                    @if(count($purchaseRegister) > 0)
+                    <tfoot class="table-light fw-bold">
+                        <tr>
+                            <th colspan="7" class="text-end">Grand Total</th>
+                            <th class="text-end">{{ number_format($grandQty, 2) }}</th>
+                            <th class="text-end">—</th>
+                            <th class="text-end">{{ number_format($grandTotal, 2) }}</th>
+                        </tr>
+                    </tfoot>
+                    @endif
+                </table>
+            </div>
         </div>
 
-        {{-- PURCHASE RETURNS --}}
-        <div id="PR" class="tab-pane fade {{ $tab=='PR'?'show active':'' }}">
+        {{-- ── PURCHASE RETURNS ──────────────────────────────────── --}}
+        <div id="PR" class="tab-pane fade {{ $tab=='PR' ? 'show active' : '' }}">
+
             <form method="GET" action="{{ route('reports.purchase') }}">
                 <input type="hidden" name="tab" value="PR">
                 <div class="row g-3 mb-3">
                     <div class="col-md-3">
                         <label>From Date</label>
-                        <input type="date" name="from_date" class="form-control" value="{{ request('from_date', $from) }}">
+                        <input type="date" name="from_date" class="form-control"
+                               value="{{ request('from_date', $from) }}">
                     </div>
                     <div class="col-md-3">
                         <label>To Date</label>
-                        <input type="date" name="to_date" class="form-control" value="{{ request('to_date', $to) }}">
+                        <input type="date" name="to_date" class="form-control"
+                               value="{{ request('to_date', $to) }}">
                     </div>
                     <div class="col-md-3">
                         <label>Vendor</label>
-                        <select name="vendor_id" class="form-control">
+                        <select name="vendor_id" class="form-control select2">
                             <option value="">-- All Vendors --</option>
                             @foreach($vendors as $vendor)
-                                <option value="{{ $vendor->id }}" {{ request('vendor_id')==$vendor->id?'selected':'' }}>{{ $vendor->name }}</option>
+                                <option value="{{ $vendor->id }}"
+                                    {{ request('vendor_id') == $vendor->id ? 'selected' : '' }}>
+                                    {{ $vendor->name }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary">Filter</button>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-filter me-1"></i> Filter
+                        </button>
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end">
+                        <a href="{{ route('reports.purchase') }}?tab=PR" class="btn btn-secondary w-100">
+                            Reset
+                        </a>
                     </div>
                 </div>
             </form>
 
             @php
-                $returnTotal = $purchaseReturns->sum('total');
-                $returnQty   = $purchaseReturns->sum('quantity');
+                $returnTotal = collect($purchaseReturns)->sum(fn($r) => $r->total);
+                $returnQty   = collect($purchaseReturns)->sum(fn($r) => $r->quantity);
             @endphp
 
-            <div class="mb-3 text-end">
-                <h5>Total Qty Returned: <span class="text-warning">{{ $returnQty }}</span></h5>
-                <h3>Total Returns: <span class="text-danger">{{ number_format($returnTotal, 2) }}</span></h3>
+            <div class="row mb-3">
+                <div class="col text-end">
+                    <span class="me-4">Total Qty Returned: <strong class="text-warning">{{ number_format($returnQty, 2) }}</strong></span>
+                    <span>Total Returns: <strong class="text-danger fs-5">{{ number_format($returnTotal, 2) }}</strong></span>
+                </div>
             </div>
 
-            <table class="table table-bordered table-striped">
-                <thead>
-                    <tr>
-                        <th>Date</th><th>Return No</th><th>Vendor</th><th>Item</th>
-                        <th>Qty</th><th>Rate</th><th>Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($purchaseReturns as $pr)
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped table-sm align-middle">
+                    <thead class="table-light">
                         <tr>
-                            <td>{{ $pr->date }}</td>
-                            <td>{{ $pr->return_no }}</td>
-                            <td>{{ $pr->vendor_name }}</td>
-                            <td>{{ $pr->item_name }}</td>
-                            <td>{{ $pr->quantity }}</td>
-                            <td>{{ number_format($pr->rate, 2) }}</td>
-                            <td>{{ number_format($pr->total, 2) }}</td>
+                            <th>#</th>
+                            <th>Date</th>
+                            <th>Return No</th>
+                            <th>Vendor</th>
+                            <th>Item</th>
+                            <th>Variation</th>
+                            <th>Unit</th>
+                            <th class="text-end">Qty</th>
+                            <th class="text-end">Rate</th>
+                            <th class="text-end">Total</th>
                         </tr>
-                    @empty
-                        <tr><td colspan="7" class="text-center text-muted">No purchase return records found.</td></tr>
-                    @endforelse
-                </tbody>
-                @if(count($purchaseReturns))
-                <tfoot>
-                    <tr>
-                        <th colspan="4" class="text-end">Grand Total</th>
-                        <th>{{ $returnQty }}</th>
-                        <th>-</th>
-                        <th>{{ number_format($returnTotal, 2) }}</th>
-                    </tr>
-                </tfoot>
-                @endif
-            </table>
+                    </thead>
+                    <tbody>
+                        @forelse($purchaseReturns as $i => $pr)
+                            <tr>
+                                <td>{{ $i + 1 }}</td>
+                                <td>{{ \Carbon\Carbon::parse($pr->date)->format('d-m-Y') }}</td>
+                                <td>{{ $pr->return_no }}</td>
+                                <td>{{ $pr->vendor_name }}</td>
+                                <td>{{ $pr->item_name }}</td>
+                                <td>{{ $pr->variation !== '-' ? $pr->variation : '' }}</td>
+                                <td>{{ $pr->unit }}</td>
+                                <td class="text-end">{{ number_format($pr->quantity, 2) }}</td>
+                                <td class="text-end">{{ number_format($pr->rate, 2) }}</td>
+                                <td class="text-end">{{ number_format($pr->total, 2) }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="10" class="text-center text-muted py-3">
+                                    No purchase return records found for selected criteria.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                    @if(count($purchaseReturns) > 0)
+                    <tfoot class="table-light fw-bold">
+                        <tr>
+                            <th colspan="7" class="text-end">Grand Total</th>
+                            <th class="text-end">{{ number_format($returnQty, 2) }}</th>
+                            <th class="text-end">—</th>
+                            <th class="text-end">{{ number_format($returnTotal, 2) }}</th>
+                        </tr>
+                    </tfoot>
+                    @endif
+                </table>
+            </div>
         </div>
 
-        {{-- VENDOR-WISE PURCHASE --}}
-        <div id="VWP" class="tab-pane fade {{ $tab=='VWP'?'show active':'' }}">
+        {{-- ── VENDOR-WISE PURCHASES ─────────────────────────────── --}}
+        <div id="VWP" class="tab-pane fade {{ $tab=='VWP' ? 'show active' : '' }}">
+
             <form method="GET" action="{{ route('reports.purchase') }}">
                 <input type="hidden" name="tab" value="VWP">
                 <div class="row g-3 mb-3">
                     <div class="col-md-3">
                         <label>Vendor</label>
-                        <select name="vendor_id" class="form-control">
+                        <select name="vendor_id" class="form-control select2">
                             <option value="">-- All Vendors --</option>
                             @foreach($vendors as $vendor)
-                                <option value="{{ $vendor->id }}" {{ request('vendor_id')==$vendor->id?'selected':'' }}>{{ $vendor->name }}</option>
+                                <option value="{{ $vendor->id }}"
+                                    {{ request('vendor_id') == $vendor->id ? 'selected' : '' }}>
+                                    {{ $vendor->name }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
                     <div class="col-md-3">
                         <label>From Date</label>
-                        <input type="date" name="from_date" class="form-control" value="{{ request('from_date', $from) }}">
+                        <input type="date" name="from_date" class="form-control"
+                               value="{{ request('from_date', $from) }}">
                     </div>
                     <div class="col-md-3">
                         <label>To Date</label>
-                        <input type="date" name="to_date" class="form-control" value="{{ request('to_date', $to) }}">
+                        <input type="date" name="to_date" class="form-control"
+                               value="{{ request('to_date', $to) }}">
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary">Filter</button>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-filter me-1"></i> Filter
+                        </button>
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end">
+                        <a href="{{ route('reports.purchase') }}?tab=VWP" class="btn btn-secondary w-100">
+                            Reset
+                        </a>
                     </div>
                 </div>
             </form>
 
             @php
-                $vendorGrandAmount = $vendorWisePurchase->sum('total_amount');
-                $vendorGrandQty    = $vendorWisePurchase->sum('total_qty');
+                $vendorGrandAmount = collect($vendorWisePurchase)->sum(fn($v) => $v->total_amount);
+                $vendorGrandQty    = collect($vendorWisePurchase)->sum(fn($v) => $v->total_qty);
             @endphp
 
-            <div class="mb-3 text-end">
-                <h5>Total Qty: <span class="text-primary">{{ $vendorGrandQty }}</span></h5>
-                <h3>Total Purchases: <span class="text-success">{{ number_format($vendorGrandAmount, 2) }}</span></h3>
+            <div class="row mb-3">
+                <div class="col text-end">
+                    <span class="me-4">Total Qty: <strong class="text-primary">{{ number_format($vendorGrandQty, 2) }}</strong></span>
+                    <span>Total Purchases: <strong class="text-success fs-5">{{ number_format($vendorGrandAmount, 2) }}</strong></span>
+                </div>
             </div>
 
-            <table class="table table-bordered table-striped">
-                <thead>
-                    <tr>
-                        <th>Vendor</th>
-                        <th>Invoice Date</th>
-                        <th>Invoice No</th>
-                        <th>Item</th>
-                        <th>Variation</th>
-                        <th>Qty</th>
-                        <th>Rate</th>
-                        <th>Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($vendorWisePurchase as $vendorData)
-                        <tr class="table-secondary">
-                            <td colspan="8"><strong>{{ $vendorData->vendor_name }}</strong></td>
-                        </tr>
-                        @foreach($vendorData->items as $item)
-                            <tr>
-                                <td></td>
-                                <td>{{ $item->invoice_date }}</td>
-                                <td>{{ $item->invoice_no }}</td>
-                                <td>{{ $item->item_name }}</td>
-                                <td>{{ $item->variation }}</td>
-                                <td>{{ $item->quantity }}</td>
-                                <td>{{ number_format($item->rate, 2) }}</td>
-                                <td>{{ number_format($item->total, 2) }}</td>
-                            </tr>
-                        @endforeach
-                        <tr class="fw-bold">
-                            <td colspan="5" class="text-end">Vendor Total</td>
-                            <td>{{ $vendorData->total_qty }}</td>
-                            <td>-</td>
-                            <td>{{ number_format($vendorData->total_amount, 2) }}</td>
-                        </tr>
-                    @empty
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped table-sm align-middle">
+                    <thead class="table-light">
                         <tr>
-                            <td colspan="8" class="text-center text-muted">No vendor purchase data found.</td>
+                            <th>Vendor / Item</th>
+                            <th>Date</th>
+                            <th>Invoice No</th>
+                            <th>Item</th>
+                            <th>Variation</th>
+                            <th>Unit</th>
+                            <th class="text-end">Qty</th>
+                            <th class="text-end">Rate</th>
+                            <th class="text-end">Total</th>
                         </tr>
-                    @endforelse
-                </tbody>
-                @if(count($vendorWisePurchase))
-                <tfoot>
-                    <tr class="fw-bold">
-                        <th colspan="5" class="text-end">Grand Total</th>
-                        <th>{{ $vendorWisePurchase->sum('total_qty') }}</th>
-                        <th>-</th>
-                        <th>{{ number_format($vendorWisePurchase->sum('total_amount'), 2) }}</th>
-                    </tr>
-                </tfoot>
-                @endif
-            </table>
+                    </thead>
+                    <tbody>
+                        @forelse($vendorWisePurchase as $vendorData)
+                            {{-- Vendor header row --}}
+                            <tr class="table-dark">
+                                <td colspan="9">
+                                    <i class="fas fa-user me-1"></i>
+                                    <strong>{{ $vendorData->vendor_name }}</strong>
+                                    <span class="float-end">
+                                        Qty: {{ number_format($vendorData->total_qty, 2) }} &nbsp;|&nbsp;
+                                        Total: {{ number_format($vendorData->total_amount, 2) }}
+                                    </span>
+                                </td>
+                            </tr>
+
+                            {{-- Item rows --}}
+                            @foreach($vendorData->items as $i => $item)
+                                <tr>
+                                    <td class="ps-4 text-muted">{{ $i + 1 }}</td>
+                                    <td>{{ \Carbon\Carbon::parse($item->invoice_date)->format('d-m-Y') }}</td>
+                                    <td>{{ $item->invoice_no }}</td>
+                                    <td>{{ $item->item_name }}</td>
+                                    <td>{{ $item->variation !== '-' ? $item->variation : '' }}</td>
+                                    <td>{{ $item->unit }}</td>
+                                    <td class="text-end">{{ number_format($item->quantity, 2) }}</td>
+                                    <td class="text-end">{{ number_format($item->rate, 2) }}</td>
+                                    <td class="text-end">{{ number_format($item->total, 2) }}</td>
+                                </tr>
+                            @endforeach
+
+                            {{-- Vendor subtotal --}}
+                            <tr class="table-secondary fw-bold">
+                                <td colspan="6" class="text-end">
+                                    {{ $vendorData->vendor_name }} — Subtotal
+                                </td>
+                                <td class="text-end">{{ number_format($vendorData->total_qty, 2) }}</td>
+                                <td class="text-end">—</td>
+                                <td class="text-end">{{ number_format($vendorData->total_amount, 2) }}</td>
+                            </tr>
+
+                        @empty
+                            <tr>
+                                <td colspan="9" class="text-center text-muted py-3">
+                                    No vendor purchase data found for selected criteria.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+
+                    @if(count($vendorWisePurchase) > 0)
+                    <tfoot class="table-light fw-bold">
+                        <tr>
+                            <th colspan="6" class="text-end">Grand Total</th>
+                            <th class="text-end">{{ number_format($vendorGrandQty, 2) }}</th>
+                            <th class="text-end">—</th>
+                            <th class="text-end">{{ number_format($vendorGrandAmount, 2) }}</th>
+                        </tr>
+                    </tfoot>
+                    @endif
+                </table>
+            </div>
         </div>
+
     </div>
 </div>
 @endsection

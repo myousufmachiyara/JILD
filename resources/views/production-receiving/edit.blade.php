@@ -1,415 +1,363 @@
 @extends('layouts.app')
-
 @section('title', 'Production | Edit Receiving')
 
 @section('content')
-  <div class="row">
-    <form action="{{ route('production_receiving.update', $receiving->id) }}" method="POST" enctype="multipart/form-data">
-      @csrf
-      @method('PUT')
-      @if ($errors->has('error'))
-        <strong class="text-danger">{{ $errors->first('error') }}</strong>
-      @endif
+<div class="row">
+  <form action="{{ route('production_receiving.update', $receiving->id) }}" method="POST">
+    @csrf
+    @method('PUT')
 
-      <div class="col-12 mb-4">
-        <section class="card">
-          <header class="card-header">
-            <h2 class="card-title">Edit Production Receiving</h2>
-          </header>
-          <div class="card-body">
-            <div class="row mb-4">
-              <div class="col-md-2">
-                <label>GRN #</label>
-                <input type="text" name="grn_no" class="form-control" value="{{ $receiving->grn_no }}" readonly />
-              </div>
-              <div class="col-md-2">
-                <label>Receiving Date</label>
-                <input type="date" name="rec_date" class="form-control" value="{{ \Carbon\Carbon::parse($receiving->return_date)->toDateString() }}" required />
-              </div>
-              <div class="col-md-2">
-                <label>Production Order</label>
-                <select name="production_id" class="form-control select2-js">
-                  <option value="">Select Production</option>
-                  @foreach($productions as $prod)
-                    <option value="{{ $prod->id }}" {{ $receiving->production_id == $prod->id ? 'selected' : '' }}>
-                      {{ $prod->id }}
-                    </option>
-                  @endforeach
-                </select>
-              </div>
-              <div class="col-md-2">
-                <label>Vendor</label>
-                <select name="vendor_id" class="form-control select2-js" required>
-                    <option value="" disabled>Select Vendor</option>
-                    @foreach($accounts as $vendor)
-                        <option value="{{ $vendor->id }}" {{ $receiving->vendor_id == $vendor->id ? 'selected' : '' }}>{{ $vendor->name }}</option>
-                    @endforeach
-                </select>
-              </div>
+    @if($errors->any())
+      <div class="col-12">
+        <div class="alert alert-danger">
+          <ul class="mb-0">
+            @foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach
+          </ul>
+        </div>
+      </div>
+    @endif
+
+    @if(session('error'))
+      <div class="col-12"><div class="alert alert-danger">{{ session('error') }}</div></div>
+    @endif
+
+    {{-- Header --}}
+    <div class="col-12 mb-4">
+      <section class="card">
+        <header class="card-header">
+          <h2 class="card-title">Edit Production Receiving #{{ $receiving->id }}</h2>
+        </header>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-2">
+              <label>GRN #</label>
+              <input type="text" class="form-control"
+                     value="{{ $receiving->grn_no }}" readonly>
+            </div>
+            <div class="col-md-2">
+              <label>Receiving Date <span class="text-danger">*</span></label>
+              <input type="date" name="rec_date" class="form-control"
+                     value="{{ \Carbon\Carbon::parse($receiving->rec_date)->toDateString() }}" required>
+            </div>
+            <div class="col-md-3">
+              <label>Production Order</label>
+              <select name="production_id" class="form-control select2-js">
+                <option value="">-- No Production Order --</option>
+                @foreach($productions as $prod)
+                  <option value="{{ $prod->id }}"
+                    {{ $receiving->production_id == $prod->id ? 'selected' : '' }}>
+                    #{{ $prod->id }} — {{ $prod->vendor->name ?? '' }}
+                  </option>
+                @endforeach
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label>Vendor <span class="text-danger">*</span></label>
+              <select name="vendor_id" class="form-control select2-js" required>
+                <option value="">Select Vendor</option>
+                @foreach($accounts as $vendor)
+                  <option value="{{ $vendor->id }}"
+                    {{ $receiving->vendor_id == $vendor->id ? 'selected' : '' }}>
+                    {{ $vendor->name }}
+                  </option>
+                @endforeach
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label>Remarks</label>
+              <input type="text" name="remarks" class="form-control"
+                     value="{{ $receiving->remarks }}" placeholder="Optional">
             </div>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
+    </div>
 
-      <div class="col-12 mb-4">
-        <section class="card">
-          <header class="card-header">
-            <h2 class="card-title">Product Details</h2>
-          </header>
-          <div class="card-body">
-            <table class="table table-bordered" id="itemTable">
-              <thead>
+    {{-- Items --}}
+    <div class="col-12 mb-4">
+      <section class="card">
+        <header class="card-header d-flex justify-content-between align-items-center">
+          <h2 class="card-title">Received Items</h2>
+          <button type="button" class="btn btn-success btn-sm" id="addRowBtn">
+            <i class="fas fa-plus me-1"></i> Add Row
+          </button>
+        </header>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm" id="itemTable">
+              <thead class="table-light">
                 <tr>
-                  <th>Item Code</th>
+                  <th width="12%">Barcode / Code</th>
                   <th>Item</th>
                   <th>Variation</th>
-                  <th>M. Cost</th>
-                  <th>Received</th>
+                  <th width="10%">Mfg. Cost</th>
+                  <th width="10%">Received Qty</th>
                   <th>Remarks</th>
-                  <th>Total</th>
-                  <th></th>
+                  <th width="10%">Total</th>
+                  <th width="5%"></th>
                 </tr>
               </thead>
-              <tbody>
-                @foreach($receiving->details as $index => $detail)
-                <tr>
-                  <td>
-                    <input type="text" class="form-control product-code" placeholder="Enter Product Code"
-                          value="{{ $detail->product->barcode }}" onblur="fetchByCode({{ $index }})">
-                  </td>
-                  <td>
-                    <select name="item_details[{{ $index }}][product_id]" class="form-control select2-js product-select" required>
-                      <option value="">Select Item</option>
-                      @foreach($products as $item)
-                        <option value="{{ $item->id }}"
-                          data-mfg-cost="{{ $item->manufacturing_cost }}"
-                          data-unit-id="{{ $item->unit_id }}"
-                          data-barcode="{{ $item->barcode }}"
-                          {{ $item->id == $detail->product_id ? 'selected' : '' }}>
-                          {{ $item->name }}
-                        </option>
-                      @endforeach
-                    </select>
-                  </td>
-                  <td>
-                    <select name="item_details[{{ $index }}][variation_id]" class="form-control select2-js variation-select">
-                      <option value="">Select Variation</option>
-                      @foreach($detail->product->variations as $variation)
-                        <option value="{{ $variation->id }}"
-                          {{ $variation->id == $detail->variation_id ? 'selected' : '' }}>
-                          {{ $variation->sku }}
-                        </option>
-                      @endforeach
-                    </select>
-                  </td>
-                  <td>
-                    <input type="number" class="form-control manufacturing_cost" name="item_details[{{ $index }}][manufacturing_cost]" step="any" value="{{ $detail->manufacturing_cost }}">
-                  </td>
-                  <td>
-                    <input type="number" class="form-control received-qty" name="item_details[{{ $index }}][received_qty]" step="any" value="{{ $detail->received_qty }}" required>
-                  </td>
-                  <td>
-                    <input type="text" class="form-control" name="item_details[{{ $index }}][remarks]" value="{{ $detail->remarks }}">
-                  </td>
-                  <td>
-                    <input type="number" class="form-control row-total" name="item_details[{{ $index }}][total]" step="any" value="{{ $detail->total }}" readonly>
-                  </td>
-                  <td>
-                    <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button>
-                  </td>
-                </tr>
+              <tbody id="receivingBody">
+                @foreach($receiving->details as $idx => $detail)
+                  <tr>
+                    <td>
+                      <input type="text" class="form-control product-code"
+                             placeholder="Scan barcode"
+                             value="{{ $detail->product->barcode ?? '' }}">
+                    </td>
+                    <td>
+                      <select name="item_details[{{ $idx }}][product_id]"
+                              class="form-control select2-js product-select" required>
+                        <option value="">Select Item</option>
+                        @foreach($products as $item)
+                          <option value="{{ $item->id }}"
+                                  data-mfg-cost="{{ $item->manufacturing_cost }}"
+                                  data-barcode="{{ $item->barcode }}"
+                                  {{ $item->id == $detail->product_id ? 'selected' : '' }}>
+                            {{ $item->name }}
+                          </option>
+                        @endforeach
+                      </select>
+                    </td>
+                    <td>
+                      <select name="item_details[{{ $idx }}][variation_id]"
+                              class="form-control select2-js variation-select">
+                        <option value="">No Variation</option>
+                        @foreach($detail->product->variations ?? [] as $var)
+                          <option value="{{ $var->id }}"
+                                  {{ $detail->variation_id == $var->id ? 'selected' : '' }}>
+                            {{ $var->sku }}
+                          </option>
+                        @endforeach
+                      </select>
+                    </td>
+                    <td>
+                      <input type="number" name="item_details[{{ $idx }}][manufacturing_cost]"
+                             class="form-control manufacturing_cost"
+                             step="any" value="{{ $detail->manufacturing_cost }}">
+                    </td>
+                    <td>
+                      <input type="number" name="item_details[{{ $idx }}][received_qty]"
+                             class="form-control received-qty"
+                             step="any" value="{{ $detail->received_qty }}" required>
+                    </td>
+                    <td>
+                      <input type="text" name="item_details[{{ $idx }}][remarks]"
+                             class="form-control" value="{{ $detail->remarks }}">
+                    </td>
+                    <td>
+                      <input type="number" class="form-control row-total" step="any"
+                             value="{{ number_format($detail->manufacturing_cost * $detail->received_qty, 2) }}"
+                             readonly>
+                    </td>
+                    <td>
+                      <button type="button" class="btn btn-danger btn-sm remove-row-btn">
+                        <i class="fas fa-times"></i>
+                      </button>
+                    </td>
+                  </tr>
                 @endforeach
               </tbody>
             </table>
-            <button type="button" class="btn btn-success btn-sm mt-2" onclick="addRow()">+ Add Row</button>
+          </div>
 
-            <hr>
-            <div class="row">
-              <div class="col-md-2">
-                <label>Total Pcs</label>
-                <input type="text" class="form-control" id="total_pcs" value="{{ $receiving->total_pcs }}" disabled>
-                <input type="hidden" name="total_pcs" id="total_pcs_val" value="{{ $receiving->total_pcs }}">
-              </div>
-              <div class="col-md-2">
-                <label>Total Amount</label>
-                <input type="text" class="form-control" id="total_amt" value="{{ $receiving->total_amount }}" disabled>
-                <input type="hidden" name="total_amt" id="total_amt_val" value="{{ $receiving->total_amount }}">
-              </div>
-              <div class="col-md-2">
-                <label>Conveyance</label>
-                <input type="text" class="form-control" name="convance_charges" id="convance_charges" onchange="calcNet()" value="{{ $receiving->convance_charges }}">
-              </div>
-              <div class="col-md-2">
-                <label>Discount</label>
-                <input type="text" class="form-control" name="bill_discount" id="bill_discount" onchange="calcNet()" value="{{ $receiving->bill_discount }}">
-              </div>
-              <div class="col-md-4 text-end">
-                <label><strong>Net Amount</strong></label>
-                <h4 class="text-primary">PKR <span id="netAmountText">{{ number_format($receiving->net_amount, 2) }}</span></h4>
-                <input type="hidden" name="net_amount" id="net_amount" value="{{ $receiving->net_amount }}">
-              </div>
+          <hr>
+          <div class="row align-items-end">
+            <div class="col-md-2">
+              <label>Total Pcs</label>
+              <input type="text" class="form-control" id="total_pcs" disabled>
+              <input type="hidden" name="total_pcs" id="total_pcs_val">
+            </div>
+            <div class="col-md-2">
+              <label>Sub Total</label>
+              <input type="text" class="form-control" id="total_amt" disabled>
+            </div>
+            <div class="col-md-2">
+              <label>Conveyance</label>
+              <input type="number" name="convance_charges" id="convance_charges"
+                     class="form-control" step="any"
+                     value="{{ $receiving->convance_charges }}" oninput="recalcSummary()">
+            </div>
+            <div class="col-md-2">
+              <label>Discount</label>
+              <input type="number" name="bill_discount" id="bill_discount"
+                     class="form-control" step="any"
+                     value="{{ $receiving->bill_discount }}" oninput="recalcSummary()">
+            </div>
+            <div class="col-md-4 text-end">
+              <h5 class="text-primary mb-0">
+                Net Amount: <strong class="text-danger fs-4">
+                  PKR <span id="netAmountText">0.00</span>
+                </strong>
+              </h5>
             </div>
           </div>
-          <footer class="card-footer text-end">
-            <a href="{{ route('production_receiving.index') }}" class="btn btn-danger">Discard</a>
-            <button type="submit" class="btn btn-primary">Update</button>
-          </footer>
-        </section>
-      </div>
-    </form>
-  </div>
+        </div>
+        <footer class="card-footer text-end">
+          <a href="{{ route('production_receiving.index') }}" class="btn btn-danger">Cancel</a>
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save me-1"></i> Update Receiving
+          </button>
+        </footer>
+      </section>
+    </div>
+
+  </form>
+</div>
 
 <script>
   $(document).ready(function () {
-  // Init Select2
-  $('.select2-js').select2({ width: '100%', dropdownAutoWidth: true });
+    $('.select2-js').select2({ width: '100%', dropdownAutoWidth: true });
 
-  // Bind events to existing rows and load variations for edit mode
-  $('#itemTable tbody tr').each(function() {
-    bindRowEvents($(this));
-  });
+    // Product select change
+    $(document).on('change', '.product-select', function () {
+      const row       = $(this).closest('tr');
+      const productId = $(this).val();
+      const mfgCost   = $(this).find(':selected').data('mfg-cost') || 0;
+      row.find('.manufacturing_cost').val(parseFloat(mfgCost).toFixed(2));
+      if (productId) loadVariations(row, productId);
+      recalcRow(row);
+      recalcSummary();
+    });
 
-  // Delegated: product-code blur -> fetch by code (passes DOM element to function)
-  $(document).on('blur', '.product-code', function () {
-    fetchByCode(this);
-  });
+    // Barcode scan
+    $(document).on('blur', '.product-code', function () {
+      const row     = $(this).closest('tr');
+      const barcode = $(this).val().trim();
+      if (!barcode) return;
 
-  // Product select change
-  $(document).on('change', '.product-select', function () {
-    const row = $(this).closest('tr');
-    const selectedOption = $(this).find('option:selected');
-    const mfgCostInput = row.find('.manufacturing_cost');
+      $.get('/get-product-by-code/' + encodeURIComponent(barcode), function (res) {
+        if (!res.success) {
+          alert(res.message || 'Product not found');
+          row.find('.product-code').val('').focus();
+          return;
+        }
+        if (res.type === 'variation') {
+          const v = res.variation;
+          row.find('.product-select').val(v.product_id).trigger('change');
+          loadVariations(row, v.product_id, v.id);
+          if (v['m.cost'] !== undefined) row.find('.manufacturing_cost').val(parseFloat(v['m.cost']).toFixed(2));
+          setTimeout(() => row.find('.received-qty').focus(), 300);
+        }
+        if (res.type === 'product') {
+          const p = res.product;
+          row.find('.product-select').val(p.id).trigger('change');
+          if (p['m.cost'] !== undefined) row.find('.manufacturing_cost').val(parseFloat(p['m.cost']).toFixed(2));
+        }
+        recalcRow(row); recalcSummary();
+      }).fail(() => alert('Error fetching product.'));
+    });
 
-    const mfgCost = selectedOption.data('mfg-cost') || 0;
-    mfgCostInput.val(parseFloat(mfgCost).toFixed(2));
+    // Qty / cost change
+    $(document).on('input', '.received-qty, .manufacturing_cost', function () {
+      recalcRow($(this).closest('tr'));
+      recalcSummary();
+    });
 
-    if ($(this).val()) {
-      const preselect = $(this).attr('data-preselect-variation-id') || null;
-      $(this).removeAttr('data-preselect-variation-id');
-      loadVariations(row, $(this).val(), preselect);
-    } else {
-      row.find('.variation-select').html('<option value="">Select Variation</option>');
-      if (row.find('.variation-select').hasClass('select2-hidden-accessible')) {
-        row.find('.variation-select').select2('destroy');
-        row.find('.variation-select').select2({ width: '100%', dropdownAutoWidth: true });
+    // Remove row
+    $(document).on('click', '.remove-row-btn', function () {
+      if ($('#receivingBody tr').length > 1) {
+        $(this).closest('tr').remove();
+        recalcSummary();
       }
-    }
+    });
 
-    calculateTotals();
+    // Add row button
+    $('#addRowBtn').on('click', addRow);
+
+    // Init totals on load
+    recalcSummary();
   });
-
-  // Variation change & Qty input & Remove button
-  $(document).on('change', '.variation-select', calculateTotals);
-  $(document).on('input', '.received-qty', calculateTotals);
-  $(document).on('click', '.remove-row-btn', function () {
-    if ($('#itemTable tbody tr').length > 1) {
-      $(this).closest('tr').remove();
-      calculateTotals();
-    }
-  });
-
-  // Preload variations for rows present in edit form
-  $('#itemTable tbody tr').each(function() {
-    const row = $(this);
-    const productId = row.find('.product-select').val();
-    const variationId = row.find('.variation-select').val();
-    if (productId) {
-      loadVariations(row, productId, variationId);
-    }
-  });
-
-  // init totals
-  calculateTotals();
-  });
-
-  /* -----------------------
-    Helper functions
-    ----------------------- */
-
-  function bindRowEvents(row) {
-  row.find('.received-qty').on('input', calculateTotals);
-  row.find('.remove-row-btn').on('click', function () {
-    if ($('#itemTable tbody tr').length > 1) {
-      $(this).closest('tr').remove();
-      calculateTotals();
-    }
-  });
-  }
 
   function addRow() {
-  const table = $('#itemTable tbody');
-  const newIndex = table.find('tr').length;
+    const count = $('#receivingBody tr').length;
+    const productOpts = `
+      <option value="">Select Item</option>
+      @foreach($products as $item)
+        <option value="{{ $item->id }}"
+                data-mfg-cost="{{ $item->manufacturing_cost }}"
+                data-barcode="{{ $item->barcode }}">
+          {{ $item->name }}
+        </option>
+      @endforeach
+    `;
 
-  const newRow = $(`
-    <tr>
-      <td><input type="text" class="form-control product-code" placeholder="Enter Product Code"></td>
-      <td>
-        <select name="item_details[${newIndex}][product_id]" class="form-control select2-js product-select" required>
-          <option value="">Select Item</option>
-          @foreach($products as $item)
-            <option value="{{ $item->id }}" 
-                    data-mfg-cost="{{ $item->manufacturing_cost }}"
-                    data-unit-id="{{ $item->unit_id }}"
-                    data-barcode="{{ $item->barcode }}">
-              {{ $item->name }}
-            </option>
-          @endforeach
-        </select>
-      </td>
-      <td>
-        <select name="item_details[${newIndex}][variation_id]" class="form-control select2-js variation-select">
-          <option value="">Select Variation</option>
-        </select>
-      </td>
-      <td><input type="number" name="item_details[${newIndex}][manufacturing_cost]" class="form-control manufacturing_cost" step="any" value="0"></td>
-      <td><input type="number" name="item_details[${newIndex}][received_qty]" class="form-control received-qty" step="any" value="0" required></td>
-      <td><input type="text" name="item_details[${newIndex}][remarks]" class="form-control"></td>
-      <td><input type="number" name="item_details[${newIndex}][total]" class="form-control row-total" step="any" value="0" readonly></td>
-      <td><button type="button" class="btn btn-danger btn-sm remove-row-btn"><i class="fas fa-times"></i></button></td>
-    </tr>
-  `);
+    const $row = $(`
+      <tr>
+        <td><input type="text" class="form-control product-code" placeholder="Scan barcode"></td>
+        <td>
+          <select name="item_details[${count}][product_id]"
+                  class="form-control select2-js product-select" required>
+            ${productOpts}
+          </select>
+        </td>
+        <td>
+          <select name="item_details[${count}][variation_id]"
+                  class="form-control select2-js variation-select">
+            <option value="">No Variation</option>
+          </select>
+        </td>
+        <td><input type="number" name="item_details[${count}][manufacturing_cost]"
+                   class="form-control manufacturing_cost" step="any" value="0"></td>
+        <td><input type="number" name="item_details[${count}][received_qty]"
+                   class="form-control received-qty" step="any" value="0" required></td>
+        <td><input type="text" name="item_details[${count}][remarks]" class="form-control"></td>
+        <td><input type="number" class="form-control row-total" step="any" value="0" readonly></td>
+        <td><button type="button" class="btn btn-danger btn-sm remove-row-btn">
+          <i class="fas fa-times"></i>
+        </button></td>
+      </tr>
+    `);
 
-  table.append(newRow);
-
-  newRow.find('.select2-js').select2({ width: '100%', dropdownAutoWidth: true });
-
-  newRow.find('.product-code').focus();
-  bindRowEvents(newRow);
+    $('#receivingBody').append($row);
+    $row.find('.select2-js').select2({ width: '100%', dropdownAutoWidth: true });
   }
 
-  function loadVariations(row, productId, preselectVariationId = null) {
-  const variationSelect = row.find('.variation-select');
-  variationSelect.html('<option value="">Loading...</option>').prop('disabled', true);
+  function loadVariations(row, productId, preselectId = null) {
+    const $var = row.find('.variation-select');
+    const $mc  = row.find('.manufacturing_cost');
+    $var.html('<option value="">Loading...</option>');
 
-  $.get(`/product/${productId}/variations`)
-    .done(function (data) {
-      let options = '<option value="">Select Variation</option>';
+    $.get(`/product/${productId}/variations`, function (data) {
+      let opts = '<option value="">No Variation</option>';
       (data.variation || []).forEach(v => {
-        options += `<option value="${v.id}">${v.sku}</option>`;
+        opts += `<option value="${v.id}">${v.sku}</option>`;
       });
+      $var.html(opts);
+      if ($var.hasClass('select2-hidden-accessible')) $var.select2('destroy');
+      $var.select2({ width: '100%', dropdownAutoWidth: true });
 
-      variationSelect.html(options).prop('disabled', false);
+      if (data.product?.manufacturing_cost !== undefined) {
+        $mc.val(parseFloat(data.product.manufacturing_cost).toFixed(2));
+      }
+      if (preselectId) $var.val(String(preselectId)).trigger('change');
 
-      // (re)init select2 for the variation select
-      if (variationSelect.hasClass('select2-hidden-accessible')) {
-        variationSelect.select2('destroy');
-      }
-      variationSelect.select2({ width: '100%', dropdownAutoWidth: true });
-
-      if (preselectVariationId) {
-        // ensure value is string to match option values
-        variationSelect.val(String(preselectVariationId)).trigger('change');
-      }
-    })
-    .fail(function () {
-      variationSelect.html('<option value="">Select Variation</option>').prop('disabled', false);
-      if (variationSelect.hasClass('select2-hidden-accessible')) {
-        variationSelect.select2('destroy');
-        variationSelect.select2({ width: '100%', dropdownAutoWidth: true });
-      }
+      recalcRow(row);
+      recalcSummary();
     });
   }
 
-  // Fetch by barcode/code.
-  // Accepts either:
-  // - numeric row index (server-rendered inline onblur still works), or
-  // - DOM element (e.g. this from onblur) — preferred for delegated event handler.
-  function fetchByCode(rowIndexOrElement) {
-    let row;
-    if (typeof rowIndexOrElement === 'number') {
-      row = $('#itemTable tbody tr').eq(rowIndexOrElement);
-    } else {
-      // DOM element (input) or jQuery object
-      row = $(rowIndexOrElement).closest('tr');
-    }
-
-    const codeInput = row.find('.product-code');
-    const enteredCode = codeInput.val().trim();
-    if (!enteredCode) return;
-
-    $.get('/get-product-by-code/' + encodeURIComponent(enteredCode))
-      .done(function (res) {
-        if (!res.success) {
-          alert(res.message || 'No product or variation found');
-          codeInput.val('').focus();
-          return;
-        }
-
-        const $productSelect = row.find('.product-select');
-        const $variationSelect = row.find('.variation-select');
-        const $mCostInput = row.find('.manufacturing_cost');
-        const $qtyInput = row.find('.received-qty');
-
-        // Handle variation result
-        if (res.type === 'variation') {
-          const v = res.variation;
-          // set product and ask loadVariations to preselect variation
-          $productSelect.attr('data-preselect-variation-id', v.id).val(v.product_id).trigger('change');
-
-          // m.cost might come in v or in product; try both keys
-          if (v['m.cost'] !== undefined) $mCostInput.val(parseFloat(v['m.cost']).toFixed(2));
-          if (v.manufacturing_cost !== undefined) $mCostInput.val(parseFloat(v.manufacturing_cost).toFixed(2));
-
-          // small delay to let loadVariations populate options then focus qty
-          setTimeout(function () {
-            $qtyInput.focus();
-            calculateTotals();
-          }, 250);
-
-          return;
-        }
-
-        // Handle product-only result
-        if (res.type === 'product') {
-          const p = res.product;
-          $productSelect.val(p.id).trigger('change');
-
-          if (p['m.cost'] !== undefined) $mCostInput.val(parseFloat(p['m.cost']).toFixed(2));
-          if (p.manufacturing_cost !== undefined) $mCostInput.val(parseFloat(p.manufacturing_cost).toFixed(2));
-
-          setTimeout(function () {
-            if ($variationSelect.find('option').length > 1) {
-              $variationSelect.focus();
-            } else {
-              $qtyInput.focus();
-            }
-            calculateTotals();
-          }, 250);
-        }
-      })
-      .fail(function () {
-        alert('Error fetching product details.');
-      });
+  function recalcRow(row) {
+    const qty  = parseFloat(row.find('.received-qty').val())      || 0;
+    const cost = parseFloat(row.find('.manufacturing_cost').val()) || 0;
+    row.find('.row-total').val((qty * cost).toFixed(2));
   }
 
-  function calculateTotals() {
-  let totalQty = 0, totalAmt = 0;
+  function recalcSummary() {
+    let totalPcs = 0, totalAmt = 0;
+    $('#receivingBody tr').each(function () {
+      recalcRow($(this));
+      totalPcs += parseFloat($(this).find('.received-qty').val()) || 0;
+      totalAmt += parseFloat($(this).find('.row-total').val())    || 0;
+    });
+    $('#total_pcs').val(totalPcs.toFixed(2));
+    $('#total_pcs_val').val(totalPcs.toFixed(2));
+    $('#total_amt').val(totalAmt.toFixed(2));
 
-  $('#itemTable tbody tr').each(function () {
-    const qty = parseFloat($(this).find('.received-qty').val()) || 0;
-    const cost = parseFloat($(this).find('.manufacturing_cost').val()) || 0;
-    const rowTotal = qty * cost;
-    $(this).find('.row-total').val(rowTotal.toFixed(2));
-
-    totalQty += qty;
-    totalAmt += rowTotal;
-  });
-
-  $('#total_pcs').val(totalQty);
-  $('#total_pcs_val').val(totalQty);
-  $('#total_amt').val(totalAmt.toFixed(2));
-  $('#total_amt_val').val(totalAmt.toFixed(2));
-  calcNet();
-  }
-
-  function calcNet() {
-  const total = parseFloat($('#total_amt_val').val()) || 0;
-  const conveyance = parseFloat($('#convance_charges').val()) || 0;
-  const discount = parseFloat($('#bill_discount').val()) || 0;
-  const net = total + conveyance - discount;
-  $('#netAmountText').text(net.toFixed(2));
-  $('#net_amount').val(net.toFixed(2));
+    const conv = parseFloat($('#convance_charges').val()) || 0;
+    const disc = parseFloat($('#bill_discount').val())    || 0;
+    $('#netAmountText').text((totalAmt + conv - disc).toFixed(2)
+      .replace(/\B(?=(\d{3})+(?!\d))/g, ','));
   }
 </script>
-
 @endsection

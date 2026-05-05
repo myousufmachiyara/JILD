@@ -13,37 +13,58 @@ class Production extends Model
     protected $fillable = [
         'vendor_id',
         'category_id',
-        'voucher_id',
         'order_date',
         'production_type',
+        'total_amount',
         'remarks',
+        'attachments',
         'created_by',
         'updated_by',
     ];
 
-    public function vendor()
+    protected $casts = ['attachments' => 'array'];
+
+    public function vendor()    { return $this->belongsTo(ChartOfAccounts::class, 'vendor_id'); }
+    public function category()  { return $this->belongsTo(ProductCategory::class, 'category_id'); }
+    public function details()   { return $this->hasMany(ProductionDetail::class); }
+    public function receivings(){ return $this->hasMany(ProductionReceiving::class); }
+    public function wastageReceivings() { return $this->hasMany(ProductionWastageReceiving::class); }
+
+    // ── Computed stats ────────────────────────────────────────────────
+
+    /** Total raw qty sent to production */
+    public function getTotalRawGivenAttribute(): float
     {
-        return $this->belongsTo(ChartOfAccounts::class, 'vendor_id');
+        return (float) $this->details->sum('qty');
     }
 
-    public function category()
+    /** Total finished goods received back */
+    public function getTotalFinishedReceivedAttribute(): float
     {
-        return $this->belongsTo(ProductCategory::class, 'category_id');
+        return (float) $this->receivings->flatMap->details->sum('received_qty');
     }
 
-    public function details()
+    /** Total wastage raw returned */
+    public function getTotalWastageReturnedAttribute(): float
     {
-        return $this->hasMany(ProductionDetail::class);
+        return (float) $this->wastageReceivings->flatMap->details->sum('quantity');
     }
 
-    public function receivings()
+    /** Raw still at manufacturer = given - (used in FG + returned as wastage) */
+    public function getRawAtManufacturerAttribute(): float
     {
-        return $this->hasMany(ProductionReceiving::class);
+        $totalRaw = $this->total_raw_given;
+        $wastage  = $this->total_wastage_returned;
+        // We don't know exactly how much raw was consumed per FG unit unless manufacturing_cost tracks it
+        // So: raw at manufacturer = given - wastage returned
+        return max(0, $totalRaw - $wastage);
     }
 
-    public function voucher()
+    /** Consumption ratio = FG received / raw given */
+    public function getConsumptionRatioAttribute(): float
     {
-        return $this->belongsTo(Voucher::class, 'voucher_id');
+        $raw = $this->total_raw_given;
+        $fg  = $this->total_finished_received;
+        return $raw > 0 ? round($fg / $raw, 4) : 0;
     }
-
 }

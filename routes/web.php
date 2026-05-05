@@ -61,6 +61,10 @@ Route::middleware(['auth'])->group(function () {
     // Production Summary
     Route::get('/production-summary/{id}', [ProductionController::class, 'summary'])->name('production.summary');
     Route::get('/production-gatepass/{id}', [ProductionController::class, 'printGatepass'])->name('production.gatepass');
+
+    // Single tabbed vouchers page
+    Route::get('vouchers', [VoucherController::class, 'index'])->middleware('check.permission:vouchers.index')->name('vouchers.all');
+
     // Common Modules
     $modules = [
         // User Management

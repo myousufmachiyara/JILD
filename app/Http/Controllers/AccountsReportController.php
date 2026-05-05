@@ -5,31 +5,27 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Voucher;
 use App\Models\ChartOfAccounts;
-use App\Models\PurchaseInvoice;
-use App\Models\SaleInvoice;
-use App\Models\Production;
-use App\Models\ProductionReceiving;
 use Carbon\Carbon;
-use DB;
+use Illuminate\Support\Facades\DB;
 
 class AccountsReportController extends Controller
 {
     public function accounts(Request $request)
     {
-        $from = $request->from_date ?? Carbon::now()->startOfMonth()->toDateString();
-        $to   = $request->to_date   ?? Carbon::now()->endOfMonth()->toDateString();
-        $report = $request->report ?? 'general_ledger';
-        $chartOfAccounts = ChartOfAccounts::get();
-        $partyId  = $request->account_id;   // 👈 selected account from filter
+        $from            = $request->from_date ?? Carbon::now()->startOfMonth()->toDateString();
+        $to              = $request->to_date   ?? Carbon::now()->endOfMonth()->toDateString();
+        $report          = $request->report    ?? 'general_ledger';
+        $chartOfAccounts = ChartOfAccounts::orderBy('name')->get();
+        $accountId       = $request->account_id ? (int)$request->account_id : null;
 
         $reports = [
-            'general_ledger' => $this->generalLedger($partyId, $from, $to),
+            'general_ledger'   => $this->generalLedger($accountId, $from, $to),
             'trial_balance'    => $this->trialBalance($from, $to),
             'profit_loss'      => $this->profitLoss($from, $to),
             'balance_sheet'    => $this->balanceSheet($from, $to),
-            'party_ledger'     => $this->partyLedger($from, $to, $partyId),   // 👈 pass it
-            'receivables'      => $this->receivables($from, $to, $partyId),   // 👈 pass it
-            'payables'         => $this->payables($from, $to, $partyId),      // 👈 pass it
+            'party_ledger'     => $this->partyLedger($from, $to, $accountId),
+            'receivables'      => $this->receivables($from, $to),
+            'payables'         => $this->payables($from, $to),
             'cash_book'        => $this->cashBook($from, $to),
             'bank_book'        => $this->bankBook($from, $to),
             'journal_book'     => $this->journalBook($from, $to),
@@ -37,396 +33,434 @@ class AccountsReportController extends Controller
             'cash_flow'        => $this->cashFlow($from, $to),
         ];
 
-        return view('reports.accounts_reports', compact('reports', 'from', 'to', 'report', 'chartOfAccounts'));
+        return view('reports.accounts_reports', compact(
+            'reports', 'from', 'to', 'report', 'chartOfAccounts'
+        ));
     }
 
-    # --------------------------------------------------------
-    # 🔹 Helpers
-    # --------------------------------------------------------
-    private function formatAmount($value)
+    // ── Helpers ──────────────────────────────────────────────────────
+
+    private function fmt($value): string
     {
-        return number_format($value, 2);
+        return number_format((float)$value, 2);
     }
 
-    private function runningBalance($rows)
+    private function unformat($value): float
+    {
+        return (float)str_replace(',', '', $value);
+    }
+
+    private function runningBalance(array $rows): array
     {
         $balance = 0;
         foreach ($rows as &$row) {
-            $balance += floatval(str_replace(',','',$row['debit'])) - floatval(str_replace(',','',$row['credit']));
-            $row['balance'] = $this->formatAmount($balance);
+            $balance += $this->unformat($row['debit']) - $this->unformat($row['credit']);
+            $row['balance'] = $this->fmt($balance);
         }
         unset($row);
         return $rows;
     }
 
-    # --------------------------------------------------------
-    # 🔹 Reports
-    # --------------------------------------------------------
+    // ── General Ledger ────────────────────────────────────────────────
 
-    private function generalLedger($accountId, $from, $to)
+    private function generalLedger(?int $accountId, string $from, string $to): array
     {
+        if (!$accountId) {
+            return [];
+        }
+
         $vouchers = Voucher::with(['debitAccount', 'creditAccount'])
             ->whereBetween('date', [$from, $to])
-            ->where(function ($q) use ($accountId) {
-                $q->where('ac_dr_sid', $accountId)
-                ->orWhere('ac_cr_sid', $accountId);
-            })
+            ->where(fn($q) => $q->where('ac_dr_sid', $accountId)
+                                ->orWhere('ac_cr_sid', $accountId))
             ->orderBy('date')
             ->get();
 
         $rows = $vouchers->map(function ($v) use ($accountId) {
             $isDebit = $v->ac_dr_sid == $accountId;
 
+            $contra = $isDebit
+                ? ($v->creditAccount->name ?? '-')
+                : ($v->debitAccount->name  ?? '-');
+
+            // ← Fix: concatenate instead of using ?? inside string interpolation
+            $refId   = $v->source_id ?? $v->id;
+            $type    = ucwords(str_replace('_', ' ', $v->voucher_type));
+            $remarks = $v->remarks ? ' — ' . \Str::limit($v->remarks, 40) : '';
+
             return [
-                'date'        => $v->date,
-                'description' => $v->remarks ?? ucfirst($v->voucher_type)." #{$v->id}",
-                'debit'       => $isDebit ? $this->formatAmount($v->amount) : '0',
-                'credit'      => !$isDebit ? $this->formatAmount($v->amount) : '0',
-                'balance'     => 0,
+                'date'    => $v->date,
+                'voucher' => $type . ' #' . $refId . $remarks,
+                'account' => $contra,
+                'debit'   => $isDebit  ? $this->fmt($v->amount) : '0.00',
+                'credit'  => !$isDebit ? $this->fmt($v->amount) : '0.00',
+                'balance' => '0.00',
             ];
         })->toArray();
 
         return $this->runningBalance($rows);
     }
 
-    private function trialBalance($from, $to)
-    {
-        return DB::table('vouchers')
-            ->join('chart_of_accounts as coa_dr', 'vouchers.ac_dr_sid', '=', 'coa_dr.id')
-            ->join('chart_of_accounts as coa_cr', 'vouchers.ac_cr_sid', '=', 'coa_cr.id')
-            ->whereBetween('vouchers.date', [$from,$to])
-            ->select(
-                'coa_dr.id as account_id',
-                'coa_dr.name as account',
-                'coa_dr.account_type',
-                DB::raw('SUM(vouchers.amount) as debit'),
-                DB::raw('0 as credit')
-            )
-            ->groupBy('coa_dr.id','coa_dr.name','coa_dr.account_type')
+    // ── Trial Balance ─────────────────────────────────────────────────
 
-            ->unionAll(
-                DB::table('vouchers')
-                    ->join('chart_of_accounts as coa_cr2', 'vouchers.ac_cr_sid', '=', 'coa_cr2.id')
-                    ->whereBetween('vouchers.date', [$from,$to])
-                    ->select(
-                        'coa_cr2.id as account_id',
-                        'coa_cr2.name as account',
-                        'coa_cr2.account_type',
-                        DB::raw('0 as debit'),
-                        DB::raw('SUM(vouchers.amount) as credit')
-                    )
-                    ->groupBy('coa_cr2.id','coa_cr2.name','coa_cr2.account_type')
+    private function trialBalance(string $from, string $to): \Illuminate\Support\Collection
+    {
+        $debits = DB::table('vouchers')
+            ->join('chart_of_accounts as coa', 'vouchers.ac_dr_sid', '=', 'coa.id')
+            ->whereBetween('vouchers.date', [$from, $to])
+            ->whereNull('vouchers.deleted_at')
+            ->select(
+                'coa.id',
+                'coa.name',
+                'coa.account_type',
+                DB::raw('SUM(vouchers.amount) as total_debit'),
+                DB::raw('0 as total_credit')
             )
+            ->groupBy('coa.id', 'coa.name', 'coa.account_type');
+
+        $credits = DB::table('vouchers')
+            ->join('chart_of_accounts as coa', 'vouchers.ac_cr_sid', '=', 'coa.id')
+            ->whereBetween('vouchers.date', [$from, $to])
+            ->whereNull('vouchers.deleted_at')
+            ->select(
+                'coa.id',
+                'coa.name',
+                'coa.account_type',
+                DB::raw('0 as total_debit'),
+                DB::raw('SUM(vouchers.amount) as total_credit')
+            )
+            ->groupBy('coa.id', 'coa.name', 'coa.account_type');
+
+        return $debits->unionAll($credits)
             ->get()
-            ->map(fn($row)=> [
-                'account'      => $row->account,
-                'account_type' => $row->account_type,
-                'debit'        => $this->formatAmount($row->debit),
-                'credit'       => $this->formatAmount($row->credit),
-            ]);
+            ->groupBy('id')
+            ->map(function ($rows) {
+                $first  = $rows->first();
+                $debit  = $rows->sum('total_debit');
+                $credit = $rows->sum('total_credit');
+                return [
+                    'account'      => $first->name,
+                    'account_type' => $first->account_type,
+                    'debit'        => $this->fmt($debit),
+                    'credit'       => $this->fmt($credit),
+                    'net'          => $this->fmt($debit - $credit),
+                ];
+            })
+            ->values();
     }
 
-    private function profitLoss($from, $to)
+    // ── Profit & Loss ─────────────────────────────────────────────────
+
+    private function profitLoss(string $from, string $to): array
     {
-        $trial = $this->trialBalance($from,$to);
+        $trial = $this->trialBalance($from, $to);
 
-        $revenue = $trial->filter(fn($r)=> $r['account_type'] === 'revenue')
-                         ->sum(fn($r)=> floatval(str_replace(',','',$r['credit'])));
+        $revenue = $trial->whereIn('account_type', ['revenue'])
+            ->sum(fn($r) => $this->unformat($r['credit']) - $this->unformat($r['debit']));
 
-        $expenses = $trial->filter(fn($r)=> $r['account_type'] === 'expense')
-                          ->sum(fn($r)=> floatval(str_replace(',','',$r['debit'])));
+        $cogs = $trial->whereIn('account_type', ['cogs'])
+            ->sum(fn($r) => $this->unformat($r['debit']) - $this->unformat($r['credit']));
+
+        $expenses = $trial->whereIn('account_type', ['expense'])
+            ->sum(fn($r) => $this->unformat($r['debit']) - $this->unformat($r['credit']));
+
+        $grossProfit = $revenue - $cogs;
+        $netProfit   = $grossProfit - $expenses;
 
         return [
-            ['particulars'=>'Revenue','amount'=>$this->formatAmount($revenue)],
-            ['particulars'=>'Expenses','amount'=>$this->formatAmount($expenses)],
-            ['particulars'=>'Net Profit','amount'=>$this->formatAmount($revenue - $expenses)],
+            ['particulars' => 'Revenue',             'amount' => $this->fmt($revenue)],
+            ['particulars' => 'Cost of Goods Sold',  'amount' => $this->fmt($cogs)],
+            ['particulars' => 'Gross Profit',         'amount' => $this->fmt($grossProfit)],
+            ['particulars' => 'Operating Expenses',   'amount' => $this->fmt($expenses)],
+            ['particulars' => 'Net Profit',           'amount' => $this->fmt($netProfit)],
         ];
     }
 
-    private function balanceSheet($from, $to)
+    // ── Balance Sheet ─────────────────────────────────────────────────
+
+    private function balanceSheet(string $from, string $to): array
     {
-        $trial = $this->trialBalance($from,$to);
+        $trial = $this->trialBalance($from, $to);
 
-        $assets = $trial->filter(fn($r)=> strtolower($r['account_type']) === 'asset')->values();
-        $liabs  = $trial->filter(fn($r)=> strtolower($r['account_type']) === 'liability')->values();
+        $assets = $trial->whereIn('account_type', ['asset', 'cash', 'bank', 'customer'])
+            ->map(fn($r) => [
+                'name'   => $r['account'],
+                'amount' => $this->fmt($this->unformat($r['debit']) - $this->unformat($r['credit'])),
+            ])->values();
 
+        $liabilities = $trial->whereIn('account_type', ['liability', 'vendor'])
+            ->map(fn($r) => [
+                'name'   => $r['account'],
+                'amount' => $this->fmt($this->unformat($r['credit']) - $this->unformat($r['debit'])),
+            ])->values();
+
+        $equity = $trial->whereIn('account_type', ['equity'])
+            ->map(fn($r) => [
+                'name'   => $r['account'],
+                'amount' => $this->fmt($this->unformat($r['credit']) - $this->unformat($r['debit'])),
+            ])->values();
+
+        $liabsAndEquity = $liabilities->concat($equity)->values();
+        $max  = max($assets->count(), $liabsAndEquity->count(), 1);
         $rows = [];
-        $max = max($assets->count(), $liabs->count());
-        for ($i=0;$i<$max;$i++) {
+
+        for ($i = 0; $i < $max; $i++) {
             $rows[] = [
-                'asset'     => $assets[$i]['account'] ?? '',
-                'asset_amt' => $assets[$i]['debit'] ?? '',
-                'liab'      => $liabs[$i]['account'] ?? '',
-                'liab_amt'  => $liabs[$i]['credit'] ?? '',
+                'asset'     => $assets[$i]['name']          ?? '',
+                'asset_amt' => $assets[$i]['amount']        ?? '',
+                'liab'      => $liabsAndEquity[$i]['name']   ?? '',
+                'liab_amt'  => $liabsAndEquity[$i]['amount'] ?? '',
             ];
         }
+
         return $rows;
     }
 
-    private function partyLedger($from, $to, $partyId = null)
+    // ── Party Ledger ──────────────────────────────────────────────────
+
+    private function partyLedger(string $from, string $to, ?int $accountId = null): \Illuminate\Support\Collection
     {
-        $rows = collect();
+        $query = Voucher::with(['debitAccount', 'creditAccount'])
+            ->whereBetween('date', [$from, $to])
+            ->orderBy('date');
 
-        // 1️⃣ Purchases (Debit)
-        $rows = $rows->merge(
-            PurchaseInvoice::when($partyId, fn($q) => $q->where('vendor_id', $partyId))
-                ->whereBetween('invoice_date', [$from, $to])
-                ->with(['items','vendor'])
-                ->get()
-                ->map(function($p){
-                    $total = $p->items->sum(fn($i) => $i->quantity * $i->price);
-                    return [
-                        'date'    => $p->invoice_date,
-                        'party'   => $p->vendor->name ?? 'N/A',
-                        'voucher' => "Purchase #{$p->id}",
-                        'debit'   => $this->formatAmount($total),
-                        'credit'  => '0',
-                        'balance' => 0,
-                    ];
-                })
-        );
+        if ($accountId) {
+            $query->where(fn($q) => $q->where('ac_dr_sid', $accountId)
+                                      ->orWhere('ac_cr_sid', $accountId));
+        } else {
+            $partyAccountIds = ChartOfAccounts::whereIn('account_type', ['customer', 'vendor'])
+                ->pluck('id');
+            $query->where(fn($q) => $q->whereIn('ac_dr_sid', $partyAccountIds)
+                                      ->orWhereIn('ac_cr_sid', $partyAccountIds));
+        }
 
-        // 2️⃣ Purchase Returns (Credit)
-        $rows = $rows->merge(
-            \App\Models\PurchaseReturn::when($partyId, fn($q) => $q->where('vendor_id', $partyId))
-                ->whereBetween('return_date', [$from, $to])
-                ->with(['items','vendor'])
-                ->get()
-                ->map(function($pr){
-                    $total = $pr->items->sum(fn($i) => $i->quantity * $i->price);
-                    return [
-                        'date'    => $pr->return_date,
-                        'party'   => $pr->vendor->name ?? 'N/A',
-                        'voucher' => "Purchase Return #{$pr->id}",
-                        'debit'   => '0',
-                        'credit'  => $this->formatAmount($total),
-                        'balance' => 0,
-                    ];
-                })
-        );
+        $rows = $query->get()->map(function ($v) use ($accountId) {
+            $resolvedId = $accountId ?? (
+                in_array($v->debitAccount->account_type ?? '', ['customer', 'vendor'])
+                    ? $v->ac_dr_sid
+                    : $v->ac_cr_sid
+            );
 
-        // 3️⃣b Production (if Sale Leather → Credit)
-        $rows = $rows->merge(
-            Production::when($partyId, fn($q) => $q->where('vendor_id', $partyId))
-                ->whereBetween('order_date', [$from, $to])
-                ->where('production_type', 'sale_leather')
-                ->with(['details','vendor'])
-                ->get()
-                ->map(function($prod){
-                    $total = $prod->details->sum(fn($d) => $d->qty * $d->rate);
+            $isDebit = $v->ac_dr_sid == $resolvedId;
+            $party   = $isDebit
+                ? ($v->debitAccount->name  ?? 'N/A')
+                : ($v->creditAccount->name ?? 'N/A');
 
-                    return [
-                        'date'    => $prod->order_date,
-                        'party'   => $prod->vendor->name ?? 'N/A',
-                        'voucher' => "Sale Leather in Production #{$prod->id}",
-                        'debit'   => '0',
-                        'credit'  => $this->formatAmount($total),
-                        'balance' => 0,
-                    ];
-                })
-        );
+            $type    = ucwords(str_replace('_', ' ', $v->voucher_type));
+            $remarks = $v->remarks ? ' — ' . \Str::limit($v->remarks, 40) : '';
 
-        // 3️⃣ Production Receiving (Debit) - Finished Goods
-        $rows = $rows->merge(
-            \App\Models\ProductionReceiving::when($partyId, fn($q) =>
-                $q->whereHas('production', fn($sub) => $sub->where('vendor_id', $partyId))
-            )
-            ->whereBetween('rec_date', [$from, $to])
-            ->with(['details', 'production.vendor'])
+            return [
+                'date'    => $v->date,
+                'party'   => $party,
+                'voucher' => $type . ' #' . $v->id . $remarks,
+                'debit'   => $isDebit  ? $this->fmt($v->amount) : '0.00',
+                'credit'  => !$isDebit ? $this->fmt($v->amount) : '0.00',
+                'balance' => '0.00',
+            ];
+        })->toArray();
+
+        return collect($this->runningBalance($rows));
+    }
+
+    // ── Receivables ───────────────────────────────────────────────────
+
+    private function receivables(string $from, string $to): \Illuminate\Support\Collection
+    {
+        $customerIds = ChartOfAccounts::where('account_type', 'customer')->pluck('id');
+
+        return $customerIds->map(function ($id) use ($from, $to) {
+            $account     = ChartOfAccounts::find($id);
+            $totalDebit  = Voucher::where('ac_dr_sid', $id)->whereBetween('date', [$from, $to])->sum('amount');
+            $totalCredit = Voucher::where('ac_cr_sid', $id)->whereBetween('date', [$from, $to])->sum('amount');
+            $balance     = $totalDebit - $totalCredit;
+
+            if ($balance <= 0) {
+                return null;
+            }
+
+            return [
+                'customer'         => $account->name,
+                'total_receivable' => $this->fmt($balance),
+                '0_30'             => $this->fmt($this->agingBucket($id, $to, 0,  30,  'debit')),
+                '31_60'            => $this->fmt($this->agingBucket($id, $to, 31, 60,  'debit')),
+                '61_90'            => $this->fmt($this->agingBucket($id, $to, 61, 90,  'debit')),
+                'over_90'          => $this->fmt($this->agingBucket($id, $to, 91, null,'debit')),
+            ];
+        })->filter()->values();
+    }
+
+    // ── Payables ──────────────────────────────────────────────────────
+
+    private function payables(string $from, string $to): \Illuminate\Support\Collection
+    {
+        $vendorIds = ChartOfAccounts::where('account_type', 'vendor')->pluck('id');
+
+        return $vendorIds->map(function ($id) use ($from, $to) {
+            $account     = ChartOfAccounts::find($id);
+            $totalDebit  = Voucher::where('ac_dr_sid', $id)->whereBetween('date', [$from, $to])->sum('amount');
+            $totalCredit = Voucher::where('ac_cr_sid', $id)->whereBetween('date', [$from, $to])->sum('amount');
+            $balance     = $totalCredit - $totalDebit;
+
+            if ($balance <= 0) {
+                return null;
+            }
+
+            return [
+                'vendor'        => $account->name,
+                'total_payable' => $this->fmt($balance),
+                '0_30'          => $this->fmt($this->agingBucket($id, $to, 0,  30,  'credit')),
+                '31_60'         => $this->fmt($this->agingBucket($id, $to, 31, 60,  'credit')),
+                '61_90'         => $this->fmt($this->agingBucket($id, $to, 61, 90,  'credit')),
+                'over_90'       => $this->fmt($this->agingBucket($id, $to, 91, null,'credit')),
+            ];
+        })->filter()->values();
+    }
+
+    private function agingBucket(int $accountId, string $toDate, int $daysFrom, ?int $daysTo, string $side): float
+    {
+        $end   = Carbon::parse($toDate)->subDays($daysFrom);
+        $start = $daysTo ? Carbon::parse($toDate)->subDays($daysTo) : null;
+
+        $q = Voucher::where($side === 'debit' ? 'ac_dr_sid' : 'ac_cr_sid', $accountId)
+                    ->where('date', '<=', $end);
+
+        if ($start) {
+            $q->where('date', '>=', $start);
+        }
+
+        return (float)$q->sum('amount');
+    }
+
+    // ── Cash Book ─────────────────────────────────────────────────────
+
+    private function cashBook(string $from, string $to): array
+    {
+        $cashIds = ChartOfAccounts::where('account_type', 'cash')->pluck('id');
+
+        $rows = Voucher::whereBetween('date', [$from, $to])
+            ->where(fn($q) => $q->whereIn('ac_dr_sid', $cashIds)
+                                ->orWhereIn('ac_cr_sid', $cashIds))
+            ->with(['debitAccount', 'creditAccount'])
+            ->orderBy('date')
             ->get()
-            ->map(function($rec){
-                $total = $rec->details->sum(fn($d) => $d->received_qty * $d->manufacturing_cost);
+            ->map(function ($v) use ($cashIds) {
+                $isDebit = $cashIds->contains($v->ac_dr_sid);
+                $contra  = $isDebit
+                    ? ($v->creditAccount->name ?? '-')
+                    : ($v->debitAccount->name  ?? '-');
+
+                $type = ucwords(str_replace('_', ' ', $v->voucher_type));
 
                 return [
-                    'date'    => $rec->rec_date,
-                    'party'   => $rec->production->vendor->name ?? 'N/A',
-                    'voucher' => "Production Receiving #{$rec->id}",
-                    'debit'   => $this->formatAmount($total),
-                    'credit'  => '0',
-                    'balance' => 0,
+                    'date'        => $v->date,
+                    'particulars' => $type . ' #' . $v->id . ' | ' . $contra,
+                    'debit'       => $isDebit  ? $this->fmt($v->amount) : '0.00',
+                    'credit'      => !$isDebit ? $this->fmt($v->amount) : '0.00',
+                    'balance'     => '0.00',
                 ];
-            })
-        );
+            })->toArray();
 
+        return $this->runningBalance($rows);
+    }
 
-        // 4️⃣ Sales (Credit)
-        $rows = $rows->merge(
-            SaleInvoice::when($partyId, fn($q) => $q->where('account_id', $partyId))
-                ->whereBetween('date', [$from, $to])
-                ->with(['items','account'])
-                ->get()
-                ->map(function($s){
-                    $total = $s->items->sum(fn($i) => $i->quantity * $i->price);
-                    return [
-                        'date'    => $s->date,
-                        'party'   => $s->customer->name ?? 'N/A',
-                        'voucher' => "Sale #{$s->id}",
-                        'debit'   => '0',
-                        'credit'  => $this->formatAmount($total),
-                        'balance' => 0,
-                    ];
-                })
-        );
+    // ── Bank Book ─────────────────────────────────────────────────────
 
-        // 5️⃣ Sale Returns (Debit)
-        $rows = $rows->merge(
-            \App\Models\SaleReturn::when($partyId, fn($q) => $q->where('account_id', $partyId))
-                ->whereBetween('return_date', [$from, $to])
-                ->with(['items','customer'])
-                ->get()
-                ->map(function($sr){
-                    $total = $sr->items->sum(fn($i) => $i->quantity * $i->price);
-                    return [
-                        'date'    => $sr->date,
-                        'party'   => $sr->customer->name ?? 'N/A',
-                        'voucher' => "Sale Return #{$sr->id}",
-                        'debit'   => $this->formatAmount($total),
-                        'credit'  => '0',
-                        'balance' => 0,
-                    ];
-                })
-        );
+    private function bankBook(string $from, string $to): array
+    {
+        $bankIds = ChartOfAccounts::where('account_type', 'bank')->pluck('id');
 
-        // 6️⃣ Payments / Receipts / Journals
-        $rows = $rows->merge(
-            Voucher::when($partyId, fn($q) =>
-                $q->where(function($sub) use ($partyId) {
-                    $sub->where('ac_dr_sid', $partyId)
-                        ->orWhere('ac_cr_sid', $partyId);
-                })
-            )
-            ->whereBetween('date', [$from, $to])
-            ->whereDoesntHave('production') // 🚀 Exclude vouchers already linked to production
+        $rows = Voucher::whereBetween('date', [$from, $to])
+            ->where(fn($q) => $q->whereIn('ac_dr_sid', $bankIds)
+                                ->orWhereIn('ac_cr_sid', $bankIds))
             ->with(['debitAccount', 'creditAccount'])
+            ->orderBy('date')
             ->get()
-            ->map(function($v) use ($partyId) {
-                $isDebitParty = $v->ac_dr_sid == $partyId;
+            ->map(function ($v) use ($bankIds) {
+                $isDebit = $bankIds->contains($v->ac_dr_sid);
+                $contra  = $isDebit
+                    ? ($v->creditAccount->name ?? '-')
+                    : ($v->debitAccount->name  ?? '-');
 
-                // ✅ Special case: Payments to Production Vendor should go to CREDIT
-                if ($v->voucher_type === 'payment' && $isDebitParty) {
-                    return [
-                        'date'    => $v->date,
-                        'party'   => $v->debitAccount->name ?? 'N/A',
-                        'voucher' => "Payment #{$v->id}",
-                        'debit'   => '0',
-                        'credit'  => $this->formatAmount($v->amount), // 🚀 force CREDIT
-                        'balance' => 0,
-                    ];
-                }
+                $type = ucwords(str_replace('_', ' ', $v->voucher_type));
 
                 return [
                     'date'    => $v->date,
-                    'party'   => $isDebitParty
-                                ? ($v->debitAccount->name ?? 'N/A')
-                                : ($v->creditAccount->name ?? 'N/A'),
-                    'voucher' => ucfirst($v->voucher_type)." #{$v->id}",
-                    'debit'   => $isDebitParty ? $this->formatAmount($v->amount) : '0',
-                    'credit'  => $isDebitParty ? '0' : $this->formatAmount($v->amount),
-                    'balance' => 0,
+                    'bank'    => $type . ' #' . $v->id . ' | ' . $contra,
+                    'debit'   => $isDebit  ? $this->fmt($v->amount) : '0.00',
+                    'credit'  => !$isDebit ? $this->fmt($v->amount) : '0.00',
+                    'balance' => '0.00',
                 ];
-            })
-
-        );
-
-        return collect($this->runningBalance(
-            $rows->sortBy('date')->values()->toArray()
-        ));
-    }
-
-    private function receivables($from,$to,$partyId=null)
-    {
-        return $this->partyLedger($from,$to,$partyId)
-            ->filter(fn($r)=> floatval(str_replace(',','',$r['credit'])) > 0);
-    }
-
-    private function payables($from,$to,$partyId=null)
-    {
-        return $this->partyLedger($from,$to,$partyId)
-            ->filter(fn($r)=> floatval(str_replace(',','',$r['debit'])) > 0);
-    }
-
-    private function cashBook($from, $to)
-    {
-        $cashAccounts = ChartOfAccounts::where('account_type','cash')->pluck('id');
-
-        $rows = Voucher::whereBetween('date', [$from,$to])
-            ->where(function($q) use ($cashAccounts) {
-                $q->whereIn('ac_dr_sid',$cashAccounts)
-                ->orWhereIn('ac_cr_sid',$cashAccounts);
-            })
-            ->with(['debitAccount','creditAccount'])
-            ->get()
-            ->map(function($v) use ($cashAccounts){
-                $isDebit = $cashAccounts->contains($v->ac_dr_sid);
-
-                return [
-                    'date'        => $v->date,
-                    'particulars' => "Voucher #{$v->id}",
-                    'debit'       => $isDebit ? $this->formatAmount($v->amount) : '0',
-                    'credit'      => !$isDebit ? $this->formatAmount($v->amount) : '0',
-                    'balance'     => 0,
-                ];
-            })
-            ->toArray();
+            })->toArray();
 
         return $this->runningBalance($rows);
     }
 
-    private function bankBook($from, $to)
+    // ── Journal / Day Book ────────────────────────────────────────────
+
+    private function journalBook(string $from, string $to): \Illuminate\Support\Collection
     {
-        $bankAccounts = ChartOfAccounts::where('account_type','bank')->pluck('id');
-
-        $rows = Voucher::whereBetween('date', [$from,$to])
-            ->where(function($q) use ($bankAccounts) {
-                $q->whereIn('ac_dr_sid',$bankAccounts)
-                ->orWhereIn('ac_cr_sid',$bankAccounts);
-            })
-            ->with(['debitAccount','creditAccount'])
+        return Voucher::with(['debitAccount', 'creditAccount'])
+            ->whereBetween('date', [$from, $to])
+            ->orderBy('date')
             ->get()
-            ->map(function($v) use ($bankAccounts){
-                $isDebit = $bankAccounts->contains($v->ac_dr_sid);
-
+            ->map(function ($v) {
+                $type = ucwords(str_replace('_', ' ', $v->voucher_type));
                 return [
-                    'date'        => $v->date,
-                    'bank'        => "Voucher #{$v->id}",
-                    'debit'       => $isDebit ? $this->formatAmount($v->amount) : '0',
-                    'credit'      => !$isDebit ? $this->formatAmount($v->amount) : '0',
-                    'balance'     => 0,
+                    'date'       => $v->date,
+                    'voucher'    => $type . ' #' . $v->id,
+                    'dr_account' => $v->debitAccount->name  ?? '-',
+                    'cr_account' => $v->creditAccount->name ?? '-',
+                    'amount'     => $this->fmt($v->amount),
                 ];
-            })
-            ->toArray();
-
-        return $this->runningBalance($rows);
+            });
     }
 
-    private function journalBook($from,$to)
+    // ── Expense Analysis ──────────────────────────────────────────────
+
+    private function expenseAnalysis(string $from, string $to): \Illuminate\Support\Collection
     {
-        return Voucher::with(['debitAccount','creditAccount'])
-            ->whereBetween('date', [$from,$to])
-            ->get()
-            ->map(fn($v)=>[
-                'date'=>$v->date,'voucher'=>"Voucher #{$v->id}",
-                'dr_account'=>$v->debitAccount->name ?? '','cr_account'=>$v->creditAccount->name ?? '',
-                'amount'=>$this->formatAmount($v->debit ?: $v->credit),
-            ]);
+        return $this->trialBalance($from, $to)
+            ->whereIn('account_type', ['expense', 'cogs'])
+            ->map(fn($r) => [
+                'expense_head' => $r['account'],
+                'amount'       => $this->fmt(
+                    $this->unformat($r['debit']) - $this->unformat($r['credit'])
+                ),
+            ])
+            ->filter(fn($r) => $this->unformat($r['amount']) > 0)
+            ->values();
     }
 
-    private function expenseAnalysis($from,$to)
-    {
-        return $this->trialBalance($from,$to)
-            ->filter(fn($r)=> $r['account_type'] === 'expense')
-            ->map(fn($r)=>[
-                'expense_head'=>$r['account'],
-                'amount'=>$r['debit'],
-            ]);
-    }
+    // ── Cash Flow ─────────────────────────────────────────────────────
 
-    private function cashFlow($from,$to)
+    private function cashFlow(string $from, string $to): array
     {
+        $cashBankIds = ChartOfAccounts::whereIn('account_type', ['cash', 'bank'])->pluck('id');
+
+        $inflows  = Voucher::whereBetween('date', [$from, $to])
+                           ->whereIn('ac_dr_sid', $cashBankIds)->sum('amount');
+        $outflows = Voucher::whereBetween('date', [$from, $to])
+                           ->whereIn('ac_cr_sid', $cashBankIds)->sum('amount');
+
         return [
-            ['activity'=>'Operating','inflows'=>'1000.00','outflows'=>'700.00','net flow'=>'300.00'],
-            ['activity'=>'Investing','inflows'=>'500.00','outflows'=>'200.00','net flow'=>'300.00'],
-            ['activity'=>'Financing','inflows'=>'0.00','outflows'=>'100.00','net flow'=>'-100.00'],
+            [
+                'activity' => 'Cash & Bank Inflows',
+                'inflows'  => $this->fmt($inflows),
+                'outflows' => '0.00',
+                'net flow' => $this->fmt($inflows),
+            ],
+            [
+                'activity' => 'Cash & Bank Outflows',
+                'inflows'  => '0.00',
+                'outflows' => $this->fmt($outflows),
+                'net flow' => $this->fmt(-$outflows),
+            ],
+            [
+                'activity' => 'Net Cash Flow',
+                'inflows'  => $this->fmt($inflows),
+                'outflows' => $this->fmt($outflows),
+                'net flow' => $this->fmt($inflows - $outflows),
+            ],
         ];
     }
 }

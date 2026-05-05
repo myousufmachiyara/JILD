@@ -12,100 +12,88 @@ class PurchaseReportController extends Controller
 {
     public function purchaseReports(Request $request)
     {
-        $tab = $request->get('tab', 'PUR'); // default tab
-
-        // ✅ Set default from/to dates
+        $tab  = $request->get('tab', 'PUR');
         $from = $request->get('from_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
-        $to   = $request->get('to_date', Carbon::now()->format('Y-m-d'));
+        $to   = $request->get('to_date',   Carbon::now()->format('Y-m-d'));
 
-        $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
+        $vendors = ChartOfAccounts::where('account_type', 'vendor')->orderBy('name')->get();
 
-        $purchaseRegister = collect();
-        $purchaseReturns = collect();
+        $purchaseRegister   = collect();
+        $purchaseReturns    = collect();
         $vendorWisePurchase = collect();
 
-        // --- PURCHASE REGISTER ---
-        if ($tab == 'PUR') {
-            $query = PurchaseInvoice::with('vendor', 'items')
-                ->whereBetween('invoice_date', [$from, $to]);
-
-            if ($request->filled('vendor_id')) {
-                $query->where('vendor_id', $request->vendor_id);
-            }
-
-            $purchaseRegister = $query->get()->flatMap(function ($purchase) {
-                return $purchase->items->map(function ($item) use ($purchase) {
-                    return (object)[
-                        'date'        => $purchase->invoice_date,
-                        'invoice_no'  => $purchase->bill_no ?? $purchase->id,
-                        'vendor_name' => $purchase->vendor->name ?? '',
-                        'item_name'   => $item->item_name,
+        // ── Purchase Register ─────────────────────────────────────────
+        if ($tab === 'PUR') {
+            $purchaseRegister = PurchaseInvoice::with(['vendor', 'items.product', 'items.variation', 'items.measurementUnit'])
+                ->whereBetween('invoice_date', [$from, $to])
+                ->when($request->filled('vendor_id'), fn($q) => $q->where('vendor_id', $request->vendor_id))
+                ->get()
+                ->flatMap(function ($invoice) {
+                    return $invoice->items->map(fn($item) => (object)[
+                        'date'        => $invoice->invoice_date,
+                        'invoice_no'  => $invoice->bill_no ?? $invoice->id,
+                        'vendor_name' => $invoice->vendor->name ?? '-',
+                        'item_name'   => $item->product->name ?? $item->item_name ?? '-',
+                        'variation'   => $item->variation->sku ?? '-',
+                        'unit'        => $item->measurementUnit->shortcode ?? '-',
                         'quantity'    => $item->quantity,
                         'rate'        => $item->price,
                         'total'       => $item->quantity * $item->price,
-                    ];
+                    ]);
                 });
-            });
         }
 
-        // --- PURCHASE RETURNS ---
-        if ($tab == 'PR') {
-            $query = PurchaseReturn::with('vendor', 'items')
-                ->whereBetween('return_date', [$from, $to]);
-
-            if ($request->filled('vendor_id')) {
-                $query->where('vendor_id', $request->vendor_id);
-            }
-
-            $purchaseReturns = $query->get()->flatMap(function ($return) {
-                return $return->items->map(function ($item) use ($return) {
-                    return (object)[
+        // ── Purchase Returns ──────────────────────────────────────────
+        if ($tab === 'PR') {
+            $purchaseReturns = PurchaseReturn::with(['vendor', 'items.product', 'items.variation', 'items.measurementUnit'])
+                ->whereBetween('return_date', [$from, $to])
+                ->when($request->filled('vendor_id'), fn($q) => $q->where('vendor_id', $request->vendor_id))
+                ->get()
+                ->flatMap(function ($return) {
+                    return $return->items->map(fn($item) => (object)[
                         'date'        => $return->return_date,
-                        'return_no'   => $return->return_no ?? $return->id,
-                        'vendor_name' => $return->vendor->name ?? '',
-                        'item_name'   => $item->item_name,
+                        'return_no'   => $return->id,
+                        'vendor_name' => $return->vendor->name ?? '-',
+                        'item_name'   => $item->product->name ?? $item->item_name ?? '-',
+                        'variation'   => $item->variation->sku ?? '-',
+                        'unit'        => $item->measurementUnit->shortcode ?? '-',
                         'quantity'    => $item->quantity,
                         'rate'        => $item->price,
                         'total'       => $item->quantity * $item->price,
-                    ];
+                    ]);
                 });
-            });
         }
 
-        // --- VENDOR-WISE PURCHASES ---
-        if ($tab == 'VWP') {
-            $query = PurchaseInvoice::with(['vendor', 'items.product', 'items.variation'])
-                ->whereBetween('invoice_date', [$from, $to]);
+        // ── Vendor-wise Purchases ─────────────────────────────────────
+        if ($tab === 'VWP') {
+            $vendorWisePurchase = PurchaseInvoice::with(['vendor', 'items.product', 'items.variation', 'items.measurementUnit'])
+                ->whereBetween('invoice_date', [$from, $to])
+                ->when($request->filled('vendor_id'), fn($q) => $q->where('vendor_id', $request->vendor_id))
+                ->get()
+                ->groupBy('vendor_id')
+                ->map(function ($invoices) {
+                    $vendor = $invoices->first()->vendor->name ?? 'Unknown Vendor';
 
-            if ($request->filled('vendor_id')) {
-                $query->where('vendor_id', $request->vendor_id);
-            }
-
-            $vendorWisePurchase = $query->get()->groupBy('vendor_id')->map(function ($purchases, $vendorId) {
-                $vendor = $purchases->first()->vendor->name ?? 'Unknown Vendor';
-
-                $items = collect();
-                foreach ($purchases as $purchase) {
-                    foreach ($purchase->items as $item) {
-                        $items->push((object)[
-                            'invoice_date' => $purchase->invoice_date,
-                            'invoice_no'   => $purchase->bill_no ?? $purchase->id,
-                            'item_name'    => $item->product->name ?? $item->item_name ?? 'N/A',
-                            'variation'    => $item->variation->name ?? '-',
+                    $items = $invoices->flatMap(fn($inv) =>
+                        $inv->items->map(fn($item) => (object)[
+                            'invoice_date' => $inv->invoice_date,
+                            'invoice_no'   => $inv->bill_no ?? $inv->id,
+                            'item_name'    => $item->product->name ?? $item->item_name ?? '-',
+                            'variation'    => $item->variation->sku ?? '-',
+                            'unit'         => $item->measurementUnit->shortcode ?? '-',
                             'quantity'     => $item->quantity,
                             'rate'         => $item->price,
                             'total'        => $item->quantity * $item->price,
-                        ]);
-                    }
-                }
+                        ])
+                    );
 
-                return (object)[
-                    'vendor_name'  => $vendor,
-                    'items'        => $items,
-                    'total_qty'    => $items->sum('quantity'),
-                    'total_amount' => $items->sum('total'),
-                ];
-            })->values();
+                    return (object)[
+                        'vendor_name'  => $vendor,
+                        'items'        => $items,
+                        'total_qty'    => $items->sum('quantity'),
+                        'total_amount' => $items->sum('total'),
+                    ];
+                })->values();
         }
 
         return view('reports.purchase_reports', compact(

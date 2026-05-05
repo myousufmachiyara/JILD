@@ -103,57 +103,128 @@ class DatabaseSeeder extends Seeder
         // HEADS OF ACCOUNTS
         // ---------------------
         HeadOfAccounts::insert([
-            ['id' => 1, 'name' => 'Assets', 'created_at' => $now, 'updated_at' => $now],
+            ['id' => 1, 'name' => 'Assets',      'created_at' => $now, 'updated_at' => $now],
             ['id' => 2, 'name' => 'Liabilities', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 3, 'name' => 'Equity', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 4, 'name' => 'Revenue', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 5, 'name' => 'Expenses', 'created_at' => $now, 'updated_at' => $now],
+            ['id' => 3, 'name' => 'Equity',      'created_at' => $now, 'updated_at' => $now],
+            ['id' => 4, 'name' => 'Revenue',     'created_at' => $now, 'updated_at' => $now],
+            ['id' => 5, 'name' => 'Expenses',    'created_at' => $now, 'updated_at' => $now],
         ]);
 
         // ---------------------
         // SUB HEADS
         // ---------------------
         SubHeadOfAccounts::insert([
-            ['id' => 1, 'hoa_id' => 1, 'name' => 'Cash', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 2, 'hoa_id' => 1, 'name' => 'Bank', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 3, 'hoa_id' => 1, 'name' => 'Accounts Receivable', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 4, 'hoa_id' => 1, 'name' => 'Inventory', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 5, 'hoa_id' => 2, 'name' => 'Accounts Payable', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 6, 'hoa_id' => 2, 'name' => 'Loans', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 7, 'hoa_id' => 3, 'name' => 'Owner Capital', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 8, 'hoa_id' => 4, 'name' => 'Sales', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 9, 'hoa_id' => 5, 'name' => 'Purchases', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 10,'hoa_id' => 5, 'name' => 'Salaries', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 11,'hoa_id' => 5, 'name' => 'Rent', 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 12,'hoa_id' => 5, 'name' => 'Utilities', 'created_at' => $now, 'updated_at' => $now],
+            // Assets
+            ['id' => 1,  'hoa_id' => 1, 'name' => 'Cash & Cash Equivalents', 'created_at' => $now, 'updated_at' => $now],
+            ['id' => 2,  'hoa_id' => 1, 'name' => 'Bank Accounts',           'created_at' => $now, 'updated_at' => $now],
+            ['id' => 3,  'hoa_id' => 1, 'name' => 'Accounts Receivable',     'created_at' => $now, 'updated_at' => $now],
+            ['id' => 4,  'hoa_id' => 1, 'name' => 'Inventory',               'created_at' => $now, 'updated_at' => $now],
+            ['id' => 5,  'hoa_id' => 1, 'name' => 'Other Current Assets',    'created_at' => $now, 'updated_at' => $now],
+
+            // Liabilities
+            ['id' => 6,  'hoa_id' => 2, 'name' => 'Accounts Payable',        'created_at' => $now, 'updated_at' => $now],
+            ['id' => 7,  'hoa_id' => 2, 'name' => 'Loans & Borrowings',      'created_at' => $now, 'updated_at' => $now],
+            ['id' => 8,  'hoa_id' => 2, 'name' => 'Other Liabilities',       'created_at' => $now, 'updated_at' => $now],
+
+            // Equity
+            ['id' => 9,  'hoa_id' => 3, 'name' => 'Owner Capital',           'created_at' => $now, 'updated_at' => $now],
+            ['id' => 10, 'hoa_id' => 3, 'name' => 'Retained Earnings',       'created_at' => $now, 'updated_at' => $now],
+
+            // Revenue
+            ['id' => 11, 'hoa_id' => 4, 'name' => 'Sales Revenue',           'created_at' => $now, 'updated_at' => $now],
+            ['id' => 12, 'hoa_id' => 4, 'name' => 'Other Income',            'created_at' => $now, 'updated_at' => $now],
+
+            // Expenses
+            ['id' => 13, 'hoa_id' => 5, 'name' => 'Cost of Goods Sold',      'created_at' => $now, 'updated_at' => $now],
+            ['id' => 14, 'hoa_id' => 5, 'name' => 'Operating Expenses',      'created_at' => $now, 'updated_at' => $now],
+            ['id' => 15, 'hoa_id' => 5, 'name' => 'Salaries & Wages',        'created_at' => $now, 'updated_at' => $now],
+            ['id' => 16, 'hoa_id' => 5, 'name' => 'Production Expenses',     'created_at' => $now, 'updated_at' => $now],
         ]);
 
         // ---------------------
         // CHART OF ACCOUNTS
         // ---------------------
         $coaData = [
-            ['account_code' => '104001', 'shoa_id' => 4, 'name' => 'Stock in Hand', 'account_type' => 'asset', 'receivables' => 0.00, 'payables' => 0.00],
-            ['account_code' => '103001', 'shoa_id' => 3, 'name' => 'Customer 01', 'account_type' => 'customer', 'receivables' => 12000.00, 'payables' => 0.00],
-            ['account_code' => '205001', 'shoa_id' => 5, 'name' => 'Vendor 01', 'account_type' => 'vendor', 'receivables' => 0.00, 'payables' => 7500.00],
-            ['account_code' => '101001', 'shoa_id' => 1, 'name' => 'Shop Cash', 'account_type' => 'cash', 'receivables' => 0.00, 'payables' => 0.00],
-            ['account_code' => '102001', 'shoa_id' => 2, 'name' => 'Meezan Yousuf', 'account_type' => 'bank', 'receivables' => 0.00, 'payables' => 0.00],
-            ['account_code' => '307001', 'shoa_id' => 7, 'name' => 'Owners Equity', 'account_type' => 'equity', 'receivables' => 0.00, 'payables' => 0.00],
-            ['account_code' => '408001', 'shoa_id' => 8, 'name' => 'Sales Revenue', 'account_type' => 'revenue', 'receivables' => 0.00, 'payables' => 0.00],
-            ['account_code' => '509001', 'shoa_id' => 9, 'name' => 'Cost of Goods Sold', 'account_type' => 'cogs', 'receivables' => 0.00, 'payables' => 0.00],
+
+            // ── ASSETS ──────────────────────────────────────────────────────
+            // Cash
+            ['account_code' => '101001', 'shoa_id' => 1,  'name' => 'Shop Cash',              'account_type' => 'cash',     'receivables' => 0, 'payables' => 0],
+            ['account_code' => '101002', 'shoa_id' => 1,  'name' => 'Petty Cash',             'account_type' => 'cash',     'receivables' => 0, 'payables' => 0],
+
+            // Bank
+            ['account_code' => '102001', 'shoa_id' => 2,  'name' => 'Meezan Bank',            'account_type' => 'bank',     'receivables' => 0, 'payables' => 0],
+            ['account_code' => '102002', 'shoa_id' => 2,  'name' => 'HBL Account',            'account_type' => 'bank',     'receivables' => 0, 'payables' => 0],
+
+            // Accounts Receivable (customers added here dynamically)
+            ['account_code' => '103001', 'shoa_id' => 3,  'name' => 'Customer 01',            'account_type' => 'customer', 'receivables' => 0, 'payables' => 0],
+
+            // Inventory
+            ['account_code' => '104001', 'shoa_id' => 4,  'name' => 'Stock in Hand',          'account_type' => 'asset',    'receivables' => 0, 'payables' => 0],
+            ['account_code' => '104002', 'shoa_id' => 4,  'name' => 'Raw Material Stock',     'account_type' => 'asset',    'receivables' => 0, 'payables' => 0],
+            ['account_code' => '104003', 'shoa_id' => 4,  'name' => 'Work In Progress',       'account_type' => 'asset',    'receivables' => 0, 'payables' => 0],
+            ['account_code' => '104004', 'shoa_id' => 4,  'name' => 'Finished Goods Stock',   'account_type' => 'asset',    'receivables' => 0, 'payables' => 0],
+
+            // Other Current Assets
+            ['account_code' => '105001', 'shoa_id' => 5,  'name' => 'Advance to Suppliers',   'account_type' => 'asset',    'receivables' => 0, 'payables' => 0],
+            ['account_code' => '105002', 'shoa_id' => 5,  'name' => 'Prepaid Expenses',       'account_type' => 'asset',    'receivables' => 0, 'payables' => 0],
+            ['account_code' => '105003', 'shoa_id' => 5,  'name' => 'Security Deposits',      'account_type' => 'asset',    'receivables' => 0, 'payables' => 0],
+
+            // ── LIABILITIES ─────────────────────────────────────────────────
+            // Accounts Payable (vendors added here dynamically)
+            ['account_code' => '205001', 'shoa_id' => 6,  'name' => 'Vendor 01',              'account_type' => 'vendor',   'receivables' => 0, 'payables' => 0],
+
+            // Loans
+            ['account_code' => '206001', 'shoa_id' => 7,  'name' => 'Bank Loan',              'account_type' => 'liability','receivables' => 0, 'payables' => 0],
+
+            // Other Liabilities
+            ['account_code' => '207001', 'shoa_id' => 8,  'name' => 'Salaries Payable',       'account_type' => 'liability','receivables' => 0, 'payables' => 0],
+            ['account_code' => '207002', 'shoa_id' => 8,  'name' => 'Tax Payable',            'account_type' => 'liability','receivables' => 0, 'payables' => 0],
+            ['account_code' => '207003', 'shoa_id' => 8,  'name' => 'Advance from Customers', 'account_type' => 'liability','receivables' => 0, 'payables' => 0],
+
+            // ── EQUITY ──────────────────────────────────────────────────────
+            ['account_code' => '301001', 'shoa_id' => 9,  'name' => 'Owners Equity',          'account_type' => 'equity',   'receivables' => 0, 'payables' => 0],
+            ['account_code' => '302001', 'shoa_id' => 10, 'name' => 'Retained Earnings',      'account_type' => 'equity',   'receivables' => 0, 'payables' => 0],
+
+            // ── REVENUE ─────────────────────────────────────────────────────
+            ['account_code' => '401001', 'shoa_id' => 11, 'name' => 'Sales Revenue',          'account_type' => 'revenue',  'receivables' => 0, 'payables' => 0],
+            ['account_code' => '401002', 'shoa_id' => 11, 'name' => 'Sales Return',           'account_type' => 'revenue',  'receivables' => 0, 'payables' => 0], // contra
+            ['account_code' => '401003', 'shoa_id' => 11, 'name' => 'Sales Discount',         'account_type' => 'revenue',  'receivables' => 0, 'payables' => 0], // contra
+            ['account_code' => '402001', 'shoa_id' => 12, 'name' => 'Purchase Discount',      'account_type' => 'revenue',  'receivables' => 0, 'payables' => 0], // discount received from vendor
+            ['account_code' => '402002', 'shoa_id' => 12, 'name' => 'Other Income',           'account_type' => 'revenue',  'receivables' => 0, 'payables' => 0],
+
+            // ── EXPENSES ────────────────────────────────────────────────────
+            // COGS
+            ['account_code' => '501001', 'shoa_id' => 13, 'name' => 'Cost of Goods Sold',     'account_type' => 'cogs',     'receivables' => 0, 'payables' => 0],
+            ['account_code' => '501002', 'shoa_id' => 13, 'name' => 'Purchase Return',        'account_type' => 'cogs',     'receivables' => 0, 'payables' => 0], // contra
+
+            // Operating Expenses
+            ['account_code' => '502001', 'shoa_id' => 14, 'name' => 'Conveyance Expense',     'account_type' => 'expense',  'receivables' => 0, 'payables' => 0],
+            ['account_code' => '502002', 'shoa_id' => 14, 'name' => 'Labour Expense',         'account_type' => 'expense',  'receivables' => 0, 'payables' => 0],
+            ['account_code' => '502003', 'shoa_id' => 14, 'name' => 'Rent Expense',           'account_type' => 'expense',  'receivables' => 0, 'payables' => 0],
+            ['account_code' => '502004', 'shoa_id' => 14, 'name' => 'Utilities Expense',      'account_type' => 'expense',  'receivables' => 0, 'payables' => 0],
+            ['account_code' => '502005', 'shoa_id' => 14, 'name' => 'Repair & Maintenance',   'account_type' => 'expense',  'receivables' => 0, 'payables' => 0],
+            ['account_code' => '502006', 'shoa_id' => 14, 'name' => 'Miscellaneous Expense',  'account_type' => 'expense',  'receivables' => 0, 'payables' => 0],
+
+            // Salaries
+            ['account_code' => '503001', 'shoa_id' => 15, 'name' => 'Salaries Expense',       'account_type' => 'expense',  'receivables' => 0, 'payables' => 0],
+
+            // Production Expenses
+            ['account_code' => '504001', 'shoa_id' => 16, 'name' => 'Production Labour',      'account_type' => 'expense',  'receivables' => 0, 'payables' => 0],
+            ['account_code' => '504002', 'shoa_id' => 16, 'name' => 'Production Overhead',    'account_type' => 'expense',  'receivables' => 0, 'payables' => 0],
+            ['account_code' => '504003', 'shoa_id' => 16, 'name' => 'Raw Material Consumed',  'account_type' => 'expense',  'receivables' => 0, 'payables' => 0],
         ];
 
         foreach ($coaData as $data) {
             ChartOfAccounts::create(array_merge($data, [
-                'opening_date' => '2026-01-19',
+                'opening_date' => now()->toDateString(),
                 'credit_limit' => 0.00,
                 'remarks'      => null,
                 'address'      => null,
-                'phone_no'     => null,
+                'contact_no'     => null,
                 'created_by'   => $userId,
                 'updated_by'   => $userId,
             ]));
         }
-
 
         // 🏷️ Seed Attributes
         Attribute::insert([

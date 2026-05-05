@@ -6,66 +6,52 @@ use App\Models\Voucher;
 use App\Models\ChartOfAccounts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log; // at the top of the controller
+use Illuminate\Support\Facades\Log;
 
 class VoucherController extends Controller
 {
-    /**
-     * Display all vouchers of a specific type.
-     */
-    public function index($type)
+    // Manual voucher types — system types are everything else
+    private const MANUAL_TYPES = ['journal', 'payment', 'receipt'];
+
+    public function index($type = null)
     {
-        $vouchers = Voucher::with(['debitAccount', 'creditAccount'])
-            ->where('voucher_type', $type)
-            ->get();
+        $accounts = ChartOfAccounts::orderBy('name')->get();
 
-        $accounts = ChartOfAccounts::all();
+        $journal = Voucher::with(['debitAccount', 'creditAccount'])
+                        ->where('voucher_type', 'journal')->latest()->get();
+        $payment = Voucher::with(['debitAccount', 'creditAccount'])
+                        ->where('voucher_type', 'payment')->latest()->get();
+        $receipt = Voucher::with(['debitAccount', 'creditAccount'])
+                        ->where('voucher_type', 'receipt')->latest()->get();
+        $system  = Voucher::with(['debitAccount', 'creditAccount'])
+                        ->whereNotIn('voucher_type', self::MANUAL_TYPES)
+                        ->latest()
+                        ->get();
 
-        return view('vouchers.index', [
-            'vouchers' => $vouchers,
-            'accounts' => $accounts,
-            'type' => $type,
-        ]);
+        return view('vouchers.index', compact('accounts', 'journal', 'payment', 'receipt', 'system'));
     }
 
-    /**
-     * Show form to create a voucher of a specific type.
-     */
-    public function create($type)
-    {
-        $accounts = ChartOfAccounts::all();
-        return view('vouchers.create', compact('accounts', 'type'));
-    }
-
-    /**
-     * Show a single voucher.
-     */
     public function show($type, $id)
     {
         $voucher = Voucher::with(['debitAccount', 'creditAccount'])->findOrFail($id);
         return response()->json($voucher);
     }
 
-    /**
-     * Show form to edit a voucher.
-     */
-    public function edit($type, $id)
-    {
-        $voucher = Voucher::findOrFail($id);
-        $accounts = ChartOfAccounts::all();
-        return view('vouchers.edit', compact('voucher', 'accounts', 'type'));
-    }
-
     public function store(Request $request, $type)
     {
+        // Block creating system vouchers manually
+        if (!in_array($type, self::MANUAL_TYPES)) {
+            return back()->with('error', "Cannot manually create a '{$type}' voucher.");
+        }
+
         try {
             $data = $request->validate([
-                'date' => 'required|date',
+                'date'      => 'required|date',
                 'ac_dr_sid' => 'required|numeric',
                 'ac_cr_sid' => 'required|numeric|different:ac_dr_sid',
-                'amount' => 'required|numeric|min:1',
-                'remarks' => 'nullable|string',
-                'att.*' => 'nullable|file|max:2048',
+                'amount'    => 'required|numeric|min:1',
+                'remarks'   => 'nullable|string',
+                'att.*'     => 'nullable|file|max:2048',
             ]);
 
             $attachments = [];
@@ -77,39 +63,43 @@ class VoucherController extends Controller
 
             Voucher::create([
                 'voucher_type' => $type,
-                'date' => $data['date'],
-                'ac_dr_sid' => $data['ac_dr_sid'],
-                'ac_cr_sid' => $data['ac_cr_sid'],
-                'amount' => $data['amount'],
-                'remarks' => $data['remarks'],
-                'attachments' => $attachments,
+                'date'         => $data['date'],
+                'ac_dr_sid'    => $data['ac_dr_sid'],
+                'ac_cr_sid'    => $data['ac_cr_sid'],
+                'amount'       => $data['amount'],
+                'remarks'      => $data['remarks'] ?? null,
+                'attachments'  => $attachments,
             ]);
 
             return back()->with('success', ucfirst($type) . ' voucher added successfully!');
 
         } catch (\Throwable $e) {
             Log::error("Error storing {$type} voucher: " . $e->getMessage(), [
-                'trace' => $e->getTraceAsString(),
+                'trace'   => $e->getTraceAsString(),
                 'request' => $request->all(),
             ]);
-
-            return back()->with('error', 'Something went wrong while adding the voucher. Check logs.');
+            return back()->with('error', 'Something went wrong while adding the voucher.');
         }
     }
 
     public function update(Request $request, $type, $id)
     {
+        // Block editing system vouchers
+        if (!in_array($type, self::MANUAL_TYPES)) {
+            return back()->with('error', "Cannot manually edit a '{$type}' voucher.");
+        }
+
         try {
             $data = $request->validate([
-                'date' => 'required|date',
+                'date'      => 'required|date',
                 'ac_dr_sid' => 'required|numeric',
                 'ac_cr_sid' => 'required|numeric|different:ac_dr_sid',
-                'amount' => 'required|numeric|min:1',
-                'remarks' => 'nullable|string',
-                'att.*' => 'nullable|file|max:2048',
+                'amount'    => 'required|numeric|min:1',
+                'remarks'   => 'nullable|string',
+                'att.*'     => 'nullable|file|max:2048',
             ]);
 
-            $voucher = Voucher::findOrFail($id);
+            $voucher     = Voucher::findOrFail($id);
             $attachments = $voucher->attachments ?? [];
 
             if ($request->hasFile('att')) {
@@ -119,11 +109,11 @@ class VoucherController extends Controller
             }
 
             $voucher->update([
-                'date' => $data['date'],
-                'ac_dr_sid' => $data['ac_dr_sid'],
-                'ac_cr_sid' => $data['ac_cr_sid'],
-                'amount' => $data['amount'],
-                'remarks' => $data['remarks'],
+                'date'        => $data['date'],
+                'ac_dr_sid'   => $data['ac_dr_sid'],
+                'ac_cr_sid'   => $data['ac_cr_sid'],
+                'amount'      => $data['amount'],
+                'remarks'     => $data['remarks'] ?? null,
                 'attachments' => $attachments,
             ]);
 
@@ -131,16 +121,20 @@ class VoucherController extends Controller
 
         } catch (\Throwable $e) {
             Log::error("Error updating {$type} voucher ID {$id}: " . $e->getMessage(), [
-                'trace' => $e->getTraceAsString(),
+                'trace'   => $e->getTraceAsString(),
                 'request' => $request->all(),
             ]);
-
-            return back()->with('error', 'Something went wrong while updating the voucher. Check logs.');
+            return back()->with('error', 'Something went wrong while updating the voucher.');
         }
     }
 
     public function destroy($type, $id)
     {
+        // Block deleting system vouchers
+        if (!in_array($type, self::MANUAL_TYPES)) {
+            return back()->with('error', "Cannot manually delete a '{$type}' voucher.");
+        }
+
         try {
             $voucher = Voucher::findOrFail($id);
 
@@ -160,24 +154,29 @@ class VoucherController extends Controller
             Log::error("Error deleting {$type} voucher ID {$id}: " . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
             ]);
-
-            return back()->with('error', 'Something went wrong while deleting the voucher. Check logs.');
+            return back()->with('error', 'Something went wrong while deleting the voucher.');
         }
     }
 
-    /**
-     * Print a voucher as PDF.
-     */
     public function print($type, $id)
     {
         $voucher = Voucher::with(['debitAccount', 'creditAccount'])->findOrFail($id);
 
+        // For system vouchers, group all rows belonging to the same source
+        $relatedVouchers = collect([$voucher]);
+        if ($voucher->source_type && $voucher->source_id) {
+            $relatedVouchers = Voucher::with(['debitAccount', 'creditAccount'])
+                ->where('source_type', $voucher->source_type)
+                ->where('source_id',   $voucher->source_id)
+                ->get();
+        }
+
         $pdf = new \TCPDF();
         $pdf->setPrintHeader(false);
         $pdf->setPrintFooter(false);
-        $pdf->SetCreator('Your App');
-        $pdf->SetAuthor('Your Company');
-        $pdf->SetTitle(ucfirst($type) . ' Voucher #' . $voucher->id);
+        $pdf->SetCreator('Jild');
+        $pdf->SetAuthor('Jild');
+        $pdf->SetTitle(ucwords(str_replace('_', ' ', $type)) . ' Voucher #' . $voucher->source_id ?? $voucher->id);
         $pdf->SetMargins(10, 10, 10);
         $pdf->AddPage();
         $pdf->setCellPadding(1.5);
@@ -188,69 +187,73 @@ class VoucherController extends Controller
             $pdf->Image($logoPath, 10, 10, 30);
         }
 
-        // Voucher Info
+        // Info box
         $pdf->SetXY(130, 12);
-        $infoHtml = '
+        $pdf->writeHTML('
         <table cellpadding="2" style="font-size:10px; line-height:14px;">
-            <tr><td><b>Voucher #</b></td><td>' . $voucher->id . '</td></tr>
+            <tr><td><b>Voucher #</b></td><td>' . ($voucher->source_id ?? $voucher->id) . '</td></tr>
+            <tr><td><b>Type</b></td><td>' . ucwords(str_replace('_', ' ', $type)) . '</td></tr>
             <tr><td><b>Date</b></td><td>' . \Carbon\Carbon::parse($voucher->date)->format('d/m/Y') . '</td></tr>
-        </table>';
-        $pdf->writeHTML($infoHtml, false, false, false, false, '');
+        </table>', false, false, false, false, '');
+
         $pdf->Line(60, 52.25, 200, 52.25);
 
-        // Title Box
+        // Title bar
         $pdf->SetXY(10, 48);
         $pdf->SetFillColor(23, 54, 93);
         $pdf->SetTextColor(255, 255, 255);
         $pdf->SetFont('helvetica', '', 12);
-        $pdf->Cell(50, 8, ucfirst($type) . ' Voucher', 0, 1, 'C', 1);
+        $pdf->Cell(50, 8, ucwords(str_replace('_', ' ', $type)) . ' Voucher', 0, 1, 'C', 1);
         $pdf->SetTextColor(0, 0, 0);
         $pdf->Ln(5);
 
-        // Details Table
-        $html = '<table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
+        // Entries table
+        $html = '
+        <table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
             <tr style="background-color:#f5f5f5; font-weight:bold;">
-                <th width="10%">S.No</th>
-                <th width="40%">Debit Account</th>
-                <th width="40%">Credit Account</th>
-                <th width="10%">Amount</th>
+                <th width="8%">S.No</th>
+                <th width="35%">Debit Account</th>
+                <th width="35%">Credit Account</th>
+                <th width="22%">Amount</th>
             </tr>';
 
-        $html .= '<tr>
-            <td>1</td>
-            <td>' . ($voucher->debitAccount->name ?? '-') . '</td>
-            <td>' . ($voucher->creditAccount->name ?? '-') . '</td>
-            <td align="right">' . number_format($voucher->amount, 2) . '</td>
-        </tr>';
+        $grandTotal = 0;
+        foreach ($relatedVouchers as $i => $row) {
+            $grandTotal += $row->amount;
+            $html .= '
+            <tr>
+                <td>' . ($i + 1) . '</td>
+                <td align="left">' . ($row->debitAccount->name  ?? '-') . '</td>
+                <td align="left">' . ($row->creditAccount->name ?? '-') . '</td>
+                <td align="right">' . number_format($row->amount, 2) . '</td>
+            </tr>';
+        }
 
         $html .= '
             <tr style="background-color:#f5f5f5;">
                 <td colspan="3" align="right"><b>Total</b></td>
-                <td align="right"><b>' . number_format($voucher->amount, 2) . '</b></td>
-            </tr>';
+                <td align="right"><b>' . number_format($grandTotal, 2) . '</b></td>
+            </tr>
+        </table>';
 
-        $html .= '</table>';
         $pdf->writeHTML($html, true, false, true, false, '');
         $pdf->Ln(5);
 
-        // Remarks
         if (!empty($voucher->remarks)) {
-            $pdf->writeHTML('<b>Remarks:</b><br><span style="font-size:12px;">' . nl2br($voucher->remarks) . '</span>', true, false, true, false, '');
+            $pdf->writeHTML(
+                '<b>Remarks:</b><br><span style="font-size:12px;">' . nl2br($voucher->remarks) . '</span>',
+                true, false, true, false, ''
+            );
         }
 
         // Signatures
         $pdf->Ln(20);
-        $yPos = $pdf->GetY();
-        $lineWidth = 40;
+        $y = $pdf->GetY();
+        $pdf->Line(28,  $y, 68,  $y);
+        $pdf->Line(130, $y, 170, $y);
+        $pdf->SetXY(28,  $y + 2); $pdf->Cell(40, 6, 'Prepared By',   0, 0, 'C');
+        $pdf->SetXY(130, $y + 2); $pdf->Cell(40, 6, 'Authorized By', 0, 0, 'C');
 
-        $pdf->Line(28, $yPos, 28 + $lineWidth, $yPos);
-        $pdf->Line(130, $yPos, 130 + $lineWidth, $yPos);
-
-        $pdf->SetXY(28, $yPos + 2);
-        $pdf->Cell($lineWidth, 6, 'Prepared By', 0, 0, 'C');
-        $pdf->SetXY(130, $yPos + 2);
-        $pdf->Cell($lineWidth, 6, 'Authorized By', 0, 0, 'C');
-
-        return $pdf->Output(strtolower($type) . '_voucher_' . $voucher->id . '.pdf', 'I');
+        return $pdf->Output(strtolower(str_replace(' ', '_', $type)) . '_voucher_' . $voucher->id . '.pdf', 'I');
     }
 }

@@ -12,19 +12,20 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('vouchers', function (Blueprint $table) {
-            $table->id(); 
-            $table->string('voucher_type', 50); // flexible, can be 'payment', 'receipt', 'journal', or any future type
+            $table->id();
+            $table->string('voucher_type', 50);                                                                                                                                     
+            $table->nullableMorphs('source');     
             $table->date('date');
-            $table->unsignedBigInteger('ac_dr_sid'); 
-            $table->unsignedBigInteger('ac_cr_sid'); 
+            $table->unsignedBigInteger('ac_dr_sid');
+            $table->unsignedBigInteger('ac_cr_sid');
             $table->decimal('amount', 12, 2);
             $table->text('remarks')->nullable();
             $table->json('attachments')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
-            $table->foreign('ac_dr_sid')->references('id')->on('chart_of_accounts')->onDelete('cascade');
-            $table->foreign('ac_cr_sid')->references('id')->on('chart_of_accounts')->onDelete('cascade');
+            $table->foreign('ac_dr_sid')->references('id')->on('chart_of_accounts')->onDelete('restrict');
+            $table->foreign('ac_cr_sid')->references('id')->on('chart_of_accounts')->onDelete('restrict');
         });
     }
 
