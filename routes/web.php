@@ -24,7 +24,6 @@ use App\Http\Controllers\{
     SalesReportController,
     AccountsReportController,
     SummaryReportController,
-    POSController,
     SaleReturnController,
     PermissionController,
     LocationController,
@@ -100,9 +99,6 @@ Route::middleware(['auth'])->group(function () {
         'production' => ['controller' => ProductionController::class, 'permission' => 'production'],
         'production_receiving' => ['controller' => ProductionReceivingController::class, 'permission' => 'production_receiving'],
         'production_return' => ['controller' => ProductionReturnController::class, 'permission' => 'production_return'],
-
-        // POS (optional)
-        'pos_system' => ['controller' => POSController::class, 'permission' => 'pos_system'],
     ];
 
     foreach ($modules as $uri => $config) {
