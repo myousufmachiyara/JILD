@@ -165,67 +165,106 @@ class ProductionReturnController extends Controller
         }
     }
 
-    public function print($id)
-    {
-        $return = ProductionReturn::with(['vendor', 'items.product', 'items.unit'])->findOrFail($id);
+public function print($id)
+{
+    $return = ProductionReturn::with([
+        'vendor',
+        'items.product.measurementUnit',
+        'items.variation',
+        'items.unit',
+    ])->findOrFail($id);
 
-        $pdf = new \TCPDF();
-        $pdf->setPrintHeader(false); $pdf->setPrintFooter(false);
-        $pdf->SetMargins(10, 10, 10); $pdf->AddPage(); $pdf->setCellPadding(1.5);
+    $pdf = new \TCPDF();
+    $pdf->setPrintHeader(false);
+    $pdf->setPrintFooter(false);
+    $pdf->SetCreator('Jild');
+    $pdf->SetAuthor('Jild');
+    $pdf->SetTitle('Production Return #' . $return->id);
+    $pdf->SetMargins(10, 10, 10);
+    $pdf->AddPage();
+    $pdf->setCellPadding(1.5);
 
-        $logoPath = public_path('assets/img/Jild-Logo.png');
-        if (file_exists($logoPath)) $pdf->Image($logoPath, 10, 10, 30);
+    $logoPath = public_path('assets/img/Jild-Logo.png');
+    if (file_exists($logoPath)) {
+        $pdf->Image($logoPath, 10, 10, 30);
+    }
 
-        $pdf->SetXY(130, 12);
-        $pdf->writeHTML('
-        <table cellpadding="2" style="font-size:10px;line-height:14px;">
+    $pdf->SetXY(130, 12);
+    $pdf->writeHTML('
+        <table border="1" cellpadding="4" style="font-size:10px;line-height:14px;border-collapse:collapse;">
             <tr><td><b>Return #</b></td><td>' . $return->id . '</td></tr>
             <tr><td><b>Date</b></td><td>' . Carbon::parse($return->return_date)->format('d/m/Y') . '</td></tr>
             <tr><td><b>Vendor</b></td><td>' . ($return->vendor->name ?? '-') . '</td></tr>
-        </table>', false, false, false, false, '');
+        </table>',
+    false, false, false, false, '');
 
-        $pdf->Line(60, 52.25, 200, 52.25);
-        $pdf->SetXY(10, 48);
-        $pdf->SetFillColor(23, 54, 93); $pdf->SetTextColor(255, 255, 255);
-        $pdf->SetFont('helvetica', 'B', 12);
-        $pdf->Cell(60, 8, 'Production Return', 0, 1, 'C', 1);
-        $pdf->SetTextColor(0, 0, 0); $pdf->Ln(5);
+    $pdf->Line(60, 52.25, 200, 52.25);
 
-        $html        = '<table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
-            <tr style="background-color:#f5f5f5;font-weight:bold;">
-                <th width="7%">S.No</th><th width="28%">Item</th><th width="12%">Prod #</th>
-                <th width="20%">Qty</th><th width="15%">Rate</th><th width="18%">Amount</th>
-            </tr>';
-        $totalAmount = 0; $count = 0;
+    $pdf->SetXY(10, 48);
+    $pdf->SetFillColor(23, 54, 93);
+    $pdf->SetTextColor(255, 255, 255);
+    $pdf->SetFont('helvetica', '', 12);
+    $pdf->Cell(50, 8, 'Production Return', 0, 1, 'C', 1);
+    $pdf->SetTextColor(0, 0, 0);
+    $pdf->Ln(5);
 
-        foreach ($return->items as $item) {
-            $count++;
-            $amount       = $item->price * $item->quantity;
-            $totalAmount += $amount;
-            $html .= '<tr>
-                <td>' . $count . '</td>
-                <td>' . ($item->product->name ?? '-') . '</td>
-                <td>' . ($item->production_id ?? '-') . '</td>
-                <td>' . number_format($item->quantity, 2) . ' ' . ($item->unit->shortcode ?? '-') . '</td>
-                <td align="right">' . number_format($item->price, 2) . '</td>
-                <td align="right">' . number_format($amount, 2) . '</td>
-            </tr>';
-        }
+    $html = '
+    <table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
+        <tr style="background-color:#f5f5f5;font-weight:bold;">
+            <th width="6%">S.No</th>
+            <th width="22%">Item</th>
+            <th width="20%">Variation</th>
+            <th width="14%">Production #</th>
+            <th width="14%">Qty</th>
+            <th width="12%">Rate</th>
+            <th width="12%">Amount</th>
+        </tr>';
 
-        $html .= '<tr><td colspan="5" align="right"><b>Total</b></td><td align="right"><b>' . number_format($totalAmount, 2) . '</b></td></tr></table>';
-        $pdf->writeHTML($html, true, false, true, false, '');
+    $count       = 0;
+    $totalAmount = 0;
 
-        if (!empty($return->remarks)) {
-            $pdf->writeHTML('<b>Remarks:</b><br>' . nl2br($return->remarks), true, false, true, false, '');
-        }
+    foreach ($return->items as $item) {
+        $count++;
+        $amount       = $item->quantity * $item->price;
+        $totalAmount += $amount;
 
-        $pdf->Ln(20); $y = $pdf->GetY();
-        $pdf->Line(28, $y, 68, $y); $pdf->Line(130, $y, 170, $y);
-        $pdf->SetXY(28,  $y + 2); $pdf->Cell(40, 6, 'Received By',   0, 0, 'C');
-        $pdf->SetXY(130, $y + 2); $pdf->Cell(40, 6, 'Authorized By', 0, 0, 'C');
-
-        return $pdf->Output('production_return_' . $return->id . '.pdf', 'I');
+        $html .= '
+        <tr>
+            <td>' . $count . '</td>
+            <td>' . ($item->product->name ?? '-') . '</td>
+            <td>' . ($item->variation->sku ?? '-') . '</td>
+            <td>' . ($item->production_id ? '#' . $item->production_id : '-') . '</td>
+            <td>' . number_format($item->quantity, 2) . ' ' . ($item->unit->shortcode ?? '') . '</td>
+            <td align="right">' . number_format($item->price, 2) . '</td>
+            <td align="right">' . number_format($amount, 2) . '</td>
+        </tr>';
     }
+
+    $html .= '
+        <tr style="background-color:#f5f5f5;">
+            <td colspan="6" align="right"><b>Total</b></td>
+            <td align="right"><b>' . number_format($totalAmount, 2) . '</b></td>
+        </tr>
+    </table>';
+
+    $pdf->writeHTML($html, true, false, true, false, '');
+
+    if (!empty($return->remarks)) {
+        $pdf->writeHTML(
+            '<b>Remarks:</b><br><span style="font-size:12px;">' . nl2br($return->remarks) . '</span>',
+            true, false, true, false, ''
+        );
+    }
+
+    $pdf->Ln(20);
+    $y = $pdf->GetY();
+    $pdf->Line(28,  $y, 68,  $y);
+    $pdf->Line(130, $y, 170, $y);
+    $pdf->SetXY(28,  $y + 2); $pdf->Cell(40, 6, 'Returned By',   0, 0, 'C');
+    $pdf->SetXY(130, $y + 2); $pdf->Cell(40, 6, 'Authorized By', 0, 0, 'C');
+
+    return $pdf->Output('production_return_' . $return->id . '.pdf', 'I');
+}
 
     // ── Accounting ────────────────────────────────────────────────────
 

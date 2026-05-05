@@ -313,12 +313,187 @@ class ProductionController extends Controller
 
     public function print($id)
     {
-        // ... existing print code unchanged ...
+        $production = Production::with([
+            'vendor',
+            'details.product.measurementUnit',
+            'details.variation',
+            'details.invoice',
+        ])->findOrFail($id);
+
+        $pdf = new \TCPDF();
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->SetCreator('Jild');
+        $pdf->SetAuthor('Jild');
+        $pdf->SetTitle('Production Order #' . $production->id);
+        $pdf->SetMargins(10, 10, 10);
+        $pdf->AddPage();
+        $pdf->setCellPadding(1.5);
+
+        // Logo
+        $logoPath = public_path('assets/img/Jild-Logo.png');
+        if (file_exists($logoPath)) {
+            $pdf->Image($logoPath, 10, 10, 30);
+        }
+
+        // Info box
+        $pdf->SetXY(130, 12);
+        $pdf->writeHTML('
+            <table border="1" cellpadding="4" style="font-size:10px;line-height:14px;border-collapse:collapse;">
+                <tr><td><b>Production #</b></td><td>' . $production->id . '</td></tr>
+                <tr><td><b>Date</b></td><td>' . Carbon::parse($production->order_date)->format('d/m/Y') . '</td></tr>
+                <tr><td><b>Type</b></td><td>' . ucwords(str_replace('_', ' ', $production->production_type)) . '</td></tr>
+                <tr><td><b>Vendor</b></td><td>' . ($production->vendor->name ?? '-') . '</td></tr>
+            </table>',
+        false, false, false, false, '');
+
+        $pdf->Line(60, 52.25, 200, 52.25);
+
+        // Title bar
+        $pdf->SetXY(10, 48);
+        $pdf->SetFillColor(23, 54, 93);
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', '', 12);
+        $pdf->Cell(50, 8, 'Production Order', 0, 1, 'C', 1);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->Ln(5);
+
+        // Items table
+        $html = '
+        <table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
+            <tr style="background-color:#f5f5f5;font-weight:bold;">
+                <th width="6%">S.No</th>
+                <th width="22%">Item</th>
+                <th width="20%">Variation</th>
+                <th width="14%">Invoice #</th>
+                <th width="14%">Qty</th>
+                <th width="12%">Rate</th>
+                <th width="12%">Total</th>
+            </tr>';
+
+        $count       = 0;
+        $totalAmount = 0;
+
+        foreach ($production->details as $detail) {
+            $count++;
+            $amount       = $detail->qty * $detail->rate;
+            $totalAmount += $amount;
+
+            $html .= '
+            <tr>
+                <td>' . $count . '</td>
+                <td>' . ($detail->product->name ?? '-') . '</td>
+                <td>' . ($detail->variation->sku ?? '-') . '</td>
+                <td>' . ($detail->invoice_id ? '#' . $detail->invoice_id : '-') . '</td>
+                <td>' . number_format($detail->qty, 2) . ' ' . ($detail->product->measurementUnit->shortcode ?? '') . '</td>
+                <td align="right">' . number_format($detail->rate, 2) . '</td>
+                <td align="right">' . number_format($amount, 2) . '</td>
+            </tr>';
+        }
+
+        $html .= '
+            <tr style="background-color:#f5f5f5;">
+                <td colspan="6" align="right"><b>Total Amount</b></td>
+                <td align="right"><b>' . number_format($totalAmount, 2) . '</b></td>
+            </tr>
+        </table>';
+
+        $pdf->writeHTML($html, true, false, true, false, '');
+
+        if (!empty($production->remarks)) {
+            $pdf->writeHTML(
+                '<b>Remarks:</b><br><span style="font-size:12px;">' . nl2br($production->remarks) . '</span>',
+                true, false, true, false, ''
+            );
+        }
+
+        // Signatures
+        $pdf->Ln(20);
+        $y = $pdf->GetY();
+        $pdf->Line(28, $y, 68, $y);
+        $pdf->Line(130, $y, 170, $y);
+        $pdf->SetXY(28,  $y + 2); $pdf->Cell(40, 6, 'Issued By',     0, 0, 'C');
+        $pdf->SetXY(130, $y + 2); $pdf->Cell(40, 6, 'Authorized By', 0, 0, 'C');
+
+        return $pdf->Output('production_' . $production->id . '.pdf', 'I');
     }
 
     public function printGatepass($id)
     {
-        // ... existing gatepass code unchanged ...
+        $production = Production::with([
+            'vendor',
+            'details.product.measurementUnit',
+            'details.variation',
+        ])->findOrFail($id);
+
+        $pdf = new \TCPDF();
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->SetCreator('Jild');
+        $pdf->SetAuthor('Jild');
+        $pdf->SetTitle('Gate Pass #' . $production->id);
+        $pdf->SetMargins(10, 10, 10);
+        $pdf->AddPage();
+        $pdf->setCellPadding(1.5);
+
+        $logoPath = public_path('assets/img/Jild-Logo.png');
+        if (file_exists($logoPath)) {
+            $pdf->Image($logoPath, 10, 10, 30);
+        }
+
+        $pdf->SetXY(130, 12);
+        $pdf->writeHTML('
+            <table border="1" cellpadding="4" style="font-size:10px;line-height:14px;border-collapse:collapse;">
+                <tr><td><b>Gate Pass #</b></td><td>' . $production->id . '</td></tr>
+                <tr><td><b>Date</b></td><td>' . Carbon::parse($production->order_date)->format('d/m/Y') . '</td></tr>
+                <tr><td><b>Vendor</b></td><td>' . ($production->vendor->name ?? '-') . '</td></tr>
+            </table>',
+        false, false, false, false, '');
+
+        $pdf->Line(60, 52.25, 200, 52.25);
+
+        $pdf->SetXY(10, 48);
+        $pdf->SetFillColor(23, 54, 93);
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', '', 12);
+        $pdf->Cell(50, 8, 'Production Gate Pass', 0, 1, 'C', 1);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->Ln(5);
+
+        $html = '
+        <table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
+            <tr style="background-color:#f5f5f5;font-weight:bold;">
+                <th width="7%">S.No</th>
+                <th width="28%">Item</th>
+                <th width="25%">Variation</th>
+                <th width="20%">Qty</th>
+                <th width="20%">Remarks</th>
+            </tr>';
+
+        $count = 0;
+        foreach ($production->details as $detail) {
+            $count++;
+            $html .= '
+            <tr>
+                <td>' . $count . '</td>
+                <td>' . ($detail->product->name ?? '-') . '</td>
+                <td>' . ($detail->variation->sku ?? '-') . '</td>
+                <td>' . number_format($detail->qty, 2) . ' ' . ($detail->product->measurementUnit->shortcode ?? '') . '</td>
+                <td>' . ($detail->desc ?? '-') . '</td>
+            </tr>';
+        }
+
+        $html .= '</table>';
+        $pdf->writeHTML($html, true, false, true, false, '');
+
+        $pdf->Ln(20);
+        $y = $pdf->GetY();
+        $pdf->Line(28,  $y, 68,  $y);
+        $pdf->Line(130, $y, 170, $y);
+        $pdf->SetXY(28,  $y + 2); $pdf->Cell(40, 6, 'Issued By',   0, 0, 'C');
+        $pdf->SetXY(130, $y + 2); $pdf->Cell(40, 6, 'Received By', 0, 0, 'C');
+
+        return $pdf->Output('gatepass_' . $production->id . '.pdf', 'I');
     }
 
     // ── Accounting ────────────────────────────────────────────────────

@@ -176,49 +176,75 @@ class ProductionReceivingController extends Controller
 
     public function print($id)
     {
-        $receiving = ProductionReceiving::with(['vendor', 'production.vendor', 'details.product', 'details.variation'])->findOrFail($id);
+        $receiving = ProductionReceiving::with([
+            'vendor',
+            'production.vendor',
+            'details.product.measurementUnit',
+            'details.variation',
+        ])->findOrFail($id);
 
         $pdf = new \TCPDF();
-        $pdf->setPrintHeader(false); $pdf->setPrintFooter(false);
-        $pdf->SetCreator('Jild'); $pdf->SetMargins(10, 10, 10);
-        $pdf->AddPage(); $pdf->setCellPadding(1.5);
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->SetCreator('Jild');
+        $pdf->SetAuthor('Jild');
+        $pdf->SetTitle('Production Receiving #' . $receiving->id);
+        $pdf->SetMargins(10, 10, 10);
+        $pdf->AddPage();
+        $pdf->setCellPadding(1.5);
 
         $logoPath = public_path('assets/img/Jild-Logo.png');
-        if (file_exists($logoPath)) $pdf->Image($logoPath, 10, 10, 30);
+        if (file_exists($logoPath)) {
+            $pdf->Image($logoPath, 10, 10, 30);
+        }
 
         $pdf->SetXY(130, 12);
         $pdf->writeHTML('
-        <table border="1" cellpadding="4" cellspacing="0" style="font-size:10px;line-height:14px;border-collapse:collapse;">
-            <tr><td><b>GRN #</b></td><td>' . ($receiving->grn_no ?? $receiving->id) . '</td></tr>
-            <tr><td><b>Date</b></td><td>' . \Carbon\Carbon::parse($receiving->rec_date)->format('d/m/Y') . '</td></tr>
-            <tr><td><b>Production #</b></td><td>' . ($receiving->production_id ?? '-') . '</td></tr>
-            <tr><td><b>Vendor</b></td><td>' . ($receiving->vendor->name ?? $receiving->production?->vendor->name ?? '-') . '</td></tr>
-        </table>', false, false, false, false, '');
+            <table border="1" cellpadding="4" style="font-size:10px;line-height:14px;border-collapse:collapse;">
+                <tr><td><b>GRN #</b></td><td>' . ($receiving->grn_no ?? $receiving->id) . '</td></tr>
+                <tr><td><b>Date</b></td><td>' . Carbon::parse($receiving->rec_date)->format('d/m/Y') . '</td></tr>
+                <tr><td><b>Production #</b></td><td>' . ($receiving->production_id ? '#' . $receiving->production_id : '-') . '</td></tr>
+                <tr><td><b>Vendor</b></td><td>' . ($receiving->vendor->name ?? $receiving->production?->vendor->name ?? '-') . '</td></tr>
+            </table>',
+        false, false, false, false, '');
 
         $pdf->Line(60, 52.25, 200, 52.25);
-        $pdf->SetXY(10, 48);
-        $pdf->SetFillColor(23, 54, 93); $pdf->SetTextColor(255, 255, 255);
-        $pdf->SetFont('helvetica', 'B', 12);
-        $pdf->Cell(60, 8, 'Production Receiving', 0, 1, 'C', 1);
-        $pdf->SetTextColor(0, 0, 0); $pdf->Ln(5);
 
-        $html       = '<table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
+        $pdf->SetXY(10, 48);
+        $pdf->SetFillColor(23, 54, 93);
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', '', 12);
+        $pdf->Cell(55, 8, 'Production Receiving', 0, 1, 'C', 1);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->Ln(5);
+
+        $html = '
+        <table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
             <tr style="background-color:#f5f5f5;font-weight:bold;">
-                <th width="7%">S.No</th><th width="25%">Item</th><th width="25%">Variation</th>
-                <th width="12%">M.Cost</th><th width="12%">Qty</th><th width="10%">Total</th><th width="9%">Remarks</th>
+                <th width="6%">S.No</th>
+                <th width="24%">Item</th>
+                <th width="22%">Variation</th>
+                <th width="12%">M.Cost</th>
+                <th width="12%">Qty</th>
+                <th width="12%">Total</th>
+                <th width="12%">Remarks</th>
             </tr>';
-        $grandTotal = 0; $count = 0;
+
+        $count      = 0;
+        $grandTotal = 0;
 
         foreach ($receiving->details as $detail) {
             $count++;
             $rowTotal    = $detail->manufacturing_cost * $detail->received_qty;
             $grandTotal += $rowTotal;
-            $html .= '<tr>
+
+            $html .= '
+            <tr>
                 <td>' . $count . '</td>
                 <td>' . ($detail->product->name ?? '-') . '</td>
                 <td>' . ($detail->variation->sku ?? '-') . '</td>
                 <td align="right">' . number_format($detail->manufacturing_cost, 2) . '</td>
-                <td align="center">' . number_format($detail->received_qty, 2) . '</td>
+                <td>' . number_format($detail->received_qty, 2) . ' ' . ($detail->product->measurementUnit->shortcode ?? '') . '</td>
                 <td align="right">' . number_format($rowTotal, 2) . '</td>
                 <td>' . ($detail->remarks ?? '-') . '</td>
             </tr>';
@@ -229,13 +255,28 @@ class ProductionReceivingController extends Controller
         $net        = $grandTotal + $conveyance - $discount;
 
         $html .= '<tr><td colspan="5" align="right"><b>Sub Total</b></td><td align="right"><b>' . number_format($grandTotal, 2) . '</b></td><td></td></tr>';
-        if ($conveyance > 0) $html .= '<tr><td colspan="5" align="right">Conveyance</td><td align="right">' . number_format($conveyance, 2) . '</td><td></td></tr>';
-        if ($discount   > 0) $html .= '<tr><td colspan="5" align="right">Discount</td><td align="right">(' . number_format($discount, 2) . ')</td><td></td></tr>';
-        $html .= '<tr style="background-color:#f5f5f5;"><td colspan="5" align="right"><b>Net Total</b></td><td align="right"><b>' . number_format($net, 2) . '</b></td><td></td></tr></table>';
+
+        if ($conveyance > 0) {
+            $html .= '<tr><td colspan="5" align="right">Conveyance</td><td align="right">' . number_format($conveyance, 2) . '</td><td></td></tr>';
+        }
+        if ($discount > 0) {
+            $html .= '<tr><td colspan="5" align="right">Discount</td><td align="right">(' . number_format($discount, 2) . ')</td><td></td></tr>';
+        }
+
+        $html .= '
+            <tr style="background-color:#f5f5f5;">
+                <td colspan="5" align="right"><b>Net Total</b></td>
+                <td align="right"><b>' . number_format($net, 2) . '</b></td>
+                <td></td>
+            </tr>
+        </table>';
 
         $pdf->writeHTML($html, true, false, true, false, '');
-        $pdf->Ln(20); $y = $pdf->GetY();
-        $pdf->Line(28, $y, 68, $y); $pdf->Line(130, $y, 170, $y);
+
+        $pdf->Ln(20);
+        $y = $pdf->GetY();
+        $pdf->Line(28,  $y, 68,  $y);
+        $pdf->Line(130, $y, 170, $y);
         $pdf->SetXY(28,  $y + 2); $pdf->Cell(40, 6, 'Received By',   0, 0, 'C');
         $pdf->SetXY(130, $y + 2); $pdf->Cell(40, 6, 'Authorized By', 0, 0, 'C');
 
