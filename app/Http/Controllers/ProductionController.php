@@ -76,7 +76,6 @@ class ProductionController extends Controller
                 'category_id'     => $request->category_id ?? null,
                 'order_date'      => $request->order_date,
                 'production_type' => $request->production_type,
-                'total_amount'    => $totalAmount,
                 'remarks'         => $request->remarks,
                 'attachments'     => $attachments,
                 'created_by'      => auth()->id(),
@@ -163,10 +162,8 @@ class ProductionController extends Controller
                 'category_id'     => $request->category_id ?? null,
                 'order_date'      => $request->order_date,
                 'production_type' => $request->production_type,
-                'total_amount'    => $totalAmount,
                 'remarks'         => $request->remarks,
                 'attachments'     => $attachments,
-                'updated_by'      => auth()->id(),
             ]);
 
             $production->details()->delete();

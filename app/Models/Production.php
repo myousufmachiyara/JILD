@@ -15,11 +15,9 @@ class Production extends Model
         'category_id',
         'order_date',
         'production_type',
-        'total_amount',
         'remarks',
         'attachments',
         'created_by',
-        'updated_by',
     ];
 
     protected $casts = ['attachments' => 'array'];
