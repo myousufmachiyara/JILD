@@ -125,7 +125,7 @@
 
         {{-- User Dropdown --}}
         <div id="userbox" class="userbox" style="float:right !important;">
-            <a href="{{ route('pos.index') }}" class="btn btn-danger" target="_blank">
+            <a href="{{ route('pos_system.index') }}" class="btn btn-danger" target="_blank">
                 <i class="fas fa-cash-register" style="font-size:14px;"></i>
                 POS
                 <i class="fas fa-external-link-alt" style="font-size:9px;opacity:.8;"></i>
@@ -166,25 +166,6 @@
             <img class="pt-2" src="/assets/img/billtrix-logo-black.png" width="35%" alt="BillTrix Logo" />
         </a>
         <div id="userbox" class="userbox" style="float:right !important;">
-
-            {{-- Mobile POS Button --}}
-            <a href="{{ route('pos.index') }}"
-               target="_blank"
-               style="display:inline-flex;
-                      align-items:center;
-                      justify-content:center;
-                      width:34px;
-                      height:34px;
-                      background:#e53e3e;
-                      color:#fff;
-                      border-radius:6px;
-                      margin-right:8px;
-                      font-size:15px;
-                      text-decoration:none;
-                      vertical-align:middle;"
-               title="Open POS">
-                <i class="fas fa-cash-register"></i>
-            </a>
 
             <a href="#" data-bs-toggle="dropdown" style="margin-right: 20px;">
                 <div class="profile-info">
