@@ -1,368 +1,367 @@
 @extends('layouts.app')
-
-@section('title', 'Create Sale Invoice')
+@section('title', 'Sale Invoice | New')
 
 @section('content')
 <div class="row">
-  <form action="{{ route('sale_invoices.store') }}" method="POST">
-    @csrf
-
-    <div class="col-12 mb-2">
+  <div class="col">
+    <form action="{{ route('sale_invoices.store') }}" method="POST">
+      @csrf
       <section class="card">
-        <header class="card-header">
-          <h2 class="card-title">Create Sale Invoice</h2>
-          @if ($errors->any())
+        <header class="card-header d-flex justify-content-between align-items-center">
+          <h2 class="card-title">New Sale Invoice</h2>
+        </header>
+
+        <div class="card-body">
+
+          @if($errors->any())
             <div class="alert alert-danger">
               <ul class="mb-0">
-                @foreach ($errors->all() as $error)
-                  <li>{{ $error }}</li>
-                @endforeach
+                @foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach
               </ul>
             </div>
           @endif
-        </header>
-        <div class="card-body">
-          <div class="row mb-2">
-            <div class="col-md-2">
-              <label>Invoice #</label>
-              <input type="text" name="invoice_no" class="form-control" readonly/>
+
+          {{-- Header --}}
+          <div class="row">
+            <div class="col-md-2 mb-3">
+              <label>Date <span class="text-danger">*</span></label>
+              <input type="date" name="date" class="form-control"
+                     value="{{ date('Y-m-d') }}" required>
             </div>
-            <div class="col-md-2">
-              <label>Date</label>
-              <input type="date" name="date" class="form-control" value="{{ date('Y-m-d') }}" required />
-            </div>
-            <div class="col-md-3">
-              <label>Customer Name</label>
-              <select name="account_id" class="form-control select2-js" required>
-                <option value="">Select Customer</option>
-                @foreach($accounts as $account)
-                  <option value="{{ $account->id }}">{{ $account->name }}</option>
+            <div class="col-md-3 mb-3">
+              <label>Customer</label>
+              <select name="account_id" class="form-control select2-js">
+                <option value="">Walk-in Customer</option>
+                @foreach($customers as $c)
+                  <option value="{{ $c->id }}">{{ $c->name }}</option>
                 @endforeach
               </select>
             </div>
-            <div class="col-md-2">
-              <label>Invoice Type</label>
-              <select name="type" class="form-control" required>
-                <option value="cash">POS (Cash)</option>
-                <option value="credit">Credit (E-commerce)</option>
+            <div class="col-md-2 mb-3">
+              <label>Type <span class="text-danger">*</span></label>
+              <select name="type" class="form-control" id="invoice_type" required>
+                <option value="credit">Credit</option>
+                <option value="cash">Cash</option>
               </select>
             </div>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <div class="col-12">
-      <section class="card">
-        <header class="card-header">
-          <h2 class="card-title">Invoice Items</h2>
-        </header>
-        <div class="card-body">
-          <table class="table table-bordered" id="itemTable">
-            <thead>
-              <tr>
-                <th width="15%">Item Code</th>
-                <th>Product</th>
-                <th>Variation</th>
-                <th width="12%">Price</th>
-                <th width="10%">Discount(%)</th>
-                <th width="12%">Qty</th>
-                <th width="12%">Total</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><input type="text" class="form-control product-code" placeholder="Scan/Enter Code"></td>
-                <td>
-                  <select name="items[0][product_id]" class="form-control select2-js product-select" required>
-                    <option value="">Select Product</option>
-                    @foreach($products as $product)
-                      <option value="{{ $product->id }}" data-price="{{ $product->selling_price }}">{{ $product->name }}</option>
-                    @endforeach
-                  </select>
-                </td>
-                <td>
-                  <select name="items[0][variation_id]" class="form-control select2-js variation-select">
-                    <option value="">Select Variation</option>
-                  </select>
-                </td>
-                <td><input type="number" name="items[0][sale_price]" class="form-control sale-price" step="any" required></td>
-                <td><input type="number" name="items[0][disc_price]" class="form-control disc-price" step="any" value="0"></td>
-                <td><input type="number" name="items[0][quantity]" class="form-control quantity" step="any" required></td>
-                <td><input type="number" name="items[0][total]" class="form-control row-total" readonly></td>
-                <td><button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>
-              </tr>
-            </tbody>
-          </table>
-          <button type="button" class="btn btn-success btn-sm" onclick="addRow()">+ Add Item</button>
-
-          <hr>
-          <div class="row mb-2">
-            <div class="col-md-4">
+            <div class="col-md-2 mb-3">
+              <label>Payment Terms</label>
+              <input type="text" name="payment_terms" class="form-control">
+            </div>
+            <div class="col-md-2 mb-3">
+              <label>Ref.</label>
+              <input type="text" name="ref_no" class="form-control">
+            </div>
+            <div class="col-md-4 mb-3">
               <label>Remarks</label>
               <textarea name="remarks" class="form-control" rows="2"></textarea>
             </div>
+          </div>
+
+          {{-- Items --}}
+          <div class="table-responsive mb-3">
+            <table class="table table-bordered table-sm" id="saleTable">
+              <thead class="table-light">
+                <tr>
+                  <th>Barcode</th>
+                  <th>Item</th>
+                  <th>Variation</th>
+                  <th width="9%">Qty</th>
+                  <th width="10%">Unit</th>
+                  <th width="10%">Price</th>
+                  <th width="8%">Disc %</th>
+                  <th width="10%">Amount</th>
+                  <th width="5%"></th>
+                </tr>
+              </thead>
+              <tbody id="SaleTableBody">
+                <tr>
+                  <td><input type="text" name="items[0][barcode]" id="barcode_1"
+                             class="form-control product-code"></td>
+                  <td>
+                    <select name="items[0][product_id]" id="product_1"
+                            class="form-control select2-js product-select"
+                            onchange="onProductChange(this)">
+                      <option value="">Select Item</option>
+                      @foreach($products as $p)
+                        <option value="{{ $p->id }}"
+                                data-barcode="{{ $p->barcode }}"
+                                data-price="{{ $p->selling_price }}"
+                                data-unit="{{ $p->measurement_unit }}">
+                          {{ $p->name }}
+                        </option>
+                      @endforeach
+                    </select>
+                  </td>
+                  <td>
+                    <select name="items[0][variation_id]" id="variation_1"
+                            class="form-control select2-js variation-select">
+                      <option value="">No Variation</option>
+                    </select>
+                  </td>
+                  <td><input type="number" name="items[0][quantity]" id="qty_1"
+                             class="form-control quantity" value="0" step="any"
+                             onchange="rowTotal(1)"></td>
+                  <td>
+                    <select name="items[0][unit]" id="unit_1" class="form-control" required>
+                      <option value="">Unit</option>
+                      @foreach($units as $unit)
+                        <option value="{{ $unit->id }}">{{ $unit->shortcode }}</option>
+                      @endforeach
+                    </select>
+                  </td>
+                  <td><input type="number" name="items[0][sale_price]" id="price_1"
+                             class="form-control" value="0" step="any"
+                             onchange="rowTotal(1)"></td>
+                  <td><input type="number" name="items[0][discount]" id="disc_1"
+                             class="form-control" value="0" step="any" min="0" max="100"
+                             onchange="rowTotal(1)"></td>
+                  <td><input type="number" id="amount_1" class="form-control" value="0" disabled></td>
+                  <td>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">
+                      <i class="fas fa-times"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="addRow()">
+              <i class="fas fa-plus"></i> Add Item
+            </button>
+          </div>
+
+          {{-- Totals --}}
+          <div class="row mb-3">
             <div class="col-md-2">
-              <label><strong>Total Discount (PKR)</strong></label>
-              <input type="number" name="discount" id="discountInput" class="form-control" step="any" value="0">
+              <label>Sub Total</label>
+              <input type="text" id="subTotal" class="form-control" disabled>
+            </div>
+            <div class="col-md-2">
+              <label>Bill Discount (PKR)</label>
+              <input type="number" name="discount" id="bill_discount"
+                     class="form-control" value="0" step="any" onchange="calcNet()">
+            </div>
+            <div class="col-md-2">
+              <label>Conveyance</label>
+              <input type="number" name="convance_charges" id="conveyance"
+                     class="form-control" value="0" step="any" onchange="calcNet()">
             </div>
             <div class="col-md-6 text-end">
-              <label style="font-size:14px"><strong>Total Bill</strong></label>
-              <h4 class="text-primary mt-0 mb-1">PKR <span id="netAmountText">0.00</span></h4>
-              <input type="hidden" name="net_amount" id="netAmountInput">
+              <h4 class="text-primary">Net: <strong class="text-danger">
+                PKR <span id="netDisplay">0.00</span>
+              </strong></h4>
+              <input type="hidden" name="net_amount" id="net_amount">
             </div>
           </div>
+
+          {{-- Payment Section --}}
+          <div class="card border-success mt-2" id="payment_section">
+            <div class="card-header bg-success text-white d-flex justify-content-between">
+              <h6 class="mb-0"><i class="fas fa-money-bill-wave me-1"></i> Payment (Optional)</h6>
+              <small>Leave blank to record as unpaid</small>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-3">
+                  <label>Receive Into Account</label>
+                  <select name="payment_account_id" class="form-control select2-js">
+                    <option value="">-- No Payment --</option>
+                    @foreach($accounts as $acc)
+                      <option value="{{ $acc->id }}">{{ $acc->name }}</option>
+                    @endforeach
+                  </select>
+                </div>
+                <div class="col-md-2">
+                  <label>Payment Date</label>
+                  <input type="date" name="payment_date" class="form-control"
+                         value="{{ date('Y-m-d') }}">
+                </div>
+                <div class="col-md-2">
+                  <label>Amount</label>
+                  <input type="number" name="payment_amount" id="payment_amount"
+                         class="form-control" value="0" step="any">
+                </div>
+                <div class="col-md-2">
+                  <label>Reference</label>
+                  <input type="text" name="payment_reference" class="form-control">
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                  <button type="button" class="btn btn-outline-success btn-sm w-100"
+                          onclick="payFull()">Pay Full</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
         <footer class="card-footer text-end">
           <a href="{{ route('sale_invoices.index') }}" class="btn btn-secondary">Cancel</a>
-          <button type="submit" class="btn btn-primary">Save Invoice</button>
+          <button type="submit" class="btn btn-success">
+            <i class="fas fa-save"></i> Save Invoice
+          </button>
         </footer>
       </section>
-    </div>
-  </form>
+    </form>
+  </div>
 </div>
 
 <script>
-  // Start from however many rows are already in the table (usually 1)
-  let rowIndex = $('#itemTable tbody tr').length || 1;
+  var products = @json($products);
+  var rowIdx   = 2;
 
   $(document).ready(function () {
-    // Init select2 on existing controls
     $('.select2-js').select2({ width: '100%', dropdownAutoWidth: true });
 
-    // Delegate: product change -> load variations + set price
     $(document).on('change', '.product-select', function () {
-      const row = $(this).closest('tr');
+      const row       = $(this).closest('tr');
       const productId = $(this).val();
-
-      // Auto-fill price from product option (fallback price)
-      const productPrice = $(this).find(':selected').data('price') || 0;
-      row.find('.sale-price').val(productPrice);
-
-      // If we set a variation via barcode, we temporarily saved it on the product select
-      const preselectVariationId = $(this).data('preselectVariationId') || null;
-      $(this).removeData('preselectVariationId'); // clear flag after using
-
-      if (productId) {
-        loadVariations(row, productId, preselectVariationId);
-      } else {
-        const $variationSelect = row.find('.variation-select');
-        $variationSelect.html('<option value="">Select Variation</option>').trigger('change');
-      }
-
-      calcRowTotal(row);
+      if (productId) loadVariations(row, productId);
     });
 
-    // ✅ Barcode scan/blur → auto-fill product + variation + price + qty
     $(document).on('blur', '.product-code', function () {
-      const row = $(this).closest('tr');
+      const row     = $(this).closest('tr');
       const barcode = $(this).val().trim();
       if (!barcode) return;
-
-      $.ajax({
-        url: '/get-product-by-code/' + encodeURIComponent(barcode),
-        method: 'GET',
-        success: function (res) {
-          const $productSelect = row.find('.product-select');
-          const $variationSelect = row.find('.variation-select');
-
-          if (!res || !res.success) {
-            alert(res.message || 'Product not found');
-            resetRow(row);
-            return;
-          }
-
-          // 🔹 CASE 1: Barcode is a variation
-          if (res.type === 'variation' && res.variation) {
-            const v = res.variation;
-
-            // set product
-            $productSelect.val(v.product_id).trigger('change.select2');
-
-            // set variation directly
-            $variationSelect.html(`<option value="${v.id}" selected>${v.sku}</option>`)
-              .prop('disabled', false)
-              .trigger('change');
-
-            // ✅ update price from variation or fallback product option
-            if (v.price) {
-              row.find('.sale-price').val(v.price);
-            } else {
-              const fallbackPrice = $productSelect.find(':selected').data('price') || 0;
-              row.find('.sale-price').val(fallbackPrice);
-            }
-
-            // default qty = 1
-            if (!row.find('.quantity').val()) row.find('.quantity').val(1);
-
-            // recalc totals
-            calcRowTotal(row);
-
-            // focus qty
-            row.find('.quantity').focus();
-
-            // auto-add next row if this is the last one
-            if (row.is(':last-child')) {
-              addRow();
-              $('#itemTable tbody tr:last .product-code').focus();
-            }
-            return;
-          }
-
-          // 🔹 CASE 2: Barcode is a product
-          if (res.type === 'product' && res.product) {
-            const p = res.product;
-
-            if ($productSelect.find(`option[value="${p.id}"]`).length) {
-              $productSelect.val(p.id).trigger('change.select2');
-
-              // update barcode
-              row.find('.product-code').val(p.barcode);
-              row.find('input[name*="[barcode]"]').val(p.barcode);
-
-              // ✅ set price from response or option
-              if (p.selling_price) {
-                row.find('.sale-price').val(p.selling_price);
-              } else {
-                const fallbackPrice = $productSelect.find(':selected').data('price') || 0;
-                row.find('.sale-price').val(fallbackPrice);
-              }
-
-              // load variations normally
-              loadVariations(row, p.id);
-
-              // open variation dropdown for user
-              setTimeout(() => $variationSelect.select2('open'), 300);
-            } else {
-              alert("Product found but not in dropdown list.");
-              resetRow(row);
-            }
-            return;
-          }
-
-          // fallback
-          alert('Invalid response. Barcode not matched.');
-          resetRow(row);
-        },
-        error: function () {
-          alert('Error fetching product/variation.');
-          resetRow(row);
+      $.get('/get-product-by-code/' + encodeURIComponent(barcode), function (res) {
+        if (!res?.success) { alert(res?.message || 'Not found'); return; }
+        if (res.type === 'variation') {
+          row.find('.product-select').val(res.variation.product_id).trigger('change.select2');
+          row.find('.variation-select')
+             .html(`<option value="${res.variation.id}" selected>${res.variation.sku}</option>`)
+             .trigger('change');
+          row.find('.quantity').focus();
+        }
+        if (res.type === 'product') {
+          const opt = row.find(`.product-select option[value="${res.product.id}"]`);
+          row.find('.product-select').val(res.product.id).trigger('change.select2');
+          if (opt.data('price')) row.find('input[id^="price_"]').val(opt.data('price'));
+          loadVariations(row, res.product.id);
         }
       });
     });
 
-    // 🔹 Utility: clear row to safe state
-    function resetRow(row) {
-      row.find('.product-code').val('').focus();
-      row.find('.product-select').val('').trigger('change.select2');
-      row.find('.variation-select').html('<option value="">Select Variation</option>')
-        .prop('disabled', false)
-        .trigger('change');
-      row.find('.sale-price, .quantity, .row-total').val('');
-    }
-
-    // Delegate: any price/qty/discount change -> recalc this row
-    $(document).on('input', '.sale-price, .quantity, .disc-price', function () {
-      calcRowTotal($(this).closest('tr'));
+    $(document).on('keypress', '.quantity', function (e) {
+      if (e.which === 13) {
+        e.preventDefault();
+        if ($(this).val().trim()) addRow();
+      }
     });
-
-    // Initial totals
-    calcTotal();
-
-    // Invoice-level discount -> recalc net
-    $(document).on('input', '#discountInput', calcTotal);
   });
 
-  // Create and append a new item row
+  function onProductChange(selectEl) {
+    const row  = selectEl.closest('tr');
+    const opt  = selectEl.options[selectEl.selectedIndex];
+    const i    = selectEl.id.replace('product_', '');
+    const price = opt.getAttribute('data-price') || 0;
+    const unit  = opt.getAttribute('data-unit')  || '';
+    document.getElementById(`price_${i}`).value = price;
+    document.getElementById(`unit_${i}`).value  = unit;
+    rowTotal(i);
+  }
+
   function addRow() {
-    const idx = rowIndex++;
-    const rowHtml = `
-      <tr>
-        <td><input type="text" class="form-control product-code" placeholder="Scan/Enter Code"></td>
-        <td>
-          <select name="items[${idx}][product_id]" class="form-control select2-js product-select" required>
-            <option value="">Select Product</option>
-            @foreach($products as $product)
-              <option value="{{ $product->id }}" data-price="{{ $product->selling_price }}">{{ $product->name }}</option>
-            @endforeach
-          </select>
-        </td>
-        <td>
-          <select name="items[${idx}][variation_id]" class="form-control select2-js variation-select">
-            <option value="">Select Variation</option>
-          </select>
-        </td>
-        <td><input type="number" name="items[${idx}][sale_price]" class="form-control sale-price" step="any" required></td>
-        <td><input type="number" name="items[${idx}][disc_price]" class="form-control disc-price" step="any" value="0"></td>
-        <td><input type="number" name="items[${idx}][quantity]" class="form-control quantity" step="any" required></td>
-        <td><input type="number" name="items[${idx}][total]" class="form-control row-total" readonly></td>
-        <td><button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>
-      </tr>
+    const i = rowIdx;
+    const productOpts = products.map(p =>
+      `<option value="${p.id}" data-barcode="${p.barcode ?? ''}"
+               data-price="${p.selling_price ?? 0}"
+               data-unit="${p.measurement_unit ?? ''}">${p.name}</option>`
+    ).join('');
+
+    const unitOpts = `
+      @foreach($units as $unit)
+        <option value="{{ $unit->id }}">{{ $unit->shortcode }}</option>
+      @endforeach
     `;
-    $('#itemTable tbody').append(rowHtml);
 
-    const $newRow = $('#itemTable tbody tr').last();
-    $newRow.find('.select2-js').select2({ width: '100%', dropdownAutoWidth: true });
+    const row = `
+      <tr>
+        <td><input type="text" name="items[${i-1}][barcode]" id="barcode_${i}"
+                   class="form-control product-code"></td>
+        <td>
+          <select name="items[${i-1}][product_id]" id="product_${i}"
+                  class="form-control select2-js product-select"
+                  onchange="onProductChange(this)">
+            <option value="">Select Item</option>${productOpts}
+          </select>
+        </td>
+        <td>
+          <select name="items[${i-1}][variation_id]" id="variation_${i}"
+                  class="form-control select2-js variation-select">
+            <option value="">No Variation</option>
+          </select>
+        </td>
+        <td><input type="number" name="items[${i-1}][quantity]" id="qty_${i}"
+                   class="form-control quantity" value="0" step="any"
+                   onchange="rowTotal(${i})"></td>
+        <td>
+          <select name="items[${i-1}][unit]" id="unit_${i}" class="form-control" required>
+            <option value="">Unit</option>${unitOpts}
+          </select>
+        </td>
+        <td><input type="number" name="items[${i-1}][sale_price]" id="price_${i}"
+                   class="form-control" value="0" step="any" onchange="rowTotal(${i})"></td>
+        <td><input type="number" name="items[${i-1}][discount]" id="disc_${i}"
+                   class="form-control" value="0" step="any" min="0" max="100"
+                   onchange="rowTotal(${i})"></td>
+        <td><input type="number" id="amount_${i}" class="form-control" value="0" disabled></td>
+        <td>
+          <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)">
+            <i class="fas fa-times"></i>
+          </button>
+        </td>
+      </tr>`;
 
-    // ✅ focus the new barcode input
-    $newRow.find('.product-code').focus();
+    $('#SaleTableBody').append(row);
+    $(`#product_${i}, #variation_${i}, #unit_${i}`)
+      .select2({ width: '100%', dropdownAutoWidth: true });
+    rowIdx++;
   }
 
-  function removeRow(btn) {
-    $(btn).closest('tr').remove();
-    calcTotal();
+  function removeRow(button) {
+    if ($('#SaleTableBody tr').length > 1) {
+      $(button).closest('tr').remove();
+      calcNet();
+    }
   }
 
-  // Fetch variations, populate the dropdown, then preselect if given
-  function loadVariations(row, productId, preselectVariationId = null) {
-    const $variationSelect = row.find('.variation-select');
-    $variationSelect.html('<option value="">Loading...</option>');
+  function rowTotal(i) {
+    const price = parseFloat($(`#price_${i}`).val()) || 0;
+    const qty   = parseFloat($(`#qty_${i}`).val())   || 0;
+    const disc  = parseFloat($(`#disc_${i}`).val())  || 0;
+    const amt   = (price - (price * disc / 100)) * qty;
+    $(`#amount_${i}`).val(amt.toFixed(2));
+    calcNet();
+  }
 
+  function calcNet() {
+    let sub = 0;
+    $('input[id^="amount_"]').each(function () {
+      sub += parseFloat($(this).val()) || 0;
+    });
+    const disc = parseFloat($('#bill_discount').val()) || 0;
+    const conv = parseFloat($('#conveyance').val())    || 0;
+    const net  = sub - disc + conv;
+    $('#subTotal').val(sub.toFixed(2));
+    $('#netDisplay').text(net.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','));
+    $('#net_amount').val(net.toFixed(2));
+  }
+
+  function payFull() {
+    const net = parseFloat($('#net_amount').val()) || 0;
+    $('#payment_amount').val(net.toFixed(2));
+  }
+
+  function loadVariations(row, productId, preselectId = null) {
+    const $var = row.find('.variation-select');
+    $var.html('<option value="">Loading...</option>').prop('disabled', true);
     $.get(`/product/${productId}/variations`, function (data) {
-      let options = '<option value="">Select Variation</option>';
-      (data.variation || []).forEach(v => {
-        options += `<option value="${v.id}">${v.sku}</option>`;
-      });
-      $variationSelect.html(options);
-
-      if ($variationSelect.hasClass('select2-hidden-accessible')) {
-        $variationSelect.select2('destroy');
-      }
-      $variationSelect.select2({ width: '100%', dropdownAutoWidth: true });
-
-      if (preselectVariationId) {
-        $variationSelect.val(String(preselectVariationId)).trigger('change');
-      }
+      let opts = '<option value="">No Variation</option>';
+      (data.variation || []).forEach(v => { opts += `<option value="${v.id}">${v.sku}</option>`; });
+      $var.html(opts).prop('disabled', false);
+      if ($var.hasClass('select2-hidden-accessible')) $var.select2('destroy');
+      $var.select2({ width: '100%', dropdownAutoWidth: true });
+      if (preselectId) $var.val(String(preselectId)).trigger('change');
     });
-  }
-
-  // Row-level total
-  function calcRowTotal(row) {
-    const price = parseFloat(row.find('.sale-price').val()) || 0;
-    const qty = parseFloat(row.find('.quantity').val()) || 0;
-    const discPercent = parseFloat(row.find('.disc-price').val()) || 0;
-
-    const discountedPrice = price - (price * discPercent / 100);
-    const total = discountedPrice * qty;
-
-    row.find('.row-total').val(total.toFixed(2));
-    calcTotal();
-  }
-
-  // Invoice total
-  function calcTotal() {
-    let total = 0;
-    $('.row-total').each(function () {
-      total += parseFloat($(this).val()) || 0;
-    });
-
-    const invoiceDiscount = parseFloat($('#discountInput').val()) || 0;
-    const netAmount = total - invoiceDiscount;
-
-    $('#netAmountText').text(netAmount.toFixed(2));
-    $('#netAmountInput').val(netAmount.toFixed(2));
   }
 </script>
-
 @endsection

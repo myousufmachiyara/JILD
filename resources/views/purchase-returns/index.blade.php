@@ -4,41 +4,73 @@
 @section('content')
 <div class="row">
   <div class="col">
-    <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <h4 class="card-title">Purchase Returns</h4>
-        <a href="{{ route('purchase_return.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Purchase Return</a>
-      </div>
+    <section class="card">
+
+      @if(session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+      @elseif(session('error'))
+        <div class="alert alert-danger">{{ session('error') }}</div>
+      @endif
+
+      <header class="card-header d-flex justify-content-between align-items-center">
+        <h2 class="card-title">All Purchase Returns</h2>
+        <a href="{{ route('purchase_return.create') }}" class="btn btn-primary">
+          <i class="fas fa-plus"></i> New Return
+        </a>
+      </header>
+
       <div class="card-body">
-        <table class="table table-bordered datatable">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Vendor</th>
-              <th>Date</th>
-              <th>Total Amount</th>
-              <th>Remarks</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            @foreach ($returns as $ret)
+        <div class="table-responsive">
+          <table class="table table-bordered table-striped" id="returnTable">
+            <thead>
               <tr>
-                <td>{{ $ret->id }}</td>
-                <td>{{ $ret->vendor->name ?? '-' }}</td>
-                <td>{{ \Carbon\Carbon::parse($ret->return_date)->format('d-M-Y') }}</td>
-                <td>{{ number_format($ret->total_amount, 2) }}</td>
-                <td>{{ $ret->remarks }}</td>
-                <td>
-                  <a href="{{ route('purchase_return.edit', $ret->id) }}" class="text-primary"><i class="fas fa-edit"></i></a>
-                  <a href="{{ route('purchase_return.print', $ret->id) }}" target="_blank" class="text-success"><i class="fas fa-print"></i></a>
-                </td>
+                <th>#</th>
+                <th>Return #</th>
+                <th>Return Date</th>
+                <th>Vendor</th>
+                <th>Bill No</th>
+                <th>Ref No</th>
+                <th>Actions</th>
               </tr>
-            @endforeach
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              @foreach($returns as $index => $return)
+                <tr>
+                  <td>{{ $index + 1 }}</td>
+                  <td>{{ $return->return_no ?? '-' }}</td>
+                  <td>{{ Carbon\Carbon::parse($return->return_date)->format('d-M-Y') }}</td>
+                  <td>{{ $return->vendor->name ?? 'N/A' }}</td>
+                  <td>{{ $return->bill_no ?? '-' }}</td>
+                  <td>{{ $return->ref_no ?? '-' }}</td>
+                  <td>
+                    <a href="{{ route('purchase_return.edit', $return->id) }}" class="text-primary">
+                      <i class="fas fa-edit"></i>
+                    </a>
+                    <a href="{{ route('purchase_return.print', $return->id) }}" target="_blank" class="text-success">
+                      <i class="fas fa-print"></i>
+                    </a>
+                    <form action="{{ route('purchase_return.destroy', $return->id) }}" method="POST" style="display:inline;">
+                      @csrf
+                      @method('DELETE')
+                      <button class="btn btn-link p-0 m-0 text-danger"
+                              onclick="return confirm('Delete this return?')">
+                        <i class="fas fa-trash-alt"></i>
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              @endforeach
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </section>
   </div>
 </div>
+
+<script>
+  $(document).ready(function () {
+    $('#returnTable').DataTable({ pageLength: 50, order: [[0, 'desc']] });
+  });
+</script>
 @endsection

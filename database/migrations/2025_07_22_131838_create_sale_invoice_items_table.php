@@ -13,17 +13,16 @@ return new class extends Migration
     {
         Schema::create('sale_invoice_items', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('sale_invoice_id');
-            $table->unsignedBigInteger('product_id');
-            $table->unsignedBigInteger('variation_id')->nullable(); // size/color variation
-            $table->decimal('sale_price', 10, 2); // actual selling price
-            $table->decimal('discount', 10, 2)->default(0); // per item discount
-            $table->integer('quantity');
+            $table->foreignId('sale_invoice_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('product_id')->constrained('products');
+            $table->foreignId('variation_id')->nullable()->constrained('product_variations')->nullOnDelete();
+            $table->string('item_name')->nullable();
+            $table->decimal('sale_price', 12, 2)->default(0);
+            $table->decimal('discount', 5, 2)->default(0);        // per-item % discount
+            $table->decimal('quantity', 12, 3)->default(0);
+            $table->foreignId('unit')->constrained('measurement_units');
+            $table->text('remarks')->nullable();
             $table->timestamps();
-
-            $table->foreign('sale_invoice_id')->references('id')->on('sale_invoices');
-            $table->foreign('product_id')->references('id')->on('products');
-            $table->foreign('variation_id')->references('id')->on('product_variations');
         });
     }
 

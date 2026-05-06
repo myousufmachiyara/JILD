@@ -13,18 +13,23 @@ return new class extends Migration
     {
         Schema::create('sale_invoices', function (Blueprint $table) {
             $table->id();
+            $table->string('invoice_no')->unique();
             $table->date('date');
-            $table->unsignedBigInteger('account_id');
-            $table->enum('type', ['cash', 'credit']); // distinguishes Cash and Credit
-            $table->decimal('discount', 10, 2)->default(0); // overall invoice discount
+            $table->foreignId('account_id')->nullable()->constrained('chart_of_accounts')->nullOnDelete();
+            $table->enum('type', ['cash', 'credit'])->default('credit');
+            $table->string('payment_terms')->nullable();
+            $table->string('ref_no')->nullable();
             $table->text('remarks')->nullable();
-            $table->unsignedBigInteger('created_by');
+            $table->decimal('sub_total', 12, 2)->default(0);
+            $table->decimal('discount', 12, 2)->default(0);       // bill-level discount (PKR)
+            $table->decimal('convance_charges', 12, 2)->default(0);
+            $table->decimal('net_amount', 12, 2)->default(0);
+            $table->decimal('paid_amount', 12, 2)->default(0);
+            $table->decimal('balance', 12, 2)->default(0);
+            $table->enum('payment_status', ['unpaid', 'partial', 'paid'])->default('unpaid');
+            $table->foreignId('created_by')->nullable()->constrained('users');
             $table->timestamps();
             $table->softDeletes();
-
-            $table->foreign('account_id')->references('id')->on('chart_of_accounts');
-            $table->foreign('created_by')->references('id')->on('users');
-
         });
     }
 

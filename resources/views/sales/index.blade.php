@@ -1,79 +1,97 @@
 @extends('layouts.app')
-
 @section('title', 'Sale Invoices')
 
 @section('content')
 <div class="row">
   <div class="col">
     <section class="card">
-      @if (session('success'))
+
+      @if(session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
-      @elseif (session('error'))
+      @elseif(session('error'))
         <div class="alert alert-danger">{{ session('error') }}</div>
       @endif
 
       <header class="card-header d-flex justify-content-between align-items-center">
         <h2 class="card-title">All Sale Invoices</h2>
-        <div>
-          <a href="{{ route('sale_invoices.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Sale Invoice</a>
-          <a href="{{ route('sale_invoices2.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Sale Invoice 2</a>
-        </div>
+        <a href="{{ route('sale_invoices.create') }}" class="btn btn-primary">
+          <i class="fas fa-plus"></i> New Sale Invoice
+        </a>
       </header>
 
       <div class="card-body">
         <div class="table-responsive">
-          <table class="table table-bordered table-striped table-hover datatable">
-            <thead class="thead-dark">
+          <table class="table table-bordered table-striped table-hover" id="saleTable">
+            <thead class="table-light">
               <tr>
                 <th>#</th>
+                <th>Invoice #</th>
                 <th>Date</th>
-                <th>Account</th>
+                <th>Customer</th>
                 <th>Type</th>
-                <th>Total Amount</th>
+                <th class="text-end">Net Amount</th>
+                <th class="text-end">Paid</th>
+                <th class="text-end">Balance</th>
+                <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-            @foreach ($invoices as $invoice)
-            <tr>
-                <td>{{ $loop->iteration }}</td>
-                <td>{{ $invoice->date }}</td>
-                <td>{{ $invoice->account->name ?? 'POS Customer' }}</td>
-                <td>
-                    <span class="badge {{ $invoice->type === 'credit' ? 'bg-warning' : 'bg-success' }}">{{ ucfirst($invoice->type) }}</span>
-                </td>
-                <td>
-                  {{ number_format(
-                      $invoice->items->sum(function($item) {
-                          $disc = $item->discount ?? 0;
-                          $discountedPrice = $item->sale_price - ($item->sale_price * $disc / 100);
-                          return $discountedPrice * $item->quantity;
-                      })
-                      - $invoice->discount
-                  , 2) }}
-                </td>
-                <td>
-                  <a href="{{ route('sale_invoices.edit', $invoice->id) }}" class="text-primary"><i class="fas fa-edit"></i></a>
-                  <a href="{{ route('sale_invoices.print', $invoice->id) }}" target="_blank" class="text-success"><i class="fas fa-print"></i></a>
-                  <form action="{{ route('sale_invoices.destroy', $invoice->id) }}" method="POST" style="display:inline;">
-                    @csrf
-                    @method('DELETE')
-                    <button class="text-danger" style="border:none" onclick="return confirm('Are you sure?')"><i class="fas fa-trash"></i></button>
-                  </form>
-                </td>
-            </tr>
-            @endforeach
+              @foreach($invoices as $index => $invoice)
+                <tr>
+                  <td>{{ $index + 1 }}</td>
+                  <td>{{ $invoice->invoice_no }}</td>
+                  <td>{{ \Carbon\Carbon::parse($invoice->date)->format('d-M-Y') }}</td>
+                  <td>{{ $invoice->account->name ?? 'Walk-in' }}</td>
+                  <td>
+                    <span class="badge {{ $invoice->type === 'credit' ? 'bg-warning text-dark' : 'bg-success' }}">
+                      {{ ucfirst($invoice->type) }}
+                    </span>
+                  </td>
+                  <td class="text-end">{{ number_format($invoice->net_amount, 2) }}</td>
+                  <td class="text-end text-success">{{ number_format($invoice->paid_amount, 2) }}</td>
+                  <td class="text-end {{ $invoice->balance > 0 ? 'text-danger fw-bold' : '' }}">
+                    {{ number_format($invoice->balance, 2) }}
+                  </td>
+                  <td>
+                    @php
+                      $badge = match($invoice->payment_status) {
+                        'paid'    => 'bg-success',
+                        'partial' => 'bg-warning text-dark',
+                        default   => 'bg-danger',
+                      };
+                    @endphp
+                    <span class="badge {{ $badge }}">{{ ucfirst($invoice->payment_status) }}</span>
+                  </td>
+                  <td>
+                    <a href="{{ route('sale_invoices.show', $invoice->id) }}"
+                       class="text-info" title="View"><i class="fas fa-eye"></i></a>
+                    <a href="{{ route('sale_invoices.edit', $invoice->id) }}"
+                       class="text-primary ms-1" title="Edit"><i class="fas fa-edit"></i></a>
+                    <a href="{{ route('sale_invoices.print', $invoice->id) }}"
+                       target="_blank" class="text-success ms-1" title="Print"><i class="fas fa-print"></i></a>
+                    <form action="{{ route('sale_invoices.destroy', $invoice->id) }}" method="POST"
+                          style="display:inline;">
+                      @csrf @method('DELETE')
+                      <button class="btn btn-link p-0 ms-1 text-danger"
+                              onclick="return confirm('Delete this invoice?')">
+                        <i class="fas fa-trash-alt"></i>
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              @endforeach
             </tbody>
-
           </table>
         </div>
       </div>
     </section>
   </div>
 </div>
+
 <script>
   $(document).ready(function () {
-    $('.datatable').DataTable(); // if you are using DataTables
+    $('#saleTable').DataTable({ pageLength: 50, order: [[0, 'desc']] });
   });
 </script>
 @endsection

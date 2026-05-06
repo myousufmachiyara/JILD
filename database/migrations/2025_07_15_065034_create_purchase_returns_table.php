@@ -13,15 +13,17 @@ return new class extends Migration
     {
         Schema::create('purchase_returns', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('vendor_id');
+            $table->foreignId('vendor_id')->constrained('chart_of_accounts');
             $table->date('return_date');
+            $table->string('return_no')->nullable();
+            $table->string('ref_no')->nullable();
+            $table->string('bill_no')->nullable();
             $table->text('remarks')->nullable();
-            $table->unsignedBigInteger('created_by');
+            $table->decimal('convance_charges', 12, 2)->default(0);
+            $table->decimal('bill_discount', 12, 2)->default(0);
+            $table->foreignId('created_by')->nullable()->constrained('users');
             $table->timestamps();
-            $table->softdeletes();
-
-            $table->foreign('vendor_id')->references('id')->on('chart_of_accounts')->onDelete('cascade');
-            $table->foreign('created_by')->references('id')->on('users')->onDelete('cascade');
+            $table->softDeletes();
         });
     }
 

@@ -119,68 +119,99 @@
             </form>
         </div>
 
-        <header class="page-header">
-            <div class="logo-container d-none d-md-block">
-                <div id="userbox" class="userbox" style="float:right !important;">
-                    <a href="#" data-bs-toggle="dropdown" style="margin-right: 20px;">
-                        <div class="profile-info"> 
-                            <span class="name">{{session('user_name')}}</span>
-                            <span class="role">{{session('role_name')}}</span>
-                        </div>
-                        <i class="fa custom-caret"></i>
-                    </a>
-                    <div class="dropdown-menu" >
-                        <ul class="list-unstyled">
-                            <li>
-                                <a role="menuitem" tabindex="-1" href="#changePassword" class="mb-1 mt-1 me-1 modal-with-zoom-anim ws-normal"><i class="bx bx-lock"></i> Change Password</a>
-                            </li>
-                            <li>	
-                                <form action="/logout" method="POST">
-                                    @csrf
-                                    <button style="background: transparent;border: none;font-size: 14px;" type="submit" role="menuitem" tabindex="-1"><i class="bx bx-power-off"></i> Logout</button>
-                                </form>
-                            </li>
-                            <!-- <li>
-                                <a role="menuitem" tabindex="-1"><i class="bx bx-cloud-download"></i> DB Backup</a>
-                            </li>
-                            <li>
-                                <a role="menuitem" tabindex="-1"><i class="bx bx-file"></i> Files Backup</a>
-                            </li> -->
-                        </ul>
-                    </div>
-                </div>
-            </div>
+<header class="page-header">
+    {{-- ── Desktop Header ── --}}
+    <div class="logo-container d-none d-md-block">
 
-            <div class="logo-container d-md-none">
-                <a href="/" class="logo">
-                    <img class="pt-2" src="/assets/img/billtrix-logo-black.png" width="35%" alt="BillTrix Logo" />
-                </a>
-                <div id="userbox" class="userbox" style="float:right !important;">
-                    <a href="#" data-bs-toggle="dropdown" style="margin-right: 20px;">
-                        <div class="profile-info"> 
-                            <span class="name">{{session('user_name')}}</span>
-                            <span class="role">{{session('role_name')}}</span>
-                        </div>
-                        <i class="fa custom-caret"></i>
-                    </a>
-                    <div class="dropdown-menu" >
-                        <ul class="list-unstyled">
-                            <li>
-                                <a role="menuitem" tabindex="-1" href="#changePassword" class="mb-1 mt-1 me-1 modal-with-zoom-anim ws-normal"><i class="bx bx-lock"></i> Change Password</a>
-                            </li>
-                            <!-- <li>	
-                                <form action="/logout" method="POST">
-                                    @csrf
-                                    <button style="background: transparent;border: none;font-size: 14px;" type="submit" role="menuitem" tabindex="-1"><i class="bx bx-power-off"></i> Logout</button>
-                                </form>
-                            </li> -->
-                        </ul>
-                    </div>
-                    <i class="fas fa-bars toggle-sidebar-left" data-toggle-class="sidebar-left-opened" data-target="html" data-fire-event="sidebar-left-opened" aria-label="Toggle sidebar"></i>
+        {{-- User Dropdown --}}
+        <div id="userbox" class="userbox" style="float:right !important;">
+            <a href="{{ route('pos.index') }}" class="btn btn-danger" target="_blank">
+                <i class="fas fa-cash-register" style="font-size:14px;"></i>
+                POS
+                <i class="fas fa-external-link-alt" style="font-size:9px;opacity:.8;"></i>
+            </a>
+            <a href="#" data-bs-toggle="dropdown" style="margin-right: 20px;">
+                <div class="profile-info">
+                    <span class="name">{{ session('user_name') }}</span>
+                    <span class="role">{{ session('role_name') }}</span>
                 </div>
-
+                <i class="fa custom-caret"></i>
+            </a>
+            <div class="dropdown-menu">
+                <ul class="list-unstyled">
+                    <li>
+                        <a role="menuitem" tabindex="-1"
+                           href="#changePassword"
+                           class="mb-1 mt-1 me-1 modal-with-zoom-anim ws-normal">
+                            <i class="bx bx-lock"></i> Change Password
+                        </a>
+                    </li>
+                    <li>
+                        <form action="/logout" method="POST">
+                            @csrf
+                            <button style="background:transparent;border:none;font-size:14px;"
+                                    type="submit" role="menuitem" tabindex="-1">
+                                <i class="bx bx-power-off"></i> Logout
+                            </button>
+                        </form>
+                    </li>
+                </ul>
             </div>
-        </header>
+        </div>
+    </div>
+
+    {{-- ── Mobile Header ── --}}
+    <div class="logo-container d-md-none">
+        <a href="/" class="logo">
+            <img class="pt-2" src="/assets/img/billtrix-logo-black.png" width="35%" alt="BillTrix Logo" />
+        </a>
+        <div id="userbox" class="userbox" style="float:right !important;">
+
+            {{-- Mobile POS Button --}}
+            <a href="{{ route('pos.index') }}"
+               target="_blank"
+               style="display:inline-flex;
+                      align-items:center;
+                      justify-content:center;
+                      width:34px;
+                      height:34px;
+                      background:#e53e3e;
+                      color:#fff;
+                      border-radius:6px;
+                      margin-right:8px;
+                      font-size:15px;
+                      text-decoration:none;
+                      vertical-align:middle;"
+               title="Open POS">
+                <i class="fas fa-cash-register"></i>
+            </a>
+
+            <a href="#" data-bs-toggle="dropdown" style="margin-right: 20px;">
+                <div class="profile-info">
+                    <span class="name">{{ session('user_name') }}</span>
+                    <span class="role">{{ session('role_name') }}</span>
+                </div>
+                <i class="fa custom-caret"></i>
+            </a>
+            <div class="dropdown-menu">
+                <ul class="list-unstyled">
+                    <li>
+                        <a role="menuitem" tabindex="-1"
+                           href="#changePassword"
+                           class="mb-1 mt-1 me-1 modal-with-zoom-anim ws-normal">
+                            <i class="bx bx-lock"></i> Change Password
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <i class="fas fa-bars toggle-sidebar-left"
+               data-toggle-class="sidebar-left-opened"
+               data-target="html"
+               data-fire-event="sidebar-left-opened"
+               aria-label="Toggle sidebar"></i>
+        </div>
+    </div>
+</header>
         <section class="body">
             <div class="inner-wrapper cust-pad">
                 @include('layouts.sidebar')

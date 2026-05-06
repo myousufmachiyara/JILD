@@ -13,20 +13,16 @@ return new class extends Migration
     {
         Schema::create('purchase_return_items', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('purchase_return_id');
-            $table->unsignedBigInteger('item_id');
-            $table->unsignedBigInteger('variation_id')->nullable();
-            $table->unsignedBigInteger('purchase_invoice_id')->nullable(); // <- Add this line
-            $table->decimal('quantity', 15, 2);
-            $table->unsignedBigInteger('unit_id');
-            $table->decimal('price', 15, 2);
+            $table->foreignId('purchase_return_id')->constrained('purchase_returns')->cascadeOnDelete();
+            $table->foreignId('item_id')->constrained('products');
+            $table->foreignId('variation_id')->nullable()->constrained('product_variations')->nullOnDelete();
+            $table->foreignId('purchase_invoice_id')->nullable()->constrained('purchase_invoices')->nullOnDelete();
+            $table->string('item_name')->nullable();
+            $table->decimal('quantity', 12, 3);
+            $table->foreignId('unit')->constrained('measurement_units');
+            $table->decimal('price', 12, 2)->default(0);
+            $table->text('remarks')->nullable();
             $table->timestamps();
-
-            $table->foreign('purchase_invoice_id')->references('id')->on('purchase_invoices')->onDelete('cascade');
-            $table->foreign('purchase_return_id')->references('id')->on('purchase_returns')->onDelete('cascade');
-            $table->foreign('item_id')->references('id')->on('products')->onDelete('cascade');
-            $table->foreign('unit_id')->references('id')->on('measurement_units')->onDelete('cascade');
-            $table->foreign('variation_id')->references('id')->on('product_variations')->nullOnDelete();
         });
     }
 
