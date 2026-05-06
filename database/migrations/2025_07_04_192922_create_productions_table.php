@@ -19,6 +19,7 @@ return new class extends Migration
             $table->date('order_date');
             $table->string('production_type');            
             $table->text('remarks')->nullable();
+            $table->json('attachments')->nullable();
             $table->unsignedBigInteger('created_by');
             $table->timestamps();
             $table->softDeletes();
