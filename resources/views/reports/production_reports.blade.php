@@ -58,7 +58,7 @@
             <div>
               <strong>Production #{{ $order->id }}</strong>
               <span class="ms-3 badge bg-secondary">{{ $order->type }}</span>
-              <span class="ms-2 text-light small">{{ $order->date }}</span>
+              <span class="ms-2 text-light   small">{{ $order->date }}</span>
             </div>
             <div>
               <strong>{{ $order->vendor }}</strong>

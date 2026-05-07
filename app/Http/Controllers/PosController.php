@@ -23,48 +23,49 @@ class PosController extends Controller
 
     // ── POS Screen ────────────────────────────────────────────────────
 
-public function index()
-{
-    $productsRaw = Product::with(['variations', 'measurementUnit', 'category'])
+    public function index()
+    {
+        $productsRaw = Product::with(['variations', 'measurementUnit', 'category'])
         ->where('is_active', true)
+        ->where('item_type', 'fg')
         ->get();
 
-    // Build the JS-safe array in PHP, not in Blade
-    $productsJs = $productsRaw->map(function ($p) {
-        return [
-            'id'          => $p->id,
-            'name'        => $p->name,
-            'sku'         => $p->sku,
-            'barcode'     => $p->barcode,
-            'price'       => $p->selling_price,
-            'unit_id'     => $p->measurement_unit,
-            'unit'        => optional($p->measurementUnit)->shortcode ?? 'pcs',
-            'category_id' => $p->category_id,
-            'variations'  => $p->variations->map(function ($v) use ($p) {
-                return [
-                    'id'    => $v->id,
-                    'sku'   => $v->sku,
-                    'price' => $p->selling_price,
-                ];
-            })->values()->toArray(),
-        ];
-    })->values();
+        // Build the JS-safe array in PHP, not in Blade
+        $productsJs = $productsRaw->map(function ($p) {
+            return [
+                'id'          => $p->id,
+                'name'        => $p->name,
+                'sku'         => $p->sku,
+                'barcode'     => $p->barcode,
+                'price'       => $p->selling_price,
+                'unit_id'     => $p->measurement_unit,
+                'unit'        => optional($p->measurementUnit)->shortcode ?? 'pcs',
+                'category_id' => $p->category_id,
+                'variations'  => $p->variations->map(function ($v) use ($p) {
+                    return [
+                        'id'    => $v->id,
+                        'sku'   => $v->sku,
+                        'price' => $p->selling_price,
+                    ];
+                })->values()->toArray(),
+            ];
+        })->values();
 
-    $categories = ProductCategory::orderBy('name')->get();
-    $customers  = ChartOfAccounts::where('account_type', 'customer')->orderBy('name')->get();
-    $accounts   = ChartOfAccounts::whereIn('account_type', ['cash', 'bank'])->orderBy('name')->get();
-    $heldOrders = PosHeldOrder::where('user_id', auth()->id())->latest()->get();
+        $categories = ProductCategory::orderBy('name')->get();
+        $customers  = ChartOfAccounts::where('account_type', 'customer')->orderBy('name')->get();
+        $accounts   = ChartOfAccounts::whereIn('account_type', ['cash', 'bank'])->orderBy('name')->get();
+        $heldOrders = PosHeldOrder::where('user_id', auth()->id())->latest()->get();
 
-    // Pass both: raw for the product grid, JS-safe for the script
-    return view('pos.index', compact(
-        'productsRaw',
-        'productsJs',
-        'categories',
-        'customers',
-        'accounts',
-        'heldOrders'
-    ));
-}
+        // Pass both: raw for the product grid, JS-safe for the script
+        return view('pos.index', compact(
+            'productsRaw',
+            'productsJs',
+            'categories',
+            'customers',
+            'accounts',
+            'heldOrders'
+        ));
+    }
 
     // ── Checkout ──────────────────────────────────────────────────────
 
