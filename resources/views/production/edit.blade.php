@@ -411,7 +411,7 @@
       let opts = '<option value="">Select Invoice</option>';
       if (Array.isArray(data) && data.length) {
         data.forEach(inv => {
-          opts += `<option value="${inv.id}" data-rate="${inv.rate}">#${inv.id}</option>`;
+          opts += `<option value="${inv.id}" data-rate="${inv.rate}">${inv.invoice_no}-${inv.vendor}</option>`;
         });
       } else {
         opts = '<option value="">No Invoices Found</option>';

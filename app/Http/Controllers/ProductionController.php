@@ -13,34 +13,47 @@ use App\Traits\PostsAccountingEntries;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class ProductionController extends Controller
 {
     use PostsAccountingEntries;
 
+    // ── Index ─────────────────────────────────────────────────────────
+
     public function index()
     {
-        $productions = Production::with(['vendor', 'category', 'details', 'receivings.details'])
-            ->orderBy('id', 'desc')->get();
+        $productions = Production::with([
+            'vendor',
+            'category',
+            'details',
+            'receivings.details',
+        ])->orderBy('id', 'desc')->get();
+
         return view('production.index', compact('productions'));
     }
+
+    // ── Create ────────────────────────────────────────────────────────
 
     public function create()
     {
         $vendors    = ChartOfAccounts::where('account_type', 'vendor')->get();
         $categories = ProductCategory::all();
-        $products   = Product::select('id', 'name', 'barcode', 'measurement_unit')
-                             ->where('item_type', 'raw')->get();
         $units      = MeasurementUnit::all();
 
-        $allProducts = $products->map(fn($p) => (object)[
-            'id'   => $p->id,
-            'name' => $p->name,
-            'unit' => $p->measurement_unit,
-        ]);
+        $allProducts = Product::select('id', 'name', 'barcode', 'measurement_unit')
+            ->where('item_type', 'raw')
+            ->get()
+            ->map(fn($p) => (object)[
+                'id'   => $p->id,
+                'name' => $p->name,
+                'unit' => $p->measurement_unit,
+            ]);
 
         return view('production.create', compact('vendors', 'categories', 'allProducts', 'units'));
     }
+
+    // ── Store ─────────────────────────────────────────────────────────
 
     public function store(Request $request)
     {
@@ -50,6 +63,7 @@ class ProductionController extends Controller
             'order_date'                  => 'required|date',
             'production_type'             => 'required|in:cmt,sale_leather',
             'att.*'                       => 'nullable|file|max:2048',
+            'remarks'                     => 'nullable|string',
             'item_details'                => 'required|array|min:1',
             'item_details.*.product_id'   => 'required|exists:products,id',
             'item_details.*.variation_id' => 'nullable|exists:product_variations,id',
@@ -69,11 +83,9 @@ class ProductionController extends Controller
                 }
             }
 
-            $totalAmount = collect($request->item_details)->sum(fn($i) => $i['qty'] * $i['item_rate']);
-
             $production = Production::create([
                 'vendor_id'       => $request->vendor_id,
-                'category_id'     => $request->category_id ?? null,
+                'category_id'     => $request->category_id,
                 'order_date'      => $request->order_date,
                 'production_type' => $request->production_type,
                 'remarks'         => $request->remarks,
@@ -89,7 +101,7 @@ class ProductionController extends Controller
                     'qty'          => $item['qty'],
                     'unit'         => $item['item_unit'],
                     'rate'         => $item['item_rate'],
-                    'desc'         => $item['desc'] ?? null,
+                    'desc'         => $item['desc']         ?? null,
                 ]);
             }
 
@@ -97,34 +109,44 @@ class ProductionController extends Controller
             $this->postProductionEntries($production);
 
             DB::commit();
-            return redirect()->route('production.index')->with('success', 'Production order created successfully.');
+            Log::info('[Production] Created', ['id' => $production->id]);
+            return redirect()->route('production.index')
+                ->with('success', 'Production order PO-' . $production->id . ' created successfully.');
 
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('Production Store Error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            Log::error('[Production] Store failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return back()->withInput()->with('error', 'Something went wrong: ' . $e->getMessage());
         }
     }
+
+    // ── Edit ──────────────────────────────────────────────────────────
 
     public function edit($id)
     {
         $production = Production::with(['details.variation', 'details.product'])->findOrFail($id);
         $vendors    = ChartOfAccounts::where('account_type', 'vendor')->get();
         $categories = ProductCategory::all();
-        $products   = Product::with('variations')
-                             ->select('id', 'name', 'barcode', 'measurement_unit')
-                             ->where('item_type', 'raw')->get();
         $units      = MeasurementUnit::all();
 
-        $allProducts = $products->map(fn($p) => (object)[
-            'id'         => $p->id,
-            'name'       => $p->name,
-            'unit'       => $p->measurement_unit,
-            'variations' => $p->variations->map(fn($v) => (object)['id' => $v->id, 'sku' => $v->sku]),
-        ]);
+        $allProducts = Product::with('variations')
+            ->select('id', 'name', 'barcode', 'measurement_unit')
+            ->where('item_type', 'raw')
+            ->get()
+            ->map(fn($p) => (object)[
+                'id'         => $p->id,
+                'name'       => $p->name,
+                'unit'       => $p->measurement_unit,
+                'variations' => $p->variations->map(fn($v) => (object)[
+                    'id'  => $v->id,
+                    'sku' => $v->sku,
+                ]),
+            ]);
 
         return view('production.edit', compact('production', 'vendors', 'categories', 'allProducts', 'units'));
     }
+
+    // ── Update ────────────────────────────────────────────────────────
 
     public function update(Request $request, $id)
     {
@@ -134,6 +156,7 @@ class ProductionController extends Controller
             'order_date'                  => 'required|date',
             'production_type'             => 'required|in:cmt,sale_leather',
             'attachments.*'               => 'nullable|file|max:2048',
+            'remarks'                     => 'nullable|string',
             'item_details'                => 'required|array|min:1',
             'item_details.*.item_id'      => 'required|exists:products,id',
             'item_details.*.variation_id' => 'nullable|exists:product_variations,id',
@@ -155,11 +178,9 @@ class ProductionController extends Controller
                 }
             }
 
-            $totalAmount = collect($request->item_details)->sum(fn($i) => $i['qty'] * $i['rate']);
-
             $production->update([
                 'vendor_id'       => $request->vendor_id,
-                'category_id'     => $request->category_id ?? null,
+                'category_id'     => $request->category_id,
                 'order_date'      => $request->order_date,
                 'production_type' => $request->production_type,
                 'remarks'         => $request->remarks,
@@ -175,7 +196,7 @@ class ProductionController extends Controller
                     'qty'          => $item['qty'],
                     'unit'         => $item['item_unit'],
                     'rate'         => $item['rate'],
-                    'desc'         => $item['desc'] ?? null,
+                    'desc'         => $item['desc']         ?? null,
                 ]);
             }
 
@@ -183,14 +204,18 @@ class ProductionController extends Controller
             $this->postProductionEntries($production);
 
             DB::commit();
-            return redirect()->route('production.index')->with('success', 'Production order updated successfully.');
+            Log::info('[Production] Updated', ['id' => $production->id]);
+            return redirect()->route('production.index')
+                ->with('success', 'Production order PO-' . $production->id . ' updated successfully.');
 
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('Production Update Error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            Log::error('[Production] Update failed', ['error' => $e->getMessage()]);
             return back()->withInput()->with('error', 'Failed to update: ' . $e->getMessage());
         }
     }
+
+    // ── Destroy ───────────────────────────────────────────────────────
 
     public function destroy($id)
     {
@@ -201,112 +226,16 @@ class ProductionController extends Controller
             $production->details()->delete();
             $production->delete();
             DB::commit();
-            return redirect()->route('production.index')->with('success', 'Production order deleted.');
+            return redirect()->route('production.index')
+                ->with('success', 'Production order deleted.');
         } catch (\Throwable $e) {
             DB::rollBack();
+            Log::error('[Production] Destroy failed', ['error' => $e->getMessage()]);
             return back()->with('error', 'Delete failed: ' . $e->getMessage());
         }
     }
 
-    public function consumptionReport()
-    {
-        $productions = Production::with([
-            'vendor',
-            'details.product',
-            'receivings.details.product',
-            'wastageReceivings.details.product',
-        ])->orderBy('id', 'desc')->get();
-
-        $productAvgConsumption = [];
-        foreach ($productions as $prod) {
-            $totalFG = $prod->receivings->flatMap->details->sum('received_qty');
-            if ($totalFG <= 0) continue;
-            foreach ($prod->details as $detail) {
-                $pid = $detail->product_id;
-                if (!isset($productAvgConsumption[$pid])) {
-                    $productAvgConsumption[$pid] = [
-                        'total_raw' => 0,
-                        'total_fg'  => 0,
-                        'name'      => $detail->product->name ?? '-',
-                    ];
-                }
-                $productAvgConsumption[$pid]['total_raw'] += $detail->qty;
-                $productAvgConsumption[$pid]['total_fg']  += $totalFG;
-            }
-        }
-        foreach ($productAvgConsumption as &$avg) {
-            $avg['avg_consumption'] = $avg['total_fg'] > 0
-                ? round($avg['total_raw'] / $avg['total_fg'], 4)
-                : 0;
-        }
-        unset($avg);
-
-        $productionStats = $productions->map(function ($prod) use ($productAvgConsumption) {
-            $totalRaw = $prod->details->sum('qty');
-            $totalFG  = $prod->receivings->flatMap->details->sum('received_qty');
-            $wastage  = $prod->wastageReceivings->flatMap->details->sum('quantity');
-            $atMfr    = max(0, $totalRaw - $wastage);
-            $ratio    = $totalRaw > 0 && $totalFG > 0 ? round($totalRaw / $totalFG, 4) : null;
-
-            $alert = false;
-            foreach ($prod->details as $detail) {
-                $pid    = $detail->product_id;
-                $avgCon = $productAvgConsumption[$pid]['avg_consumption'] ?? null;
-                if ($ratio !== null && $avgCon && $ratio > ($avgCon * 1.1)) {
-                    $alert = true;
-                    break;
-                }
-            }
-
-            return [
-                'production'  => $prod,
-                'total_raw'   => $totalRaw,
-                'total_fg'    => $totalFG,
-                'wastage'     => $wastage,
-                'raw_at_mfr'  => $atMfr,
-                'consumption' => $ratio,
-                'alert'       => $alert,
-            ];
-        });
-
-        return view('production.consumption-report', compact('productionStats', 'productAvgConsumption'));
-    }
-
-    public function getProductProductions(Request $request, $productId)
-    {
-        try {
-            $variationId = $request->get('variation_id');
-            $query       = ProductionDetail::with('production')->where('product_id', $productId);
-
-            if ($variationId) {
-                $query->where('variation_id', $variationId);
-            } else {
-                $query->whereNull('variation_id');
-            }
-
-            return response()->json($query->get()->map(fn($d) => ['id' => $d->production_id, 'rate' => $d->rate]));
-
-        } catch (\Throwable $e) {
-            Log::error("Error fetching productions: " . $e->getMessage());
-            return response()->json(['error' => 'Something went wrong.'], 500);
-        }
-    }
-
-    public function show($id)
-    {
-        $production = Production::with(['vendor', 'details.product', 'receivings.details.product'])->findOrFail($id);
-        return view('production.show', compact('production'));
-    }
-
-    public function summary($id)
-    {
-        $production = Production::with([
-            'details.product.measurementUnit',
-            'receivings.details.product.measurementUnit',
-            'wastageReceivings.details.product',
-        ])->findOrFail($id);
-        // ... existing PDF code unchanged ...
-    }
+    // ── Print (Production Order PDF) ──────────────────────────────────
 
     public function print($id)
     {
@@ -322,22 +251,18 @@ class ProductionController extends Controller
         $pdf->setPrintFooter(false);
         $pdf->SetCreator('Jild');
         $pdf->SetAuthor('Jild');
-        $pdf->SetTitle('Production Order #' . $production->id);
+        $pdf->SetTitle('Production Order PO-' . $production->id);
         $pdf->SetMargins(10, 10, 10);
         $pdf->AddPage();
         $pdf->setCellPadding(1.5);
 
-        // Logo
         $logoPath = public_path('assets/img/Jild-Logo.png');
-        if (file_exists($logoPath)) {
-            $pdf->Image($logoPath, 10, 10, 30);
-        }
+        if (file_exists($logoPath)) $pdf->Image($logoPath, 10, 10, 30);
 
-        // Info box
         $pdf->SetXY(130, 12);
         $pdf->writeHTML('
             <table border="1" cellpadding="4" style="font-size:10px;line-height:14px;border-collapse:collapse;">
-                <tr><td><b>Production #</b></td><td>' . $production->id . '</td></tr>
+                <tr><td><b>Order #</b></td><td>PO-' . str_pad($production->id, 4, '0', STR_PAD_LEFT) . '</td></tr>
                 <tr><td><b>Date</b></td><td>' . Carbon::parse($production->order_date)->format('d/m/Y') . '</td></tr>
                 <tr><td><b>Type</b></td><td>' . ucwords(str_replace('_', ' ', $production->production_type)) . '</td></tr>
                 <tr><td><b>Vendor</b></td><td>' . ($production->vendor->name ?? '-') . '</td></tr>
@@ -345,49 +270,42 @@ class ProductionController extends Controller
         false, false, false, false, '');
 
         $pdf->Line(60, 52.25, 200, 52.25);
-
-        // Title bar
         $pdf->SetXY(10, 48);
         $pdf->SetFillColor(23, 54, 93);
         $pdf->SetTextColor(255, 255, 255);
-        $pdf->SetFont('helvetica', '', 12);
+        $pdf->SetFont('helvetica', 'B', 12);
         $pdf->Cell(50, 8, 'Production Order', 0, 1, 'C', 1);
         $pdf->SetTextColor(0, 0, 0);
         $pdf->Ln(5);
 
-        // Items table
         $html = '
         <table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
             <tr style="background-color:#f5f5f5;font-weight:bold;">
                 <th width="6%">S.No</th>
-                <th width="22%">Item</th>
-                <th width="20%">Variation</th>
-                <th width="14%">Invoice #</th>
-                <th width="14%">Qty</th>
+                <th width="24%">Item</th>
+                <th width="18%">Variation</th>
+                <th width="16%">Invoice #</th>
+                <th width="12%">Qty</th>
                 <th width="12%">Rate</th>
                 <th width="12%">Total</th>
             </tr>';
 
-        $count       = 0;
-        $totalAmount = 0;
-
+        $count = 0; $totalAmount = 0;
         foreach ($production->details as $detail) {
             $count++;
             $amount       = $detail->qty * $detail->rate;
             $totalAmount += $amount;
-
             $html .= '
             <tr>
                 <td>' . $count . '</td>
-                <td>' . ($detail->product->name ?? '-') . '</td>
+                <td align="left">' . ($detail->product->name ?? '-') . '</td>
                 <td>' . ($detail->variation->sku ?? '-') . '</td>
-                <td>' . ($detail->invoice_id ? '#' . $detail->invoice_id : '-') . '</td>
+                <td>' . ($detail->invoice_id ? 'PUR-' . str_pad($detail->invoice_id, 5, '0', STR_PAD_LEFT) : '-') . '</td>
                 <td>' . number_format($detail->qty, 2) . ' ' . ($detail->product->measurementUnit->shortcode ?? '') . '</td>
                 <td align="right">' . number_format($detail->rate, 2) . '</td>
                 <td align="right">' . number_format($amount, 2) . '</td>
             </tr>';
         }
-
         $html .= '
             <tr style="background-color:#f5f5f5;">
                 <td colspan="6" align="right"><b>Total Amount</b></td>
@@ -399,12 +317,11 @@ class ProductionController extends Controller
 
         if (!empty($production->remarks)) {
             $pdf->writeHTML(
-                '<b>Remarks:</b><br><span style="font-size:12px;">' . nl2br($production->remarks) . '</span>',
+                '<b>Remarks:</b><br><span style="font-size:11px;">' . nl2br($production->remarks) . '</span>',
                 true, false, true, false, ''
             );
         }
 
-        // Signatures
         $pdf->Ln(20);
         $y = $pdf->GetY();
         $pdf->Line(28, $y, 68, $y);
@@ -414,6 +331,8 @@ class ProductionController extends Controller
 
         return $pdf->Output('production_' . $production->id . '.pdf', 'I');
     }
+
+    // ── Gate Pass PDF ─────────────────────────────────────────────────
 
     public function printGatepass($id)
     {
@@ -428,31 +347,28 @@ class ProductionController extends Controller
         $pdf->setPrintFooter(false);
         $pdf->SetCreator('Jild');
         $pdf->SetAuthor('Jild');
-        $pdf->SetTitle('Gate Pass #' . $production->id);
+        $pdf->SetTitle('Gate Pass PO-' . $production->id);
         $pdf->SetMargins(10, 10, 10);
         $pdf->AddPage();
         $pdf->setCellPadding(1.5);
 
         $logoPath = public_path('assets/img/Jild-Logo.png');
-        if (file_exists($logoPath)) {
-            $pdf->Image($logoPath, 10, 10, 30);
-        }
+        if (file_exists($logoPath)) $pdf->Image($logoPath, 10, 10, 30);
 
         $pdf->SetXY(130, 12);
         $pdf->writeHTML('
             <table border="1" cellpadding="4" style="font-size:10px;line-height:14px;border-collapse:collapse;">
-                <tr><td><b>Gate Pass #</b></td><td>' . $production->id . '</td></tr>
+                <tr><td><b>Gate Pass #</b></td><td>PO-' . str_pad($production->id, 4, '0', STR_PAD_LEFT) . '</td></tr>
                 <tr><td><b>Date</b></td><td>' . Carbon::parse($production->order_date)->format('d/m/Y') . '</td></tr>
                 <tr><td><b>Vendor</b></td><td>' . ($production->vendor->name ?? '-') . '</td></tr>
             </table>',
         false, false, false, false, '');
 
         $pdf->Line(60, 52.25, 200, 52.25);
-
         $pdf->SetXY(10, 48);
         $pdf->SetFillColor(23, 54, 93);
         $pdf->SetTextColor(255, 255, 255);
-        $pdf->SetFont('helvetica', '', 12);
+        $pdf->SetFont('helvetica', 'B', 12);
         $pdf->Cell(50, 8, 'Production Gate Pass', 0, 1, 'C', 1);
         $pdf->SetTextColor(0, 0, 0);
         $pdf->Ln(5);
@@ -461,8 +377,8 @@ class ProductionController extends Controller
         <table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
             <tr style="background-color:#f5f5f5;font-weight:bold;">
                 <th width="7%">S.No</th>
-                <th width="28%">Item</th>
-                <th width="25%">Variation</th>
+                <th width="30%">Item</th>
+                <th width="23%">Variation</th>
                 <th width="20%">Qty</th>
                 <th width="20%">Remarks</th>
             </tr>';
@@ -473,19 +389,18 @@ class ProductionController extends Controller
             $html .= '
             <tr>
                 <td>' . $count . '</td>
-                <td>' . ($detail->product->name ?? '-') . '</td>
+                <td align="left">' . ($detail->product->name ?? '-') . '</td>
                 <td>' . ($detail->variation->sku ?? '-') . '</td>
                 <td>' . number_format($detail->qty, 2) . ' ' . ($detail->product->measurementUnit->shortcode ?? '') . '</td>
                 <td>' . ($detail->desc ?? '-') . '</td>
             </tr>';
         }
-
         $html .= '</table>';
         $pdf->writeHTML($html, true, false, true, false, '');
 
         $pdf->Ln(20);
         $y = $pdf->GetY();
-        $pdf->Line(28,  $y, 68,  $y);
+        $pdf->Line(28, $y, 68, $y);
         $pdf->Line(130, $y, 170, $y);
         $pdf->SetXY(28,  $y + 2); $pdf->Cell(40, 6, 'Issued By',   0, 0, 'C');
         $pdf->SetXY(130, $y + 2); $pdf->Cell(40, 6, 'Received By', 0, 0, 'C');
@@ -493,52 +408,484 @@ class ProductionController extends Controller
         return $pdf->Output('gatepass_' . $production->id . '.pdf', 'I');
     }
 
+    // ── Costing Summary PDF (per production) ──────────────────────────
+
+    public function summary($id)
+    {
+        $production = Production::with([
+            'vendor',
+            'details.product.measurementUnit',
+            'receivings.details.product.measurementUnit',
+            'wastageReceivings.details.product.measurementUnit',
+        ])->findOrFail($id);
+
+        $pdf = new \TCPDF();
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->SetCreator('Jild');
+        $pdf->SetAuthor('Jild');
+        $pdf->SetTitle('Summary PO-' . $production->id);
+        $pdf->SetMargins(10, 10, 10);
+        $pdf->AddPage();
+        $pdf->setCellPadding(1.5);
+
+        $logoPath = public_path('assets/img/Jild-Logo.png');
+        if (file_exists($logoPath)) $pdf->Image($logoPath, 10, 10, 30);
+
+        // ── Info Box ──────────────────────────────────────────────────────
+        $pdf->SetXY(130, 12);
+        $pdf->writeHTML('
+            <table border="1" cellpadding="4" style="font-size:10px;line-height:14px;border-collapse:collapse;">
+                <tr><td><b>Order #</b></td><td>PO-' . str_pad($production->id, 4, '0', STR_PAD_LEFT) . '</td></tr>
+                <tr><td><b>Date</b></td><td>' . Carbon::parse($production->order_date)->format('d/m/Y') . '</td></tr>
+                <tr><td><b>Type</b></td><td>' . ucwords(str_replace('_', ' ', $production->production_type)) . '</td></tr>
+                <tr><td><b>Vendor</b></td><td>' . ($production->vendor->name ?? '-') . '</td></tr>
+            </table>',
+        false, false, false, false, '');
+
+        $pdf->Line(60, 52.25, 200, 52.25);
+        $pdf->SetXY(10, 48);
+        $pdf->SetFillColor(23, 54, 93);
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', 'B', 12);
+        $pdf->Cell(55, 8, 'Production Summary', 0, 1, 'C', 1);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->Ln(5);
+
+        // ── 1. Raw Material Issued ────────────────────────────────────────
+        $pdf->SetFillColor(23, 54, 93);
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', 'B', 9);
+        $pdf->Cell(0, 6, '  1. Raw Material Issued', 0, 1, 'L', true);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->Ln(1);
+
+        $totalRawGiven = 0;
+        $totalRawCost  = 0;
+        $count         = 0;
+
+        $html = '
+        <table border="0.3" cellpadding="3" style="text-align:center;font-size:9px;">
+            <tr style="background-color:#dce6f0;font-weight:bold;">
+                <th width="7%">S.No</th>
+                <th width="35%" align="left">Item</th>
+                <th width="20%">Qty</th>
+                <th width="19%">Rate</th>
+                <th width="19%">Total Cost</th>
+            </tr>';
+
+        foreach ($production->details as $detail) {
+            $count++;
+            $qty  = (float) $detail->qty;
+            $rate = (float) $detail->rate;
+            $cost = $qty * $rate;
+            $totalRawGiven += $qty;
+            $totalRawCost  += $cost;
+
+            $html .= '
+            <tr>
+                <td>' . $count . '</td>
+                <td align="left">' . ($detail->product->name ?? '-') . '</td>
+                <td>' . number_format($qty, 2) . ' ' . ($detail->product->measurementUnit->shortcode ?? '') . '</td>
+                <td align="right">' . number_format($rate, 2) . '</td>
+                <td align="right">' . number_format($cost, 2) . '</td>
+            </tr>';
+        }
+
+        $html .= '
+            <tr style="background-color:#f5f5f5;font-weight:bold;">
+                <td colspan="2" align="right">Total</td>
+                <td>' . number_format($totalRawGiven, 2) . '</td>
+                <td></td>
+                <td align="right">PKR ' . number_format($totalRawCost, 2) . '</td>
+            </tr>
+        </table>';
+
+        $pdf->writeHTML($html, true, false, true, false, '');
+        $pdf->Ln(3);
+
+        // ── 2. Finished Goods Received ────────────────────────────────────
+        $pdf->SetFillColor(23, 54, 93);
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', 'B', 9);
+        $pdf->Cell(0, 6, '  2. Finished Goods Received', 0, 1, 'L', true);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->Ln(1);
+
+        // Build FG summary — pull consumption from product.consumption column
+        $productSummary        = [];
+        $totalProductsReceived = 0;
+
+        foreach ($production->receivings as $rec) {
+            foreach ($rec->details as $d) {
+                $pid = $d->product_id;
+                if (!isset($productSummary[$pid])) {
+                    $productSummary[$pid] = [
+                        'name'                 => $d->product->name ?? '-',
+                        'unit'                 => $d->product->measurementUnit->shortcode ?? '-',
+                        'qty'                  => 0,
+                        'mfg'                  => (float) ($d->manufacturing_cost ?? $d->product->manufacturing_cost ?? 0),
+                        'est_consumption'      => (float) ($d->product->consumption ?? 0), // ← product.consumption
+                    ];
+                }
+                $productSummary[$pid]['qty'] += (float) $d->received_qty;
+                $totalProductsReceived       += (float) $d->received_qty;
+            }
+        }
+
+        // Actual consumption ratio = total raw / total FG
+        $actualConsumption = $totalProductsReceived > 0
+            ? round($totalRawGiven / $totalProductsReceived, 4)
+            : 0;
+
+        $rawCostPerUnit = $totalProductsReceived > 0
+            ? $totalRawCost / $totalProductsReceived
+            : 0;
+
+        // Build per-product consumption alerts
+        $consumptionAlerts = [];
+        foreach ($productSummary as $pid => $p) {
+            $est = $p['est_consumption'];
+            if ($est <= 0) continue; // no estimate set on this product
+
+            $diffPct  = round(abs($actualConsumption - $est) / $est * 100, 1);
+            $overUsed = $actualConsumption > $est;
+
+            if ($diffPct > 10) {
+                $consumptionAlerts[$pid] = [
+                    'product'   => $p['name'],
+                    'estimated' => $est,
+                    'actual'    => $actualConsumption,
+                    'diff_pct'  => $diffPct,
+                    'over_used' => $overUsed,
+                    'severity'  => $diffPct > 25 ? 'critical' : 'warning',
+                ];
+            }
+        }
+
+        $grandTotalCost = 0;
+        $count          = 0;
+
+        $html = '
+        <table border="0.3" cellpadding="3" style="text-align:center;font-size:9px;">
+            <tr style="background-color:#dce6f0;font-weight:bold;">
+                <th width="6%">S.No</th>
+                <th width="20%" align="left">Product</th>
+                <th width="9%">Qty</th>
+                <th width="10%">Mfg/pc</th>
+                <th width="10%">Raw/pc</th>
+                <th width="11%">Est.Raw/pc</th>
+                <th width="10%">Total/pc</th>
+                <th width="9%">Var%</th>
+                <th width="7%">Status</th>
+                <th width="8%">Total</th>
+            </tr>';
+
+        foreach ($productSummary as $pid => $p) {
+            $count++;
+            $totalCostPc     = $rawCostPerUnit + $p['mfg'];
+            $totalCost       = $p['qty'] * $totalCostPc;
+            $grandTotalCost += $totalCost;
+
+            $est      = $p['est_consumption'];
+            $varText  = '—';
+            $varStyle = 'color:#999;';
+            $status   = '—';
+            $statusStyle = 'color:#999;';
+
+            if ($est > 0) {
+                $diffPct  = round(abs($actualConsumption - $est) / $est * 100, 1);
+                $overUsed = $actualConsumption > $est;
+                $sign     = $overUsed ? '+' : '-';
+                $varText  = $sign . $diffPct . '%';
+
+                if ($diffPct <= 10) {
+                    $varStyle    = 'color:#166534;';
+                    $status      = 'OK';
+                    $statusStyle = 'color:#166534;font-weight:bold;';
+                } elseif ($diffPct <= 25) {
+                    $varStyle    = 'color:#b45309;font-weight:bold;';
+                    $status      = 'WARN';
+                    $statusStyle = 'color:#b45309;font-weight:bold;';
+                } else {
+                    $varStyle    = 'color:#dc2626;font-weight:bold;';
+                    $status      = 'CRIT';
+                    $statusStyle = 'color:#dc2626;font-weight:bold;';
+                }
+            }
+
+            $html .= '
+            <tr>
+                <td>' . $count . '</td>
+                <td align="left">' . $p['name'] . '</td>
+                <td>' . number_format($p['qty'], 2) . ' ' . $p['unit'] . '</td>
+                <td align="right">' . number_format($p['mfg'], 2) . '</td>
+                <td align="right">' . number_format($rawCostPerUnit, 2) . '</td>
+                <td align="right">' . ($est > 0 ? number_format($est, 4) : '—') . '</td>
+                <td align="right">' . number_format($totalCostPc, 2) . '</td>
+                <td align="right" style="' . $varStyle . '">' . $varText . '</td>
+                <td align="center" style="' . $statusStyle . '">' . $status . '</td>
+                <td align="right">' . number_format($totalCost, 2) . '</td>
+            </tr>';
+        }
+
+        if (empty($productSummary)) {
+            $html .= '<tr><td colspan="10" align="center" style="color:#888;">No finished goods received yet</td></tr>';
+        } else {
+            $html .= '
+            <tr style="background-color:#f5f5f5;font-weight:bold;">
+                <td colspan="9" align="right">Grand Total Cost</td>
+                <td align="right">PKR ' . number_format($grandTotalCost, 2) . '</td>
+            </tr>';
+        }
+
+        $html .= '</table>';
+        $pdf->writeHTML($html, true, false, true, false, '');
+        $pdf->Ln(3);
+
+        // ── 3. Wastage Returned (only if exists) ──────────────────────────
+        $totalWastage = 0;
+        foreach ($production->wastageReceivings as $wr) {
+            $totalWastage += $wr->details->sum('quantity');
+        }
+
+        $nextSection = 3;
+
+        if ($totalWastage > 0) {
+            $pdf->SetFillColor(23, 54, 93);
+            $pdf->SetTextColor(255, 255, 255);
+            $pdf->SetFont('helvetica', 'B', 9);
+            $pdf->Cell(0, 6, '  3. Wastage Returned', 0, 1, 'L', true);
+            $pdf->SetTextColor(0, 0, 0);
+            $pdf->Ln(1);
+
+            $html = '
+            <table border="0.3" cellpadding="3" style="text-align:center;font-size:9px;">
+                <tr style="background-color:#dce6f0;font-weight:bold;">
+                    <th width="8%">S.No</th>
+                    <th width="42%" align="left">Item</th>
+                    <th width="25%">Qty</th>
+                    <th width="25%">Remarks</th>
+                </tr>';
+
+            $count = 0;
+            foreach ($production->wastageReceivings as $wr) {
+                foreach ($wr->details as $wd) {
+                    $count++;
+                    $html .= '
+                    <tr>
+                        <td>' . $count . '</td>
+                        <td align="left">' . ($wd->product->name ?? '-') . '</td>
+                        <td>' . number_format($wd->quantity, 2) . ' '
+                            . ($wd->product->measurementUnit->shortcode ?? '') . '</td>
+                        <td>' . ($wd->remarks ?? '-') . '</td>
+                    </tr>';
+                }
+            }
+
+            $html .= '
+                <tr style="background-color:#f5f5f5;font-weight:bold;">
+                    <td colspan="2" align="right">Total Wastage</td>
+                    <td>' . number_format($totalWastage, 2) . '</td>
+                    <td></td>
+                </tr>
+            </table>';
+
+            $pdf->writeHTML($html, true, false, true, false, '');
+            $pdf->Ln(3);
+            $nextSection = 4;
+        }
+
+        // ── Consumption Alert Section (only if alerts exist) ──────────────
+        if (!empty($consumptionAlerts)) {
+            $pdf->SetFillColor(185, 28, 28);
+            $pdf->SetTextColor(255, 255, 255);
+            $pdf->SetFont('helvetica', 'B', 9);
+            $pdf->Cell(0, 6, '  ' . $nextSection . '. Consumption Alerts', 0, 1, 'L', true);
+            $pdf->SetTextColor(0, 0, 0);
+            $pdf->Ln(1);
+
+            $html = '
+            <table border="0.3" cellpadding="3" style="font-size:8.5px;">
+                <tr style="background-color:#fde8e8;font-weight:bold;">
+                    <th width="20%" align="left">Product</th>
+                    <th width="15%" align="right">Est. Raw/pc</th>
+                    <th width="15%" align="right">Actual Raw/pc</th>
+                    <th width="10%" align="center">Variance</th>
+                    <th width="10%" align="center">Severity</th>
+                    <th width="30%" align="left">Remark</th>
+                </tr>';
+
+            foreach ($consumptionAlerts as $alert) {
+                $isCritical  = $alert['severity'] === 'critical';
+                $rowBg       = $isCritical
+                    ? 'background-color:#fff1f1;'
+                    : 'background-color:#fffbeb;';
+                $sevColor    = $isCritical
+                    ? 'color:#dc2626;font-weight:bold;'
+                    : 'color:#b45309;font-weight:bold;';
+                $sevLabel    = $isCritical ? 'CRITICAL' : 'WARNING';
+                $sign        = $alert['over_used'] ? '+' : '-';
+                $remark      = $alert['over_used']
+                    ? 'Consumed ' . $alert['diff_pct'] . '% more than estimated. Check for loss or theft.'
+                    : 'Consumed ' . $alert['diff_pct'] . '% less than estimated. Verify FG receiving records.';
+
+                $html .= '
+                <tr style="' . $rowBg . '">
+                    <td>' . $alert['product'] . '</td>
+                    <td align="right">' . number_format($alert['estimated'], 4) . '</td>
+                    <td align="right">' . number_format($alert['actual'], 4) . '</td>
+                    <td align="center" style="' . $sevColor . '">'
+                        . $sign . $alert['diff_pct'] . '%</td>
+                    <td align="center" style="' . $sevColor . '">' . $sevLabel . '</td>
+                    <td style="font-size:8px;">' . $remark . '</td>
+                </tr>';
+            }
+
+            $html .= '</table>';
+            $pdf->writeHTML($html, true, false, true, false, '');
+            $pdf->Ln(3);
+            $nextSection++;
+        }
+
+        // ── Final Summary ─────────────────────────────────────────────────
+        $rawConsumed = $actualConsumption * $totalProductsReceived;
+        $rawAtVendor = max(0, $totalRawGiven - $rawConsumed - $totalWastage);
+
+        $pdf->SetFillColor(23, 54, 93);
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', 'B', 9);
+        $pdf->Cell(0, 6, '  ' . $nextSection . '. Summary', 0, 1, 'L', true);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->Ln(1);
+
+        // Build estimated row per product (only those with consumption set)
+        $estRows = '';
+        foreach ($productSummary as $p) {
+            $est = $p['est_consumption'];
+            if ($est <= 0) continue;
+
+            $diffPct     = round(abs($actualConsumption - $est) / $est * 100, 1);
+            $overUsed    = $actualConsumption > $est;
+            $varColor    = $diffPct <= 10
+                ? '#166534'
+                : ($diffPct <= 25 ? '#b45309' : '#dc2626');
+            $sign        = $overUsed ? '+' : '-';
+
+            $estRows .= '
+            <tr>
+                <td><b>Est. Consumption — ' . $p['name'] . '</b></td>
+                <td align="right">
+                    ' . number_format($est, 4) . '
+                    &nbsp;<span style="color:' . $varColor . ';font-size:8px;">
+                        (' . $sign . $diffPct . '% variance)
+                    </span>
+                </td>
+            </tr>';
+        }
+
+        $html = '
+        <table border="0.3" cellpadding="4" style="font-size:9px;">
+            <tr style="background-color:#f0f4f8;">
+                <td width="60%"><b>Total Raw Issued</b></td>
+                <td width="40%" align="right">' . number_format($totalRawGiven, 2) . '</td>
+            </tr>
+            <tr>
+                <td><b>Total Raw Cost</b></td>
+                <td align="right">PKR ' . number_format($totalRawCost, 2) . '</td>
+            </tr>
+            <tr style="background-color:#f0f4f8;">
+                <td><b>Total FG Received</b></td>
+                <td align="right">' . number_format($totalProductsReceived, 2) . ' pcs</td>
+            </tr>
+            <tr>
+                <td><b>Actual Consumption (Raw per FG piece)</b></td>
+                <td align="right">' . number_format($actualConsumption, 4) . '</td>
+            </tr>
+            ' . $estRows . '
+            <tr style="background-color:#f0f4f8;">
+                <td><b>Wastage Returned</b></td>
+                <td align="right">' . number_format($totalWastage, 2) . '</td>
+            </tr>
+            <tr>
+                <td><b>Raw Still at Vendor</b></td>
+                <td align="right">' . number_format($rawAtVendor, 2) . '</td>
+            </tr>
+            <tr style="background-color:#e8f4e8;font-weight:bold;">
+                <td><b>Grand Total Cost (Raw + Mfg)</b></td>
+                <td align="right">PKR ' . number_format($grandTotalCost, 2) . '</td>
+            </tr>
+        </table>';
+
+        $pdf->writeHTML($html, true, false, true, false, '');
+
+        // ── Signatures ────────────────────────────────────────────────────
+        $pdf->Ln(20);
+        $y = $pdf->GetY();
+        $pdf->Line(28, $y, 68, $y);
+        $pdf->Line(130, $y, 170, $y);
+        $pdf->SetXY(28,  $y + 2); $pdf->Cell(40, 6, 'Prepared By',   0, 0, 'C');
+        $pdf->SetXY(130, $y + 2); $pdf->Cell(40, 6, 'Authorized By', 0, 0, 'C');
+
+        return $pdf->Output('production_summary_' . $production->id . '.pdf', 'I');
+    }
+
+    // ── API helper ────────────────────────────────────────────────────
+
+    public function getProductProductions(Request $request, $productId)
+    {
+        try {
+            $variationId = $request->get('variation_id');
+            $query = ProductionDetail::with('production')->where('product_id', $productId);
+
+            if ($variationId) {
+                $query->where('variation_id', $variationId);
+            } else {
+                $query->whereNull('variation_id');
+            }
+
+            return response()->json($query->get()->map(fn($d) => [
+                'id'   => $d->production_id,
+                'rate' => $d->rate,
+            ]));
+
+        } catch (\Throwable $e) {
+            Log::error('[Production] getProductProductions failed: ' . $e->getMessage());
+            return response()->json(['error' => 'Something went wrong.'], 500);
+        }
+    }
+
     // ── Accounting ────────────────────────────────────────────────────
 
     /**
-     * CMT:          DR WIP (104003)    CR Raw Material Stock (104002)
-     * Sale Leather: DR Vendor          CR Raw Material Stock (104002)
+     * CMT:          DR WIP (104003)  CR Raw Material Stock (104002)
+     * Sale Leather: DR Vendor        CR Raw Material Stock (104002)
      */
     private function postProductionEntries(Production $production): void
     {
         $totalAmount = $production->details->sum(fn($d) => $d->qty * $d->rate);
-
         if ($totalAmount <= 0) return;
 
         if ($production->production_type === 'sale_leather') {
-            $this->syncVoucherEntries(
-                $production,
-                'production',
-                $production->order_date,
-                [
-                    [
-                        'dr_id'   => $production->vendor_id,
-                        'cr'      => '104002',
-                        'amount'  => $totalAmount,
-                        'remarks' => 'Leather sold to manufacturer',
-                    ],
-                ]
-            );
+            $this->syncVoucherEntries($production, 'production', $production->order_date, [[
+                'dr_id'   => $production->vendor_id,
+                'cr'      => '104002',
+                'amount'  => $totalAmount,
+                'remarks' => 'Leather sold to manufacturer — PO-' . $production->id,
+            ]]);
         } else {
-            $this->syncVoucherEntries(
-                $production,
-                'production',
-                $production->order_date,
-                [
-                    [
-                        'dr'      => '104003',
-                        'cr'      => '104002',
-                        'amount'  => $totalAmount,
-                        'remarks' => 'Raw material sent for CMT production',
-                    ],
-                ]
-            );
+            $this->syncVoucherEntries($production, 'production', $production->order_date, [[
+                'dr'      => '104003',
+                'cr'      => '104002',
+                'amount'  => $totalAmount,
+                'remarks' => 'Raw sent for CMT — PO-' . $production->id,
+            ]]);
         }
 
         Log::info('[Production] Accounting synced', [
-            'production_id' => $production->id,
-            'type'          => $production->production_type,
-            'total'         => $totalAmount,
+            'id'    => $production->id,
+            'type'  => $production->production_type,
+            'total' => $totalAmount,
         ]);
     }
 }

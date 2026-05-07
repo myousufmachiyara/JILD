@@ -64,8 +64,6 @@
                     <span class="badge {{ $badge }}">{{ ucfirst($invoice->payment_status) }}</span>
                   </td>
                   <td>
-                    <a href="{{ route('sale_invoices.show', $invoice->id) }}"
-                       class="text-info" title="View"><i class="fas fa-eye"></i></a>
                     <a href="{{ route('sale_invoices.edit', $invoice->id) }}"
                        class="text-primary ms-1" title="Edit"><i class="fas fa-edit"></i></a>
                     <a href="{{ route('sale_invoices.print', $invoice->id) }}"

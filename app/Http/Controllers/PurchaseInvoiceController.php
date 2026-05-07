@@ -203,7 +203,7 @@ class PurchaseInvoiceController extends Controller
         $pdf->setPrintFooter(false);
         $pdf->SetCreator('Jild');
         $pdf->SetAuthor('Jild');
-        $pdf->SetTitle('Purchase Invoice ' . $invoice->invoice_no);
+        $pdf->SetTitle($invoice->invoice_no);
         $pdf->SetMargins(10, 10, 10);
         $pdf->AddPage();
         $pdf->setCellPadding(1.5);
@@ -352,6 +352,7 @@ class PurchaseInvoiceController extends Controller
                     'id'         => $inv->id,
                     'invoice_no' => $inv->invoice_no,
                     'number'     => $inv->invoice_no, // used by JS dropdown label
+                    'vendor'     => $inv->vendor->name,
                     'rate'       => $item?->price ?? 0,
                 ];
             }));

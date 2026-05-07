@@ -22,7 +22,7 @@ class SaleInvoiceController extends Controller
     {
         $invoices = SaleInvoice::with(['account', 'items', 'payments'])
             ->latest()->get();
-        return view('sale-invoices.index', compact('invoices'));
+        return view('sales.index', compact('invoices'));
     }
 
     public function create()
@@ -31,7 +31,7 @@ class SaleInvoiceController extends Controller
         $customers = ChartOfAccounts::where('account_type', 'customer')->get();
         $accounts  = ChartOfAccounts::whereIn('account_type', ['cash', 'bank'])->get();
         $units     = MeasurementUnit::all();
-        return view('sale-invoices.create', compact('products', 'customers', 'accounts', 'units'));
+        return view('sales.create', compact('products', 'customers', 'accounts', 'units'));
     }
 
     public function store(Request $request)
@@ -114,17 +114,6 @@ class SaleInvoiceController extends Controller
         }
     }
 
-    public function show($id)
-    {
-        $invoice = SaleInvoice::with([
-            'account', 'items.product', 'items.variation', 'items.measurementUnit',
-            'payments.account', 'creator',
-        ])->findOrFail($id);
-
-        $cashBankAccounts = ChartOfAccounts::whereIn('account_type', ['cash', 'bank'])->get();
-        return view('sale-invoices.show', compact('invoice', 'cashBankAccounts'));
-    }
-
     public function edit($id)
     {
         $invoice   = SaleInvoice::with(['items', 'payments'])->findOrFail($id);
@@ -132,7 +121,7 @@ class SaleInvoiceController extends Controller
         $customers = ChartOfAccounts::where('account_type', 'customer')->get();
         $accounts  = ChartOfAccounts::whereIn('account_type', ['cash', 'bank'])->get();
         $units     = MeasurementUnit::all();
-        return view('sale-invoices.edit', compact('invoice', 'products', 'customers', 'accounts', 'units'));
+        return view('sales.edit', compact('invoice', 'products', 'customers', 'accounts', 'units'));
     }
 
     public function update(Request $request, $id)

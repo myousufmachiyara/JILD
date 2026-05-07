@@ -63,7 +63,7 @@ Route::middleware(['auth'])->group(function () {
     // ── Production helpers ────────────────────────────────────────────
     Route::get('/production-summary/{id}',  [ProductionController::class, 'summary'])->name('production.summary');
     Route::get('/production-gatepass/{id}', [ProductionController::class, 'printGatepass'])->name('production.gatepass');
-
+    
     // ── Sale Invoice payment helpers ──────────────────────────────────
     Route::post('/sale_invoices/{id}/payments',               [SaleInvoiceController::class, 'addPayment'])->name('sale_invoices.payments.store');
     Route::put('/sale_invoices/{id}/payments/{paymentId}',    [SaleInvoiceController::class, 'updatePayment'])->name('sale_invoices.payments.update');
