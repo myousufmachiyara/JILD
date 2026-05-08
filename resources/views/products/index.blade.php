@@ -19,6 +19,7 @@
             <!-- Export button -->
             <a href="{{ route('products.bulk-export') }}" class="btn btn-warning me-2"><i class="fas fa-download"></i> Export</a>
             <a href="#bulkImportModal" class="modal-with-form btn btn-success me-2"><i class="fas fa-file-import"></i> Bulk Import</a>
+            <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#asaanRetailImportModal"><i class="fas fa-file-import"></i> AR Import</button>
             <a href="{{ route('products.barcode.selection') }}" class="btn btn-danger"><i class="fas fa-barcode"></i> Barcodes</a>
             <a href="{{ route('products.create') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Products</a>
           </div>
@@ -105,6 +106,45 @@
       </section>
     </div>
 
+    <div class="modal fade" id="asaanRetailImportModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Import from AsaanRetail Template</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form action="{{ route('products.import.asaanretail') }}" method="POST"
+                enctype="multipart/form-data">
+            @csrf
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label fw-bold">Select File <span class="text-danger">*</span></label>
+                <input type="file" name="file" class="form-control"
+                      accept=".xlsx,.csv" required>
+                <small class="text-muted">
+                  Accepts AsaanRetail export (.xlsx or .csv).
+                  Columns: Sku, Parent SKU, Name, Description, Type, Category,
+                  Cost Price, Selling Price, Sellable Stock, Code_* attributes.
+                </small>
+              </div>
+              <div class="alert alert-info py-2 mb-0" style="font-size:12px;">
+                <i class="fas fa-info-circle me-1"></i>
+                <strong>How it works:</strong> Rows without a Parent SKU become products.
+                Rows with a Parent SKU become variations of that product.
+                <code>Code_*</code> columns are imported as attributes.
+                Existing records are updated by SKU.
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-info text-white">
+                <i class="fas fa-upload me-1"></i> Import
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
