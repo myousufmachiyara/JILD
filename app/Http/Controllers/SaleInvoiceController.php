@@ -124,6 +124,13 @@ class SaleInvoiceController extends Controller
         return view('sales.edit', compact('invoice', 'products', 'customers', 'accounts', 'units'));
     }
 
+    public function show($id)
+    {
+        $invoice  = SaleInvoice::with(['account', 'items.product', 'items.variation', 'items.measurementUnit', 'payments.account'])->findOrFail($id);
+        $accounts = ChartOfAccounts::whereIn('account_type', ['cash', 'bank'])->get();
+        return view('sales.show', compact('invoice', 'accounts'));
+    }
+
     public function update(Request $request, $id)
     {
         $request->validate([
