@@ -31,7 +31,7 @@ class SalesReportController extends Controller
                 ->map(function ($sale) {
                     return (object)[
                         'date'      => $sale->date,
-                        'invoice'   => $sale->id,
+                        'invoice' => $sale->invoice_no,
                         'customer'  => $sale->account->name ?? '',
                         'total'     => $sale->total_amount ?? 0,
                     ];
@@ -46,7 +46,7 @@ class SalesReportController extends Controller
                 ->map(function ($ret) {
                     return (object)[
                         'date'      => $ret->date,
-                        'invoice'   => $ret->id,
+                        'invoice' => $ret->invoice_no ?? $ret->id,
                         'customer'  => $ret->account->name ?? '',
                         'total'     => $ret->total_amount ?? 0,
                     ];
