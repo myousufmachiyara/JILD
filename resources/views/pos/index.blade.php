@@ -122,7 +122,9 @@
       overflow-y: auto;
       flex: 1;
       padding-bottom: 4px;
+      align-content: start;        /* ← ADD THIS — cards won't stretch when row is sparse */
     }
+
     .product-grid::-webkit-scrollbar { width: 4px; }
     .product-grid::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
 
@@ -1146,12 +1148,23 @@ function openVariationModal(product) {
   pendingProduct = product;
   document.getElementById('varModalTitle').textContent = product.name;
   const grid = document.getElementById('variationGrid');
-  grid.innerHTML = product.variations.map(v => `
-    <button class="variation-btn" onclick="addToCart(pendingProduct, ${JSON.stringify(v)});closeModal('variationModal');">
+
+  grid.innerHTML = product.variations.map((v, idx) => `
+    <button class="variation-btn" data-var-idx="${idx}">
       ${v.sku}<br>
       <small style="color:#9ca3af;font-weight:400;">${parseFloat(v.price).toFixed(0)}</small>
     </button>`
   ).join('');
+
+  // Attach listeners after rendering — avoids JSON.stringify escaping issues
+  grid.querySelectorAll('.variation-btn').forEach(btn => {
+    btn.addEventListener('click', function () {
+      const v = pendingProduct.variations[parseInt(this.dataset.varIdx)];
+      addToCart(pendingProduct, v);
+      closeModal('variationModal');
+    });
+  });
+
   openModal('variationModal');
 }
 
