@@ -28,14 +28,12 @@ class SalesReportController extends Controller
             $sales = SaleInvoice::with('account')
                 ->whereBetween('date', [$from, $to])
                 ->get()
-                ->map(function ($sale) {
-                    return (object)[
-                        'date'      => $sale->date,
-                        'invoice' => $sale->invoice_no,
-                        'customer'  => $sale->account->name ?? '',
-                        'total'     => $sale->total_amount ?? 0,
-                    ];
-                });
+                ->map(fn($sale) => (object)[
+                    'date'     => $sale->date,
+                    'invoice'  => $sale->invoice_no,
+                    'customer' => $sale->account->name ?? '',
+                    'total'    => $sale->net_amount ?? 0,
+                ]);
         }
 
         // --- SALES RETURN (SRET) ---
@@ -43,14 +41,12 @@ class SalesReportController extends Controller
             $returns = SaleReturn::with('account')
                 ->whereBetween('return_date', [$from, $to])
                 ->get()
-                ->map(function ($ret) {
-                    return (object)[
-                        'date'      => $ret->date,
-                        'invoice' => $ret->invoice_no ?? $ret->id,
-                        'customer'  => $ret->account->name ?? '',
-                        'total'     => $ret->total_amount ?? 0,
-                    ];
-                });
+                ->map(fn($ret) => (object)[
+                    'date'     => $ret->return_date,
+                    'invoice'  => $ret->invoice_no ?? $ret->id,
+                    'customer' => $ret->account->name ?? '',
+                    'total'    => $ret->net_amount ?? 0,
+                ]);
         }
 
         // --- CUSTOMER WISE (CW) ---
@@ -64,13 +60,11 @@ class SalesReportController extends Controller
 
             $customerWise = $query->get()
                 ->groupBy('account_id')
-                ->map(function ($rows) {
-                    return (object)[
-                        'customer' => $rows->first()->account->name ?? '',
-                        'total'    => $rows->sum('total_amount'),
-                        'count'    => $rows->count(),
-                    ];
-                })
+                ->map(fn($rows) => (object)[
+                    'customer' => $rows->first()->account->name ?? '',
+                    'total'    => $rows->sum('net_amount'),
+                    'count'    => $rows->count(),
+                ])
                 ->values();
         }
 
