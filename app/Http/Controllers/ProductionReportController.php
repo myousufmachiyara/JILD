@@ -170,19 +170,22 @@ class ProductionReportController extends Controller
             $vendorRawBalance = $vendors->map(function ($vendor) use ($from, $to) {
                 $productions = Production::with([
                         'details.product.measurementUnit',
-                        'receivings.details.product',   // ← need product.consumption
+                        'receivings.details.product',
                         'wastageReceivings.details',
                     ])
                     ->where('vendor_id', $vendor->id)
                     ->where('order_date', '<=', $to)
                     ->get();
 
-                $rawSent        = collect(); // product_id => [name, unit, qty_sent]
-                $rawConsumed    = collect(); // product_id => qty consumed in FG production
-                $wastageBack    = collect(); // product_id => qty returned as wastage
+                $rawSent     = collect(); // pid => [name, unit, qty_sent]
+                $rawConsumed = collect(); // pid => qty consumed (expected)
+                $rawActual   = collect(); // pid => qty consumed (actual)
+                $wastageBack = collect(); // pid => qty returned as wastage
+                $alerts      = collect(); // pid => alert data
 
-                // ── Raw sent to vendor ────────────────────────────────────
                 foreach ($productions as $prod) {
+
+                    // ── Raw sent ──────────────────────────────────────────
                     foreach ($prod->details as $d) {
                         $pid  = $d->product_id;
                         $name = $d->product->name ?? '-';
@@ -193,32 +196,72 @@ class ProductionReportController extends Controller
                         $rawSent->put($pid, $existing);
                     }
 
-                    // ── Raw consumed in FG (FG qty × product.consumption) ─
-                    // Each receiving detail has a product (FG) with a consumption column
-                    // consumption = how much raw (sq.ft/meters) is used per FG piece
+                    // ── Expected vs Actual consumption per production ─────
+                    $totalRawSentThisProd = $prod->details->sum('qty');
+
                     foreach ($prod->receivings as $rec) {
                         foreach ($rec->details as $rd) {
-                            $fgQty       = (float) $rd->received_qty;
-                            $consumption = (float) ($rd->product->consumption ?? 0);
+                            $fgQty           = (float) $rd->received_qty;
+                            $expectedConPerFg = (float) ($rd->product->consumption ?? 0);
 
-                            if ($consumption <= 0 || $fgQty <= 0) continue;
+                            if ($fgQty <= 0) continue;
 
-                            // The raw consumed belongs to the raw products issued for this production
-                            // Apportion consumed qty across all raw products sent for this production
-                            // If multiple raw products, split proportionally by qty sent
-                            $totalRawForThisProd = $prod->details->sum('qty');
+                            // Expected consumed = FG qty × expected consumption from product table
+                            $expectedConsumed = $expectedConPerFg > 0
+                                ? $fgQty * $expectedConPerFg
+                                : 0;
 
-                            if ($totalRawForThisProd <= 0) continue;
+                            // Actual consumed = raw sent for this production order
+                            // (real leather used = what was sent, it all gets consumed or wasted)
+                            // We track per-raw-product proportionally
+                            if ($totalRawSentThisProd > 0) {
+                                foreach ($prod->details as $d) {
+                                    $pid   = $d->product_id;
+                                    $ratio = $d->qty / $totalRawSentThisProd;
 
-                            $totalConsumed = $fgQty * $consumption;
+                                    // Expected share for this raw product
+                                    if ($expectedConsumed > 0) {
+                                        $rawConsumed->put(
+                                            $pid,
+                                            ($rawConsumed->get($pid, 0)) + ($expectedConsumed * $ratio)
+                                        );
+                                    }
 
-                            foreach ($prod->details as $d) {
-                                $pid   = $d->product_id;
-                                $share = $totalRawForThisProd > 0
-                                    ? ($d->qty / $totalRawForThisProd) * $totalConsumed
-                                    : 0;
+                                    // Actual share = proportional raw sent used for this FG batch
+                                    $actualConPerFg = $totalRawSentThisProd / max(
+                                        $prod->receivings->flatMap->details->sum('received_qty'),
+                                        1
+                                    );
+                                    $rawActual->put(
+                                        $pid,
+                                        ($rawActual->get($pid, 0)) + ($actualConPerFg * $fgQty * $ratio)
+                                    );
 
-                                $rawConsumed->put($pid, ($rawConsumed->get($pid, 0) + $share));
+                                    // Build alert if expected is set and actual deviates > 10%
+                                    if ($expectedConPerFg > 0) {
+                                        $variance = round(
+                                            abs($actualConPerFg - $expectedConPerFg) / $expectedConPerFg * 100,
+                                            1
+                                        );
+                                        $overUsed = $actualConPerFg > $expectedConPerFg;
+
+                                        if ($variance > 10) {
+                                            // Keep the worst alert per raw product
+                                            $existing = $alerts->get($pid);
+                                            if (!$existing || $variance > $existing['variance']) {
+                                                $alerts->put($pid, [
+                                                    'product'         => $rd->product->name ?? '-',
+                                                    'fg_product'      => $rd->product->name ?? '-',
+                                                    'expected_con'    => $expectedConPerFg,
+                                                    'actual_con'      => round($actualConPerFg, 4),
+                                                    'variance'        => $variance,
+                                                    'over_used'       => $overUsed,
+                                                    'severity'        => $variance > 25 ? 'critical' : 'warning',
+                                                ]);
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -232,21 +275,31 @@ class ProductionReportController extends Controller
                     }
                 }
 
-                // ── Calculate remaining at vendor ─────────────────────────
-                $balance = $rawSent->map(function ($item, $pid) use ($rawConsumed, $wastageBack) {
-                    $consumed  = $rawConsumed->get($pid, 0);
-                    $returned  = $wastageBack->get($pid, 0);
-                    $remaining = max(0, $item['qty_sent'] - $consumed - $returned);
+                // ── Calculate remaining using EXPECTED consumption ────────
+                $balance = $rawSent->map(function ($item, $pid) use ($rawConsumed, $wastageBack, $rawActual, $alerts) {
+                    $expectedConsumed = $rawConsumed->get($pid, 0);
+                    $actualConsumed   = $rawActual->get($pid, 0);
+                    $returned         = $wastageBack->get($pid, 0);
+
+                    // Remaining based on EXPECTED consumption
+                    $remainingExpected = max(0, $item['qty_sent'] - $expectedConsumed - $returned);
+                    // Remaining based on ACTUAL consumption (for comparison)
+                    $remainingActual   = max(0, $item['qty_sent'] - $actualConsumed - $returned);
+
+                    $alert = $alerts->get($pid);
 
                     return (object)[
-                        'product'   => $item['name'],
-                        'unit'      => $item['unit'],
-                        'sent'      => $item['qty_sent'],
-                        'consumed'  => round($consumed, 4),
-                        'returned'  => $returned,
-                        'remaining' => round($remaining, 4),
+                        'product'           => $item['name'],
+                        'unit'              => $item['unit'],
+                        'sent'              => $item['qty_sent'],
+                        'expected_consumed' => round($expectedConsumed, 4),
+                        'actual_consumed'   => round($actualConsumed, 4),
+                        'returned'          => $returned,
+                        'remaining'         => round($remainingExpected, 4), // ← expected-based
+                        'remaining_actual'  => round($remainingActual, 4),
+                        'alert'             => $alert,
                     ];
-                })->values()->filter(fn($r) => $r->remaining > 0);
+                })->values()->filter(fn($r) => $r->remaining > 0 || $r->returned > 0 || $r->expected_consumed > 0);
 
                 return (object)[
                     'vendor'  => $vendor->name,

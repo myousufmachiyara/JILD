@@ -261,35 +261,78 @@
 
       <div class="alert alert-info mb-3">
         <i class="fas fa-info-circle me-1"></i>
-        Shows raw material remaining at each vendor: <strong>Sent − Consumed in FG (from product consumption) − Wastage Returned</strong>
+        Remaining = <strong>Sent − Expected Consumption (product table) − Wastage Returned</strong>.
+        Alert fires when actual consumption deviates &gt;10% from expected.
       </div>
 
       @forelse($vendorRawBalance as $vb)
-        <div class="card mb-3">
-          <div class="card-header bg-light d-flex justify-content-between">
+        {{-- Check if any row has an alert --}}
+        @php $hasAlert = $vb->balance->contains(fn($b) => !is_null($b->alert)); @endphp
+
+        <div class="card mb-3 {{ $hasAlert ? 'border-danger' : '' }}">
+          <div class="card-header d-flex justify-content-between align-items-center
+                      {{ $hasAlert ? 'bg-danger text-white' : 'bg-light' }}">
             <strong><i class="fas fa-user me-1"></i> {{ $vb->vendor }}</strong>
-            <span class="badge bg-warning text-dark">{{ $vb->total }} raw items pending</span>
+            <div>
+              @if($hasAlert)
+                <span class="badge bg-warning text-dark me-2">⚠ Consumption Alert</span>
+              @endif
+              <span class="badge bg-secondary">{{ $vb->total }} items</span>
+            </div>
           </div>
+
           <div class="card-body p-0">
             <table class="table table-sm table-bordered mb-0">
               <thead class="table-light">
                 <tr>
                   <th>Raw Material</th>
-                  <th class="text-end">Total Sent</th>
-                  <th class="text-end">Consumed in FG</th>
+                  <th class="text-end">Sent</th>
+                  <th class="text-end">Expected Consumed</th>
+                  <th class="text-end">Actual Consumed</th>
                   <th class="text-end">Wastage Returned</th>
-                  <th class="text-end">Remaining at Vendor</th>
+                  <th class="text-end">Remaining (Expected)</th>
+                  <th class="text-end">Remaining (Actual)</th>
+                  <th>Alert</th>
                 </tr>
               </thead>
               <tbody>
                 @foreach($vb->balance as $b)
-                  <tr>
+                  @php
+                    $alertSeverity = $b->alert['severity'] ?? null;
+                    $rowClass = match($alertSeverity) {
+                        'critical' => 'table-danger',
+                        'warning'  => 'table-warning',
+                        default    => '',
+                    };
+                  @endphp
+                  <tr class="{{ $rowClass }}">
                     <td>{{ $b->product }}</td>
                     <td class="text-end">{{ number_format($b->sent, 2) }} {{ $b->unit }}</td>
-                    <td class="text-end text-success">{{ number_format($b->consumed, 4) }} {{ $b->unit }}</td>
+                    <td class="text-end text-success">{{ number_format($b->expected_consumed, 4) }} {{ $b->unit }}</td>
+                    <td class="text-end text-primary">{{ number_format($b->actual_consumed, 4) }} {{ $b->unit }}</td>
                     <td class="text-end text-info">{{ number_format($b->returned, 2) }} {{ $b->unit }}</td>
                     <td class="text-end fw-bold {{ $b->remaining > 0 ? 'text-warning' : 'text-success' }}">
                       {{ number_format($b->remaining, 4) }} {{ $b->unit }}
+                    </td>
+                    <td class="text-end text-muted">
+                      {{ number_format($b->remaining_actual, 4) }} {{ $b->unit }}
+                    </td>
+                    <td>
+                      @if($b->alert)
+                        @php $a = $b->alert; @endphp
+                        <span class="badge {{ $a['severity'] === 'critical' ? 'bg-danger' : 'bg-warning text-dark' }}"
+                              title="Expected: {{ $a['expected_con'] }} | Actual: {{ $a['actual_con'] }}">
+                          {{ $a['over_used'] ? '▲' : '▼' }}
+                          {{ $a['variance'] }}%
+                          {{ $a['severity'] === 'critical' ? 'CRIT' : 'WARN' }}
+                        </span>
+                      @else
+                        @if($b->expected_consumed > 0)
+                          <span class="badge bg-success">OK</span>
+                        @else
+                          <span class="badge bg-secondary">No Baseline</span>
+                        @endif
+                      @endif
                     </td>
                   </tr>
                 @endforeach
