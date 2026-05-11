@@ -30,7 +30,7 @@
             </div>
             <div class="col-md-2">
               <label>Category *</label>
-              <select name="category_id" class="form-control" required>
+              <select name="category_id" data-plugin-selecttwo class="form-control select2-js" required>
                 <option value="" disabled selected>Select Category</option>
                 @foreach($categories as $cat)
                   <option value="{{ $cat->id }}" data-code="{{ $cat->shortcode }}">{{ $cat->name }}</option>

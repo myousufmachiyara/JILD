@@ -12,11 +12,15 @@ class AccountsReportController extends Controller
 {
     public function accounts(Request $request)
     {
-        $from            = $request->from_date ?? Carbon::now()->startOfMonth()->toDateString();
-        $to              = $request->to_date   ?? Carbon::now()->endOfMonth()->toDateString();
-        $report          = $request->report    ?? 'general_ledger';
+        $from            = $request->from_date  ?? Carbon::now()->startOfMonth()->toDateString();
+        $to              = $request->to_date    ?? Carbon::now()->endOfMonth()->toDateString();
+        $report          = $request->report     ?? 'general_ledger';
         $chartOfAccounts = ChartOfAccounts::orderBy('name')->get();
-        $accountId       = $request->account_id ? (int)$request->account_id : null;
+
+        // account_id is ONLY used by general_ledger and party_ledger
+        $accountId = in_array($report, ['general_ledger', 'party_ledger'])
+            ? ($request->account_id ? (int)$request->account_id : null)
+            : null;
 
         $reports = [
             'general_ledger'   => $this->generalLedger($accountId, $from, $to),
@@ -34,7 +38,7 @@ class AccountsReportController extends Controller
         ];
 
         return view('reports.accounts_reports', compact(
-            'reports', 'from', 'to', 'report', 'chartOfAccounts'
+            'reports', 'from', 'to', 'report', 'chartOfAccounts', 'accountId'
         ));
     }
 
@@ -65,9 +69,7 @@ class AccountsReportController extends Controller
 
     private function generalLedger(?int $accountId, string $from, string $to): array
     {
-        if (!$accountId) {
-            return [];
-        }
+        if (!$accountId) return [];
 
         $vouchers = Voucher::with(['debitAccount', 'creditAccount'])
             ->whereBetween('date', [$from, $to])
@@ -78,12 +80,10 @@ class AccountsReportController extends Controller
 
         $rows = $vouchers->map(function ($v) use ($accountId) {
             $isDebit = $v->ac_dr_sid == $accountId;
-
-            $contra = $isDebit
+            $contra  = $isDebit
                 ? ($v->creditAccount->name ?? '-')
                 : ($v->debitAccount->name  ?? '-');
 
-            // ← Fix: concatenate instead of using ?? inside string interpolation
             $refId   = $v->source_id ?? $v->id;
             $type    = ucwords(str_replace('_', ' ', $v->voucher_type));
             $remarks = $v->remarks ? ' — ' . \Str::limit($v->remarks, 40) : '';
@@ -109,26 +109,18 @@ class AccountsReportController extends Controller
             ->join('chart_of_accounts as coa', 'vouchers.ac_dr_sid', '=', 'coa.id')
             ->whereBetween('vouchers.date', [$from, $to])
             ->whereNull('vouchers.deleted_at')
-            ->select(
-                'coa.id',
-                'coa.name',
-                'coa.account_type',
+            ->select('coa.id', 'coa.name', 'coa.account_type',
                 DB::raw('SUM(vouchers.amount) as total_debit'),
-                DB::raw('0 as total_credit')
-            )
+                DB::raw('0 as total_credit'))
             ->groupBy('coa.id', 'coa.name', 'coa.account_type');
 
         $credits = DB::table('vouchers')
             ->join('chart_of_accounts as coa', 'vouchers.ac_cr_sid', '=', 'coa.id')
             ->whereBetween('vouchers.date', [$from, $to])
             ->whereNull('vouchers.deleted_at')
-            ->select(
-                'coa.id',
-                'coa.name',
-                'coa.account_type',
+            ->select('coa.id', 'coa.name', 'coa.account_type',
                 DB::raw('0 as total_debit'),
-                DB::raw('SUM(vouchers.amount) as total_credit')
-            )
+                DB::raw('SUM(vouchers.amount) as total_credit'))
             ->groupBy('coa.id', 'coa.name', 'coa.account_type');
 
         return $debits->unionAll($credits)
@@ -168,11 +160,11 @@ class AccountsReportController extends Controller
         $netProfit   = $grossProfit - $expenses;
 
         return [
-            ['particulars' => 'Revenue',             'amount' => $this->fmt($revenue)],
-            ['particulars' => 'Cost of Goods Sold',  'amount' => $this->fmt($cogs)],
-            ['particulars' => 'Gross Profit',         'amount' => $this->fmt($grossProfit)],
-            ['particulars' => 'Operating Expenses',   'amount' => $this->fmt($expenses)],
-            ['particulars' => 'Net Profit',           'amount' => $this->fmt($netProfit)],
+            ['particulars' => 'Revenue',            'amount' => $this->fmt($revenue)],
+            ['particulars' => 'Cost of Goods Sold', 'amount' => $this->fmt($cogs)],
+            ['particulars' => 'Gross Profit',        'amount' => $this->fmt($grossProfit)],
+            ['particulars' => 'Operating Expenses',  'amount' => $this->fmt($expenses)],
+            ['particulars' => 'Net Profit',          'amount' => $this->fmt($netProfit)],
         ];
     }
 
@@ -206,8 +198,8 @@ class AccountsReportController extends Controller
 
         for ($i = 0; $i < $max; $i++) {
             $rows[] = [
-                'asset'     => $assets[$i]['name']          ?? '',
-                'asset_amt' => $assets[$i]['amount']        ?? '',
+                'asset'     => $assets[$i]['name']           ?? '',
+                'asset_amt' => $assets[$i]['amount']         ?? '',
                 'liab'      => $liabsAndEquity[$i]['name']   ?? '',
                 'liab_amt'  => $liabsAndEquity[$i]['amount'] ?? '',
             ];
@@ -228,8 +220,7 @@ class AccountsReportController extends Controller
             $query->where(fn($q) => $q->where('ac_dr_sid', $accountId)
                                       ->orWhere('ac_cr_sid', $accountId));
         } else {
-            $partyAccountIds = ChartOfAccounts::whereIn('account_type', ['customer', 'vendor'])
-                ->pluck('id');
+            $partyAccountIds = ChartOfAccounts::whereIn('account_type', ['customer', 'vendor'])->pluck('id');
             $query->where(fn($q) => $q->whereIn('ac_dr_sid', $partyAccountIds)
                                       ->orWhereIn('ac_cr_sid', $partyAccountIds));
         }
@@ -266,25 +257,36 @@ class AccountsReportController extends Controller
 
     private function receivables(string $from, string $to): \Illuminate\Support\Collection
     {
-        $customerIds = ChartOfAccounts::where('account_type', 'customer')->pluck('id');
+        // Customers: always receivable side
+        // Vendors: normally payable, BUT can have a receivable when leather is sold to them
+        $allPartyIds = ChartOfAccounts::whereIn('account_type', ['customer', 'vendor'])
+            ->get(['id', 'name', 'account_type'])
+            ->keyBy('id');
 
-        return $customerIds->map(function ($id) use ($from, $to) {
-            $account     = ChartOfAccounts::find($id);
-            $totalDebit  = Voucher::where('ac_dr_sid', $id)->whereBetween('date', [$from, $to])->sum('amount');
-            $totalCredit = Voucher::where('ac_cr_sid', $id)->whereBetween('date', [$from, $to])->sum('amount');
-            $balance     = $totalDebit - $totalCredit;
+        return $allPartyIds->map(function ($account) use ($from, $to) {
+            $totalDebit  = Voucher::where('ac_dr_sid', $account->id)
+                ->whereBetween('date', [$from, $to])
+                ->sum('amount');
+            $totalCredit = Voucher::where('ac_cr_sid', $account->id)
+                ->whereBetween('date', [$from, $to])
+                ->sum('amount');
+            $balance = $totalDebit - $totalCredit;
 
-            if ($balance <= 0) {
-                return null;
+            // Only show if they have a net receivable (they owe us)
+            if ($balance <= 0) return null;
+
+            $label = $account->name;
+            if ($account->account_type === 'vendor') {
+                $label .= ' (Vendor — Leather Sale)';
             }
 
             return [
-                'customer'         => $account->name,
+                'customer'         => $label,
                 'total_receivable' => $this->fmt($balance),
-                '0_30'             => $this->fmt($this->agingBucket($id, $to, 0,  30,  'debit')),
-                '31_60'            => $this->fmt($this->agingBucket($id, $to, 31, 60,  'debit')),
-                '61_90'            => $this->fmt($this->agingBucket($id, $to, 61, 90,  'debit')),
-                'over_90'          => $this->fmt($this->agingBucket($id, $to, 91, null,'debit')),
+                '0_30'             => $this->fmt($this->agingBucket($account->id, $to, 0,  30,   'debit')),
+                '31_60'            => $this->fmt($this->agingBucket($account->id, $to, 31, 60,   'debit')),
+                '61_90'            => $this->fmt($this->agingBucket($account->id, $to, 61, 90,   'debit')),
+                'over_90'          => $this->fmt($this->agingBucket($account->id, $to, 91, null, 'debit')),
             ];
         })->filter()->values();
     }
@@ -301,17 +303,15 @@ class AccountsReportController extends Controller
             $totalCredit = Voucher::where('ac_cr_sid', $id)->whereBetween('date', [$from, $to])->sum('amount');
             $balance     = $totalCredit - $totalDebit;
 
-            if ($balance <= 0) {
-                return null;
-            }
+            if ($balance <= 0) return null;
 
             return [
                 'vendor'        => $account->name,
                 'total_payable' => $this->fmt($balance),
-                '0_30'          => $this->fmt($this->agingBucket($id, $to, 0,  30,  'credit')),
-                '31_60'         => $this->fmt($this->agingBucket($id, $to, 31, 60,  'credit')),
-                '61_90'         => $this->fmt($this->agingBucket($id, $to, 61, 90,  'credit')),
-                'over_90'       => $this->fmt($this->agingBucket($id, $to, 91, null,'credit')),
+                '0_30'          => $this->fmt($this->agingBucket($id, $to, 0,  30,   'credit')),
+                '31_60'         => $this->fmt($this->agingBucket($id, $to, 31, 60,   'credit')),
+                '61_90'         => $this->fmt($this->agingBucket($id, $to, 61, 90,   'credit')),
+                'over_90'       => $this->fmt($this->agingBucket($id, $to, 91, null, 'credit')),
             ];
         })->filter()->values();
     }
@@ -324,11 +324,9 @@ class AccountsReportController extends Controller
         $q = Voucher::where($side === 'debit' ? 'ac_dr_sid' : 'ac_cr_sid', $accountId)
                     ->where('date', '<=', $end);
 
-        if ($start) {
-            $q->where('date', '>=', $start);
-        }
+        if ($start) $q->where('date', '>=', $start);
 
-        return (float)$q->sum('amount');
+        return (float) $q->sum('amount');
     }
 
     // ── Cash Book ─────────────────────────────────────────────────────
@@ -338,8 +336,7 @@ class AccountsReportController extends Controller
         $cashIds = ChartOfAccounts::where('account_type', 'cash')->pluck('id');
 
         $rows = Voucher::whereBetween('date', [$from, $to])
-            ->where(fn($q) => $q->whereIn('ac_dr_sid', $cashIds)
-                                ->orWhereIn('ac_cr_sid', $cashIds))
+            ->where(fn($q) => $q->whereIn('ac_dr_sid', $cashIds)->orWhereIn('ac_cr_sid', $cashIds))
             ->with(['debitAccount', 'creditAccount'])
             ->orderBy('date')
             ->get()
@@ -348,9 +345,7 @@ class AccountsReportController extends Controller
                 $contra  = $isDebit
                     ? ($v->creditAccount->name ?? '-')
                     : ($v->debitAccount->name  ?? '-');
-
                 $type = ucwords(str_replace('_', ' ', $v->voucher_type));
-
                 return [
                     'date'        => $v->date,
                     'particulars' => $type . ' #' . $v->id . ' | ' . $contra,
@@ -370,8 +365,7 @@ class AccountsReportController extends Controller
         $bankIds = ChartOfAccounts::where('account_type', 'bank')->pluck('id');
 
         $rows = Voucher::whereBetween('date', [$from, $to])
-            ->where(fn($q) => $q->whereIn('ac_dr_sid', $bankIds)
-                                ->orWhereIn('ac_cr_sid', $bankIds))
+            ->where(fn($q) => $q->whereIn('ac_dr_sid', $bankIds)->orWhereIn('ac_cr_sid', $bankIds))
             ->with(['debitAccount', 'creditAccount'])
             ->orderBy('date')
             ->get()
@@ -380,9 +374,7 @@ class AccountsReportController extends Controller
                 $contra  = $isDebit
                     ? ($v->creditAccount->name ?? '-')
                     : ($v->debitAccount->name  ?? '-');
-
                 $type = ucwords(str_replace('_', ' ', $v->voucher_type));
-
                 return [
                     'date'    => $v->date,
                     'bank'    => $type . ' #' . $v->id . ' | ' . $contra,
@@ -423,9 +415,7 @@ class AccountsReportController extends Controller
             ->whereIn('account_type', ['expense', 'cogs'])
             ->map(fn($r) => [
                 'expense_head' => $r['account'],
-                'amount'       => $this->fmt(
-                    $this->unformat($r['debit']) - $this->unformat($r['credit'])
-                ),
+                'amount'       => $this->fmt($this->unformat($r['debit']) - $this->unformat($r['credit'])),
             ])
             ->filter(fn($r) => $this->unformat($r['amount']) > 0)
             ->values();
@@ -437,30 +427,13 @@ class AccountsReportController extends Controller
     {
         $cashBankIds = ChartOfAccounts::whereIn('account_type', ['cash', 'bank'])->pluck('id');
 
-        $inflows  = Voucher::whereBetween('date', [$from, $to])
-                           ->whereIn('ac_dr_sid', $cashBankIds)->sum('amount');
-        $outflows = Voucher::whereBetween('date', [$from, $to])
-                           ->whereIn('ac_cr_sid', $cashBankIds)->sum('amount');
+        $inflows  = Voucher::whereBetween('date', [$from, $to])->whereIn('ac_dr_sid', $cashBankIds)->sum('amount');
+        $outflows = Voucher::whereBetween('date', [$from, $to])->whereIn('ac_cr_sid', $cashBankIds)->sum('amount');
 
         return [
-            [
-                'activity' => 'Cash & Bank Inflows',
-                'inflows'  => $this->fmt($inflows),
-                'outflows' => '0.00',
-                'net flow' => $this->fmt($inflows),
-            ],
-            [
-                'activity' => 'Cash & Bank Outflows',
-                'inflows'  => '0.00',
-                'outflows' => $this->fmt($outflows),
-                'net flow' => $this->fmt(-$outflows),
-            ],
-            [
-                'activity' => 'Net Cash Flow',
-                'inflows'  => $this->fmt($inflows),
-                'outflows' => $this->fmt($outflows),
-                'net flow' => $this->fmt($inflows - $outflows),
-            ],
+            ['activity' => 'Cash & Bank Inflows',  'inflows' => $this->fmt($inflows),  'outflows' => '0.00',                 'net flow' => $this->fmt($inflows)],
+            ['activity' => 'Cash & Bank Outflows', 'inflows' => '0.00',                'outflows' => $this->fmt($outflows),  'net flow' => $this->fmt(-$outflows)],
+            ['activity' => 'Net Cash Flow',         'inflows' => $this->fmt($inflows),  'outflows' => $this->fmt($outflows),  'net flow' => $this->fmt($inflows - $outflows)],
         ];
     }
 }

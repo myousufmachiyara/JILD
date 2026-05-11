@@ -12,7 +12,10 @@ class SaleInvoiceItem extends Model
         'sale_price', 'discount', 'quantity', 'unit', 'remarks',
     ];
 
-    public function invoice()    { return $this->belongsTo(SaleInvoice::class); }
+    public function invoice()
+    {
+        return $this->belongsTo(SaleInvoice::class, 'sale_invoice_id'); // ← add FK
+    }
     public function product()    { return $this->belongsTo(Product::class); }
     public function variation()  { return $this->belongsTo(ProductVariation::class, 'variation_id'); }
     public function measurementUnit() { return $this->belongsTo(MeasurementUnit::class, 'unit'); }

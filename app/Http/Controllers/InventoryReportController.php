@@ -116,15 +116,15 @@ class InventoryReportController extends Controller
 
                     // Purchase Returns
                     $ledger = $ledger->concat(
-                        PurchaseReturnItem::with('return')
+                        PurchaseReturnItem::with('purchaseReturn')          // ← was 'return'
                             ->where('item_id', $product->id)
                             ->when(!is_null($var->id), fn($q) => $q->where('variation_id', $var->id))
-                            ->whereHas('return', fn($q) => $q->whereBetween('return_date', [$from, $to]))
+                            ->whereHas('purchaseReturn', fn($q) => $q->whereBetween('return_date', [$from, $to]))  // ← was 'return'
                             ->get()
                             ->map(fn($row) => [
-                                'date'        => $row->return->return_date,
+                                'date'        => $row->purchaseReturn->return_date,   // ← was $row->return
                                 'type'        => 'Purchase Return',
-                                'description' => 'Return: ' . ($row->return->reference_no ?? $row->return->id),
+                                'description' => 'Return: ' . ($row->purchaseReturn->reference_no ?? $row->purchaseReturn->id),  // ← was $row->return
                                 'qty_in'    => 0,
                                 'qty_out'   => $row->quantity,
                                 'rate'      => $row->price ?? 0,

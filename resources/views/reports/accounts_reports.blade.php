@@ -5,7 +5,7 @@
 @section('content')
 <div class="tabs">
 
-    <ul class="nav nav-tabs" id="reportTabs" role="tablist">
+    <ul class="nav nav-tabs" id="reportTabs">
         @foreach ([
             'general_ledger'   => 'General Ledger',
             'trial_balance'    => 'Trial Balance',
@@ -21,18 +21,15 @@
             'cash_flow'        => 'Cash Flow',
         ] as $key => $label)
             <li class="nav-item">
-                <a class="nav-link {{ $loop->first ? 'active' : '' }}"
-                   id="{{ $key }}-tab"
-                   data-bs-toggle="tab"
-                   href="#{{ $key }}"
-                   role="tab">
+                <a class="nav-link {{ $key === $report ? 'active' : '' }}"
+                   href="{{ route('reports.accounts') }}?report={{ $key }}&from_date={{ $from }}&to_date={{ $to }}">
                    {{ $label }}
                 </a>
             </li>
         @endforeach
     </ul>
 
-    <div class="tab-content mt-3" id="reportTabsContent">
+    <div class="tab-content mt-3">
 
         @foreach ([
             'general_ledger'   => 'General Ledger',
@@ -49,39 +46,48 @@
             'cash_flow'        => 'Cash Flow',
         ] as $key => $label)
 
-        <div class="tab-pane fade {{ $loop->first ? 'show active' : '' }}" id="{{ $key }}" role="tabpanel">
+        <div class="tab-pane fade {{ $key === $report ? 'show active' : '' }}" id="{{ $key }}">
 
             {{-- Filter --}}
             <form method="GET" action="{{ route('reports.accounts') }}" class="row g-2 mb-3">
                 <input type="hidden" name="report" value="{{ $key }}">
-                <input type="hidden" name="tab"    value="{{ $key }}">
 
                 <div class="col-md-3">
                     <input type="date" name="from_date"
-                           value="{{ request('from_date', $from) }}"
+                           value="{{ $from }}"
                            class="form-control" required>
                 </div>
                 <div class="col-md-3">
                     <input type="date" name="to_date"
-                           value="{{ request('to_date', $to) }}"
+                           value="{{ $to }}"
                            class="form-control" required>
                 </div>
-                <div class="col-md-4">
-                    <select name="account_id" data-plugin-selecttwo class="form-control select2-js">
-                        <option value="">-- All Accounts --</option>
-                        @foreach ($chartOfAccounts as $coa)
-                            <option value="{{ $coa->id }}"
-                                {{ request('account_id') == $coa->id ? 'selected' : '' }}>
-                                {{ $coa->account_code }} — {{ $coa->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <button class="btn btn-primary w-100" type="submit">
-                        <i class="fas fa-filter me-1"></i> Filter
-                    </button>
-                </div>
+
+                {{-- Account dropdown only for GL and Party Ledger --}}
+                @if (in_array($key, ['general_ledger', 'party_ledger']))
+                    <div class="col-md-4">
+                        <select name="account_id" data-plugin-selecttwo class="form-control select2-js">
+                            <option value="">-- All Accounts --</option>
+                            @foreach ($chartOfAccounts as $coa)
+                                <option value="{{ $coa->id }}"
+                                    {{ ($key === $report && $accountId == $coa->id) ? 'selected' : '' }}>
+                                    {{ $coa->account_code }} — {{ $coa->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100" type="submit">
+                            <i class="fas fa-filter me-1"></i> Filter
+                        </button>
+                    </div>
+                @else
+                    <div class="col-md-6 d-flex align-items-end">
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fas fa-filter me-1"></i> Filter
+                        </button>
+                    </div>
+                @endif
             </form>
 
             {{-- Table --}}
@@ -287,7 +293,7 @@
                         @empty
                             <tr>
                                 <td colspan="6" class="text-center text-muted py-3">
-                                    @if (in_array($key, ['general_ledger']) && !request('account_id'))
+                                    @if ($key === 'general_ledger' && !$accountId)
                                         Please select an account from the filter above.
                                     @else
                                         No data found for the selected date range.
@@ -304,29 +310,4 @@
 
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    try {
-        const urlParams = new URLSearchParams(window.location.search);
-        let tab = urlParams.get('tab') || window.location.hash.replace('#', '');
-
-        if (tab) {
-            const el = document.querySelector(`.nav-link[href="#${tab}"]`);
-            if (el && typeof bootstrap !== 'undefined') {
-                new bootstrap.Tab(el).show();
-                history.replaceState(null, null, window.location.pathname + window.location.search + '#' + tab);
-            } else if (el) {
-                document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
-                document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('show', 'active'));
-                el.classList.add('active');
-                const pane = document.querySelector(el.getAttribute('href'));
-                if (pane) pane.classList.add('show', 'active');
-            }
-        }
-    } catch (e) {
-        console.error('Tab activation error', e);
-    }
-});
-</script>
 @endsection
