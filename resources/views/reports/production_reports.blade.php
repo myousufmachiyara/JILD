@@ -58,7 +58,9 @@
             <div>
               <strong>Production #{{ $order->id }}</strong>
               <span class="ms-3 badge bg-secondary">{{ $order->type }}</span>
-              <span class="ms-2 text-light   small">{{ $order->date }}</span>
+              <span class="ms-2 small {{ $order->consumption_details->where('alert', true)->count() ? 'text-white' : 'text-muted' }}">
+                {{ $order->date }}
+              </span>
             </div>
             <div>
               <strong>{{ $order->vendor }}</strong>
@@ -68,27 +70,32 @@
             </div>
           </div>
           <div class="card-body">
-            <div class="row mb-3">
-              <div class="col-md-2 text-center">
+            {{-- Summary Stats --}}
+            <div class="row mb-3 text-center">
+              <div class="col-md-2">
                 <small class="text-muted d-block">Raw Given</small>
                 <strong>{{ number_format($order->total_raw_given, 2) }}</strong>
               </div>
-              <div class="col-md-2 text-center">
+              <div class="col-md-2">
                 <small class="text-muted d-block">Raw Cost</small>
                 <strong>{{ number_format($order->total_raw_cost, 2) }}</strong>
               </div>
-              <div class="col-md-2 text-center">
+              <div class="col-md-2">
                 <small class="text-muted d-block">FG Received</small>
                 <strong class="text-success">{{ number_format($order->total_fg_received, 2) }}</strong>
               </div>
-              <div class="col-md-2 text-center">
+              <div class="col-md-2">
+                <small class="text-muted d-block">Expected Consumed</small>
+                <strong class="text-primary">{{ number_format($order->expected_consumed, 4) }}</strong>
+              </div>
+              <div class="col-md-2">
                 <small class="text-muted d-block">Wastage Returned</small>
                 <strong class="text-info">{{ number_format($order->wastage_returned, 2) }}</strong>
               </div>
-              <div class="col-md-2 text-center">
+              <div class="col-md-2">
                 <small class="text-muted d-block">Raw at Vendor</small>
                 <strong class="{{ $order->raw_at_vendor > 0 ? 'text-warning' : 'text-success' }}">
-                  {{ number_format($order->raw_at_vendor, 2) }}
+                  {{ number_format($order->raw_at_vendor, 4) }}
                 </strong>
               </div>
             </div>
@@ -121,18 +128,32 @@
                   <tr>
                     <th>Product</th>
                     <th class="text-end">FG Received</th>
-                    <th class="text-end">Actual Consumption</th>
-                    <th class="text-end">Expected Consumption</th>
+                    <th class="text-end">Actual Con/pc</th>
+                    <th class="text-end">Expected Con/pc</th>
+                    <th class="text-end">Variance</th>
                     <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   @foreach($order->consumption_details as $con)
+                    @php
+                      $variance = $con['expected_con'] > 0
+                        ? round(abs($con['actual_con'] - $con['expected_con']) / $con['expected_con'] * 100, 1)
+                        : null;
+                      $overUsed = $con['actual_con'] > $con['expected_con'];
+                    @endphp
                     <tr class="{{ $con['alert'] ? 'table-danger' : '' }}">
                       <td>{{ $con['name'] }}</td>
                       <td class="text-end">{{ number_format($con['received_qty'], 2) }}</td>
-                      <td class="text-end">{{ $con['actual_con'] }}</td>
-                      <td class="text-end">{{ $con['expected_con'] ?: '-' }}</td>
+                      <td class="text-end">{{ number_format($con['actual_con'], 4) }}</td>
+                      <td class="text-end">{{ $con['expected_con'] ? number_format($con['expected_con'], 4) : '-' }}</td>
+                      <td class="text-end {{ $con['alert'] ? 'text-danger fw-bold' : ($variance !== null && $variance <= 10 ? 'text-success' : '') }}">
+                        @if($variance !== null)
+                          {{ $overUsed ? '+' : '-' }}{{ $variance }}%
+                        @else
+                          —
+                        @endif
+                      </td>
                       <td>
                         @if($con['alert'])
                           <span class="badge bg-danger">⚠ High</span>
@@ -261,17 +282,16 @@
 
       <div class="alert alert-info mb-3">
         <i class="fas fa-info-circle me-1"></i>
-        Remaining = <strong>Sent − Expected Consumption (product table) − Wastage Returned</strong>.
+        <strong>Remaining (Expected)</strong> = Sent − (FG Received × product.consumption) − Wastage Returned.
         Alert fires when actual consumption deviates &gt;10% from expected.
       </div>
 
       @forelse($vendorRawBalance as $vb)
-        {{-- Check if any row has an alert --}}
         @php $hasAlert = $vb->balance->contains(fn($b) => !is_null($b->alert)); @endphp
 
         <div class="card mb-3 {{ $hasAlert ? 'border-danger' : '' }}">
           <div class="card-header d-flex justify-content-between align-items-center
-                      {{ $hasAlert ? 'bg-danger text-white' : 'bg-light' }}">
+                       {{ $hasAlert ? 'bg-danger text-white' : 'bg-light' }}">
             <strong><i class="fas fa-user me-1"></i> {{ $vb->vendor }}</strong>
             <div>
               @if($hasAlert)
@@ -298,8 +318,8 @@
               <tbody>
                 @foreach($vb->balance as $b)
                   @php
-                    $alertSeverity = $b->alert['severity'] ?? null;
-                    $rowClass = match($alertSeverity) {
+                    $sev      = $b->alert['severity'] ?? null;
+                    $rowClass = match($sev) {
                         'critical' => 'table-danger',
                         'warning'  => 'table-warning',
                         default    => '',
@@ -321,17 +341,14 @@
                       @if($b->alert)
                         @php $a = $b->alert; @endphp
                         <span class="badge {{ $a['severity'] === 'critical' ? 'bg-danger' : 'bg-warning text-dark' }}"
-                              title="Expected: {{ $a['expected_con'] }} | Actual: {{ $a['actual_con'] }}">
-                          {{ $a['over_used'] ? '▲' : '▼' }}
-                          {{ $a['variance'] }}%
+                              title="FG: {{ $a['fg_product'] }} | Expected: {{ $a['expected_con'] }}/pc | Actual: {{ $a['actual_con'] }}/pc">
+                          {{ $a['over_used'] ? '▲' : '▼' }} {{ $a['variance'] }}%
                           {{ $a['severity'] === 'critical' ? 'CRIT' : 'WARN' }}
                         </span>
+                      @elseif($b->expected_consumed > 0)
+                        <span class="badge bg-success">OK</span>
                       @else
-                        @if($b->expected_consumed > 0)
-                          <span class="badge bg-success">OK</span>
-                        @else
-                          <span class="badge bg-secondary">No Baseline</span>
-                        @endif
+                        <span class="badge bg-secondary">No Baseline</span>
                       @endif
                     </td>
                   </tr>
@@ -341,9 +358,7 @@
           </div>
         </div>
       @empty
-        <div class="text-center text-muted py-4">
-          No raw material pending at vendors for this period.
-        </div>
+        <div class="text-center text-muted py-4">No raw material pending at vendors.</div>
       @endforelse
     </div>
 
@@ -398,8 +413,7 @@
               <tr>
                 <td colspan="6" class="text-end">Total</td>
                 <td class="text-end">{{ number_format($rtnQty, 2) }}</td>
-                <td></td>
-                <td></td>
+                <td></td><td></td>
                 <td class="text-end">{{ number_format($rtnTotal, 2) }}</td>
               </tr>
             </tfoot>
@@ -419,17 +433,11 @@
         <table class="table table-bordered table-striped table-sm">
           <thead class="table-light">
             <tr>
-              <th>Production #</th>
-              <th>Vendor</th>
-              <th>Order Date</th>
-              <th>First Receiving</th>
-              <th>Last Receiving</th>
-              <th class="text-end">Days to First</th>
-              <th class="text-end">Days to Last</th>
-              <th class="text-end">Raw Sent</th>
-              <th class="text-end">FG Received</th>
-              <th class="text-end">Receivings</th>
-              <th>Status</th>
+              <th>Production #</th><th>Vendor</th><th>Order Date</th>
+              <th>First Receiving</th><th>Last Receiving</th>
+              <th class="text-end">Days to First</th><th class="text-end">Days to Last</th>
+              <th class="text-end">Raw Sent</th><th class="text-end">FG Received</th>
+              <th class="text-end">Receivings</th><th>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -449,9 +457,7 @@
                     <span class="text-warning">Pending</span>
                   @endif
                 </td>
-                <td class="text-end">
-                  {{ $row->days_to_last !== null ? $row->days_to_last . ' days' : '—' }}
-                </td>
+                <td class="text-end">{{ $row->days_to_last !== null ? $row->days_to_last.' days' : '—' }}</td>
                 <td class="text-end">{{ number_format($row->total_raw, 2) }}</td>
                 <td class="text-end">{{ number_format($row->total_fg, 2) }}</td>
                 <td class="text-end">{{ $row->receiving_count }}</td>
@@ -488,7 +494,8 @@
               <th class="text-end">Raw Cost</th>
               <th class="text-end">Total FG Received</th>
               <th class="text-end">Mfg. Cost</th>
-              <th class="text-end">Avg Consumption</th>
+              <th class="text-end">Avg Con (Actual)</th>
+              <th class="text-end">Avg Con (Expected)</th>
             </tr>
           </thead>
           <tbody>
@@ -500,10 +507,13 @@
                 <td class="text-end">{{ number_format($row->raw_cost, 2) }}</td>
                 <td class="text-end">{{ number_format($row->total_fg, 2) }}</td>
                 <td class="text-end">{{ number_format($row->mfg_cost, 2) }}</td>
-                <td class="text-end">{{ $row->avg_con }}</td>
+                <td class="text-end">{{ $row->avg_con_actual }}</td>
+                <td class="text-end {{ $row->avg_con_actual > $row->avg_con_expected && $row->avg_con_expected > 0 ? 'text-danger fw-bold' : '' }}">
+                  {{ $row->avg_con_expected ?: '—' }}
+                </td>
               </tr>
             @empty
-              <tr><td colspan="7" class="text-center text-muted">No vendor data found.</td></tr>
+              <tr><td colspan="8" class="text-center text-muted">No vendor data found.</td></tr>
             @endforelse
           </tbody>
         </table>
@@ -514,7 +524,6 @@
 </div>
 
 <script>
-  // Restore active tab from URL
   document.addEventListener('DOMContentLoaded', function () {
     const tab = new URLSearchParams(window.location.search).get('tab') || 'RMI';
     const el  = document.querySelector(`.nav-link[href="#${tab}"]`);
