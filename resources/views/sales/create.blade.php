@@ -30,7 +30,7 @@
             </div>
             <div class="col-md-3 mb-3">
               <label>Customer</label>
-              <select name="account_id" class="form-control select2-js">
+              <select name="account_id" data-plugin-selecttwo class="form-control select2-js">
                 <option value="">Walk-in Customer</option>
                 @foreach($customers as $c)
                   <option value="{{ $c->id }}">{{ $c->name }}</option>
@@ -80,7 +80,7 @@
                              class="form-control product-code"></td>
                   <td>
                     <select name="items[0][product_id]" id="product_1"
-                            class="form-control select2-js product-select"
+                            data-plugin-selecttwo class="form-control select2-js product-select"
                             onchange="onProductChange(this)">
                       <option value="">Select Item</option>
                       @foreach($products as $p)
@@ -95,7 +95,7 @@
                   </td>
                   <td>
                     <select name="items[0][variation_id]" id="variation_1"
-                            class="form-control select2-js variation-select">
+                            data-plugin-selecttwo class="form-control select2-js variation-select">
                       <option value="">No Variation</option>
                     </select>
                   </td>
@@ -103,7 +103,7 @@
                              class="form-control quantity" value="0" step="any"
                              onchange="rowTotal(1)"></td>
                   <td>
-                    <select name="items[0][unit]" id="unit_1" class="form-control" required>
+                    <select name="items[0][unit]" id="unit_1" data-plugin-selecttwo class="form-control select2-js" required>
                       <option value="">Unit</option>
                       @foreach($units as $unit)
                         <option value="{{ $unit->id }}">{{ $unit->shortcode }}</option>
@@ -164,7 +164,7 @@
               <div class="row">
                 <div class="col-md-3">
                   <label>Receive Into Account</label>
-                  <select name="payment_account_id" class="form-control select2-js">
+                  <select name="payment_account_id" data-plugin-selecttwo class="form-control select2-js">
                     <option value="">-- No Payment --</option>
                     @foreach($accounts as $acc)
                       <option value="{{ $acc->id }}">{{ $acc->name }}</option>
@@ -279,14 +279,14 @@
                    class="form-control product-code"></td>
         <td>
           <select name="items[${i-1}][product_id]" id="product_${i}"
-                  class="form-control select2-js product-select"
+                  data-plugin-selecttwo class="form-control select2-js product-select"
                   onchange="onProductChange(this)">
             <option value="">Select Item</option>${productOpts}
           </select>
         </td>
         <td>
           <select name="items[${i-1}][variation_id]" id="variation_${i}"
-                  class="form-control select2-js variation-select">
+                  data-plugin-selecttwo class="form-control select2-js variation-select">
             <option value="">No Variation</option>
           </select>
         </td>
@@ -294,7 +294,7 @@
                    class="form-control quantity" value="0" step="any"
                    onchange="rowTotal(${i})"></td>
         <td>
-          <select name="items[${i-1}][unit]" id="unit_${i}" class="form-control" required>
+          <select name="items[${i-1}][unit]" id="unit_${i}" data-plugin-selecttwo class="form-control select2-js" required>
             <option value="">Unit</option>${unitOpts}
           </select>
         </td>

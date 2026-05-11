@@ -115,7 +115,7 @@
 
                 <div class="col-md-3">
                     <label>Customer</label>
-                    <select name="customer_id" class="form-control">
+                    <select name="customer_id" data-plugin-selecttwo class="form-control select2-js">
                         <option value="">All Customers</option>
                         @foreach($customers as $cust)
                             <option value="{{ $cust->id }}" {{ $customerId==$cust->id ? 'selected' : '' }}>

@@ -53,7 +53,7 @@
                     <form method="GET" action="{{ route('coa.index') }}" class="mb-3">
                         <div class="col-md-3">
                             <label>Filter by Sub-head</label>
-                            <select name="subhead" class="form-control" onchange="this.form.submit()">
+                            <select name="subhead" data-plugin-selecttwo class="form-control select2-js" onchange="this.form.submit()">
                                 <option value="all" {{ request('subhead') == 'all' || !request('subhead') ? 'selected' : '' }}>
                                     All
                                 </option>

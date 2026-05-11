@@ -33,7 +33,7 @@
 
               <div class="col-md-2 mb-3">
                 <label>Category</label>
-                <select class="form-control select2-js" name="category_id">
+                <select data-plugin-selecttwo class="form-control select2-js" name="category_id">
                   <option value="">Select Category</option>
                   @foreach($categories as $cat)
                     <option value="{{ $cat->id }}">{{ $cat->name }}</option>
@@ -43,7 +43,7 @@
 
               <div class="col-md-2 mb-3">
                 <label>Vendor <span class="text-danger">*</span></label>
-                <select class="form-control select2-js" name="vendor_id" id="vendor_name" required>
+                <select data-plugin-selecttwo class="form-control select2-js" name="vendor_id" id="vendor_name" required>
                   <option value="" disabled selected>Select Vendor</option>
                   @foreach($vendors as $v)
                     <option value="{{ $v->id }}">{{ $v->name }}</option>
@@ -53,7 +53,7 @@
 
               <div class="col-md-2 mb-3">
                 <label>Production Type <span class="text-danger">*</span></label>
-                <select class="form-control" name="production_type" id="production_type" required>
+                <select data-plugin-selecttwo class="form-control select2-js" name="production_type" id="production_type" required>
                   <option value="" disabled selected>Select Type</option>
                   <option value="cmt">CMT</option>
                   <option value="sale_leather">Sale Raw</option>
@@ -102,7 +102,7 @@
                   <tr class="item-row">
                     <td>
                       <select name="item_details[0][product_id]" id="productSelect_0"
-                              class="form-control select2-js" onchange="onItemChange(this)" required>
+                              data-plugin-selecttwo class="form-control select2-js" onchange="onItemChange(this)" required>
                         <option value="" disabled selected>Select Raw</option>
                         @foreach($allProducts as $product)
                           <option value="{{ $product->id }}" data-unit="{{ $product->unit }}">
@@ -113,13 +113,13 @@
                     </td>
                     <td>
                       <select name="item_details[0][variation_id]" id="variationSelect_0"
-                              class="form-control select2-js">
+                              data-plugin-selecttwo class="form-control select2-js">
                         <option value="">No Variation</option>
                       </select>
                     </td>
                     <td>
                       <select name="item_details[0][invoice_id]" id="invoiceSelect_0"
-                              class="form-control select2-js" onchange="onInvoiceChange(this)">
+                              data-plugin-selecttwo class="form-control select2-js" onchange="onInvoiceChange(this)">
                         <option value="">Select Invoice</option>
                       </select>
                     </td>
@@ -139,7 +139,7 @@
                     </td>
                     <td>
                       <select name="item_details[0][item_unit]" id="item_unit_0"
-                              class="form-control" required>
+                              data-plugin-selecttwo class="form-control select2-js" required>
                         <option value="" disabled selected>Unit</option>
                         @foreach($units as $unit)
                           <option value="{{ $unit->id }}">{{ $unit->shortcode }}</option>
@@ -239,20 +239,20 @@
       <tr class="item-row">
         <td>
           <select name="item_details[${rowIndex}][product_id]" id="productSelect_${rowIndex}"
-                  class="form-control select2-js" onchange="onItemChange(this)" required>
+                  data-plugin-selecttwo class="form-control select2-js" onchange="onItemChange(this)" required>
             <option value="" disabled selected>Select Raw</option>
             ${options}
           </select>
         </td>
         <td>
           <select name="item_details[${rowIndex}][variation_id]" id="variationSelect_${rowIndex}"
-                  class="form-control select2-js">
+                  data-plugin-selecttwo class="form-control select2-js">
             <option value="">No Variation</option>
           </select>
         </td>
         <td>
           <select name="item_details[${rowIndex}][invoice_id]" id="invoiceSelect_${rowIndex}"
-                  class="form-control select2-js" onchange="onInvoiceChange(this)">
+                  data-plugin-selecttwo class="form-control select2-js" onchange="onInvoiceChange(this)">
             <option value="">Select Invoice</option>
           </select>
         </td>
@@ -270,7 +270,7 @@
         </td>
         <td>
           <select name="item_details[${rowIndex}][item_unit]" id="item_unit_${rowIndex}"
-                  class="form-control" required>
+                  data-plugin-selecttwo class="form-control select2-js" required>
             <option value="" disabled selected>Unit</option>
             ${unitOptions}
           </select>

@@ -99,7 +99,7 @@ class SaleInvoiceController extends Controller
             }
 
             $invoice->recalculatePaymentStatus();
-            $invoice->load(['items', 'payments']);
+            $invoice->load(['items.product', 'payments']);
             $this->postSaleEntries($invoice);
 
             DB::commit();
@@ -176,7 +176,8 @@ class SaleInvoiceController extends Controller
             $this->saveItems($invoice, $request->items);
             $invoice->recalculatePaymentStatus();
 
-            $invoice->load(['items', 'payments']);
+            $invoice->load(['items.product', 'payments']);
+
             $this->postSaleEntries($invoice);
 
             DB::commit();
@@ -476,7 +477,7 @@ class SaleInvoiceController extends Controller
 
         $entries = [];
 
-        // Revenue entry — customer DR, revenue CR
+        // ── Entry 1: Customer DR / Sales Revenue CR ───────────────────────
         if ($invoice->sub_total > 0) {
             $entries[] = [
                 'dr_id'   => $invoice->account_id,
@@ -486,7 +487,7 @@ class SaleInvoiceController extends Controller
             ];
         }
 
-        // Bill discount
+        // ── Entry 2: Bill Discount ────────────────────────────────────────
         if ($invoice->discount > 0) {
             $entries[] = [
                 'dr'      => '401003',
@@ -496,7 +497,49 @@ class SaleInvoiceController extends Controller
             ];
         }
 
-        // Each payment — cash/bank DR, customer CR
+        // ── Entry 3: COGS DR / Stock in Hand CR ───────────────────────────
+        // Calculated per line item using average purchase cost for that
+        // specific variation (or product-level if no variation).
+        $totalCogs = 0;
+
+        foreach ($invoice->items as $item) {
+            $productId   = $item->product_id;
+            $variationId = $item->variation_id;
+            $qty         = (float) $item->quantity;
+
+            // Build purchase cost query
+            $pq = \App\Models\PurchaseInvoiceItem::where('item_id', $productId);
+
+            if ($variationId) {
+                $hasVarSpecific = (clone $pq)->where('variation_id', $variationId)->exists();
+
+                if ($hasVarSpecific) {
+                    $pq = $pq->where('variation_id', $variationId);
+                } else {
+                    // Fall back to null-variation purchases for this product
+                    $pq = $pq->whereNull('variation_id');
+                }
+            }
+            // If no variation at all — query runs on item_id only (correct)
+
+            $agg     = (clone $pq)->selectRaw('SUM(quantity * price) as v, SUM(quantity) as q')->first();
+            $avgCost = ($agg && $agg->q > 0)
+                ? ($agg->v / $agg->q)
+                : (float) ($item->product->manufacturing_cost ?? 0); // fallback for manufactured items
+
+            $totalCogs += round($avgCost * $qty, 2);
+        }
+
+        if ($totalCogs > 0) {
+            $entries[] = [
+                'dr'      => '501001', // Cost of Goods Sold
+                'cr'      => '104001', // Stock in Hand
+                'amount'  => $totalCogs,
+                'remarks' => 'COGS — ' . $invoice->invoice_no,
+            ];
+        }
+
+        // ── Entry 4: Each payment received — Cash/Bank DR / Customer CR ──
         foreach ($invoice->payments as $payment) {
             if ($payment->amount > 0) {
                 $entries[] = [
@@ -517,6 +560,9 @@ class SaleInvoiceController extends Controller
             $entries
         );
 
-        Log::info('[Sale] Accounting synced', ['invoice_id' => $invoice->id]);
+        Log::info('[Sale] Accounting synced', [
+            'invoice_id' => $invoice->id,
+            'cogs'       => $totalCogs,
+        ]);
     }
 }

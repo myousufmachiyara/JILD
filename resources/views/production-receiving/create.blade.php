@@ -43,7 +43,7 @@
             </div>
             <div class="col-md-3">
               <label>Production Order</label>
-              <select name="production_id" class="form-control select2-js">
+              <select name="production_id" data-plugin-selecttwo class="form-control select2-js">
                 <option value="" {{ empty($selectedProductionId) ? 'selected' : '' }}>
                   -- No Production Order --
                 </option>
@@ -57,7 +57,7 @@
             </div>
             <div class="col-md-3">
               <label>Vendor <span class="text-danger">*</span></label>
-              <select name="vendor_id" class="form-control select2-js" required>
+              <select name="vendor_id" data-plugin-selecttwo class="form-control select2-js" required>
                 <option value="">Select Vendor</option>
                 @foreach($accounts as $vendor)
                   <option value="{{ $vendor->id }}">{{ $vendor->name }}</option>
@@ -102,7 +102,7 @@
                   <td><input type="text" class="form-control product-code" placeholder="Scan barcode"></td>
                   <td>
                     <select name="item_details[0][product_id]"
-                            class="form-control select2-js product-select" required>
+                    data-plugin-selecttwo class="form-control select2-js product-select" required>
                       <option value="">Select Item</option>
                       @foreach($products as $item)
                         <option value="{{ $item->id }}"
@@ -115,7 +115,7 @@
                   </td>
                   <td>
                     <select name="item_details[0][variation_id]"
-                            class="form-control select2-js variation-select">
+                            data-plugin-selecttwo class="form-control select2-js variation-select">
                       <option value="">No Variation</option>
                     </select>
                   </td>
@@ -277,13 +277,13 @@
         <td><input type="text" class="form-control product-code" placeholder="Scan barcode"></td>
         <td>
           <select name="item_details[${count}][product_id]"
-                  class="form-control select2-js product-select" required>
+                  data-plugin-selecttwo class="form-control select2-js product-select" required>
             ${productOpts}
           </select>
         </td>
         <td>
           <select name="item_details[${count}][variation_id]"
-                  class="form-control select2-js variation-select">
+                  data-plugin-selecttwo class="form-control select2-js variation-select">
             <option value="">No Variation</option>
           </select>
         </td>

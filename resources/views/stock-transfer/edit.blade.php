@@ -84,7 +84,7 @@
                   </select>
                 </td>
                 <td>
-                  <select name="items[{{ $idx }}][variation_id]" class="form-control select2-js variation-select">
+                  <select name="items[{{ $idx }}][variation_id]" data-plugin-selecttwo class="form-control select2-js variation-select">
                     <option value="{{ $item->variation_id }}" selected>{{ $item->variation->sku ?? 'Select Variation' }}</option>
                   </select>
                 </td>
@@ -213,7 +213,7 @@
       <tr>
         <td><input type="text" class="form-control product-code" placeholder="Scan/Enter Code"></td>
         <td>
-          <select name="items[${idx}][product_id]" class="form-control select2-js product-select" required>
+          <select name="items[${idx}][product_id]" data-plugin-selecttwo class="form-control select2-js product-select" required>
             <option value="">Select Product</option>
             @foreach($products as $product)
               <option value="{{ $product->id }}" data-price="{{ $product->selling_price }}">{{ $product->name }}</option>
@@ -221,7 +221,7 @@
           </select>
         </td>
         <td>
-          <select name="items[${idx}][variation_id]" class="form-control select2-js variation-select">
+          <select name="items[${idx}][variation_id]" data-plugin-selecttwo class="form-control select2-js variation-select">
             <option value="">Select Variation</option>
           </select>
         </td>

@@ -751,7 +751,7 @@
 
     {{-- Customer --}}
     <div class="customer-wrap">
-      <select id="customerSelect">
+      <select data-plugin-selecttwo class="form-control select2-js" id="customerSelect">
         <option value="">Walk-in Customer</option>
         @foreach($customers as $c)
           <option value="{{ $c->id }}">{{ $c->name }}</option>
@@ -870,7 +870,7 @@
 
       <div class="form-group">
         <label class="form-label">Receive Into Account</label>
-        <select class="form-control" id="payAccountSelect">
+        <select data-plugin-selecttwo class="form-control select2-js" id="payAccountSelect">
           @foreach($accounts as $acc)
             <option value="{{ $acc->id }}">{{ $acc->name }}</option>
           @endforeach

@@ -525,89 +525,249 @@ class ProductController extends Controller
                 throw new \Exception('Uploaded file is empty.');
             }
 
-            // Normalise header: lowercase, trim whitespace
+            // ── Normalise header ──────────────────────────────────────────
             $rawHeader = array_shift($rows);
             $header    = array_map(fn($h) => strtolower(trim((string)$h)), $rawHeader);
             $colCount  = count($header);
 
-            $dbAttributes = Attribute::all()->keyBy(fn($a) => strtolower($a->name));
+            // Skip helper/hint row (starts with "←")
+            if (!empty($rows) && str_starts_with(trim((string)($rows[0][0] ?? '')), '←')) {
+                array_shift($rows);
+            }
 
-            $importedProductSKUs   = [];
-            $importedVariationSKUs = [];
+            // ── Pre-load lookups ──────────────────────────────────────────
+            $dbAttributes = Attribute::orderBy('id')->get()->keyBy(fn($a) => strtolower($a->name));
+
+            $categoryMap = ProductCategory::all()
+                ->keyBy(fn($c) => strtolower(trim($c->name)));
+
+            $defaultUnit = MeasurementUnit::first()?->id ?? 1;
+
+            $resolveCategory = function (string $raw) use (&$categoryMap): ?int {
+                $raw = trim($raw);
+                if ($raw === '' || strtolower($raw) === 'nan') return null;
+                if (str_starts_with(strtolower($raw), 'http')) return null;
+
+                if (is_numeric($raw)) {
+                    $id = (int) $raw;
+                    return $id > 0 ? $id : null;
+                }
+
+                $key = strtolower($raw);
+                if (!isset($categoryMap[$key])) {
+                    $newCat = ProductCategory::create([
+                        'name' => ucwords($raw),
+                        'code' => \Illuminate\Support\Str::slug($raw),
+                    ]);
+                    $categoryMap[$key] = $newCat;
+                    Log::info('[Bulk Import] Created category', ['name' => $raw, 'id' => $newCat->id]);
+                }
+                return $categoryMap[$key]->id;
+            };
+
+            $getFallbackCategoryId = function () use (&$categoryMap): int {
+                if ($categoryMap->isNotEmpty()) return $categoryMap->first()->id;
+                $cat = ProductCategory::create(['name' => 'Imported', 'code' => 'imported']);
+                $categoryMap['imported'] = $cat;
+                return $cat->id;
+            };
+
+            // ── First pass: normalise all rows ────────────────────────────
+            // Handles two quirks from this sheet:
+            //   1. Product Name only filled in FIRST row of each product group — forward-fill
+            //   2. Duplicate Variation SKU with different engraving — append -YES/-NO to make unique
+            $parsedRows  = [];
+            $lastProduct = []; // carries forward product-level data across variation rows
+            $seenVarSKUs = []; // tracks variation SKUs to detect duplicates
 
             foreach ($rows as $row) {
-                // Skip completely blank rows
                 $rowValues = array_filter(array_map('trim', array_map('strval', $row)));
-                if (empty($rowValues)) {
-                    continue;
+                if (empty($rowValues)) continue;
+
+                $row    = array_map('strval', $row);
+                $rowPad = array_pad(array_slice($row, 0, $colCount), $colCount, '');
+                $data   = array_combine($header, $rowPad);
+
+                $productSku = trim($data['product sku'] ?? '');
+                if (str_starts_with($productSku, '←') || $productSku === '') continue;
+
+                // ── Forward-fill product-level fields ─────────────────────
+                // When Product Name (and other product columns) are blank,
+                // inherit from the last row with the same Product SKU
+                $productName = trim($data['product name'] ?? '');
+                $isNan       = strtolower($productName) === 'nan';
+
+                if ($productName === '' || $isNan) {
+                    // Variation row — inherit product-level data
+                    if (isset($lastProduct[$productSku])) {
+                        foreach ([
+                            'product name', 'category id', 'unit id', 'item type',
+                            'description', 'vendor id', 'manufacturing cost',
+                            'selling price', 'opening stock', 'reorder level',
+                            'max stock level', 'min order qty',
+                        ] as $col) {
+                            if (($data[$col] ?? '') === '' || strtolower($data[$col] ?? '') === 'nan') {
+                                $data[$col] = $lastProduct[$productSku][$col] ?? '';
+                            }
+                        }
+                    }
+                } else {
+                    // First row of this product — store product-level data
+                    $lastProduct[$productSku] = $data;
                 }
 
-                // Safe combine: pad or trim row to match header length
-                $row     = array_map('strval', $row);
-                $rowPad  = array_pad(array_slice($row, 0, $colCount), $colCount, '');
-                $rowData = array_combine($header, $rowPad);
+                // ── Deduplicate Variation SKU ─────────────────────────────
+                // If same variation SKU appears twice (engraving NO + YES),
+                // append the engraving value to make each SKU unique
+                $variationSku = trim($data['variation sku'] ?? '');
+                if ($variationSku !== '') {
+                    if (isset($seenVarSKUs[$variationSku])) {
+                        // This is a duplicate — fix both the previous and this one
+                        $engravingKey = strtolower('add engraving?');
+                        $prevData     = &$seenVarSKUs[$variationSku]['data'];
+                        $prevEng      = strtoupper(trim($prevData[$engravingKey] ?? ''));
+                        $currEng      = strtoupper(trim($data[$engravingKey] ?? ''));
 
-                $productSku  = trim($rowData['product sku'] ?? '');
+                        if ($prevEng !== '' && $currEng !== '') {
+                            // Fix previous row's variation SKU
+                            $prevData['variation sku'] = $variationSku . '-' . $prevEng;
+                            // Fix current row's variation SKU
+                            $data['variation sku']     = $variationSku . '-' . $currEng;
+                            Log::info('[Bulk Import] Deduplicated variation SKU', [
+                                'original' => $variationSku,
+                                'fixed_a'  => $prevData['variation sku'],
+                                'fixed_b'  => $data['variation sku'],
+                            ]);
+                        }
+                    } else {
+                        $seenVarSKUs[$variationSku] = ['data' => &$data];
+                    }
+                }
+
+                $parsedRows[] = $data;
+            }
+
+            // ── Counters ──────────────────────────────────────────────────
+            $importedProductSKUs   = [];
+            $importedVariationSKUs = [];
+            $productsCreated       = 0;
+            $productsUpdated       = 0;
+            $productsFailed        = 0;
+            $variationsCreated     = 0;
+            $variationsUpdated     = 0;
+            $variationsFailed      = 0;
+
+            // ── Second pass: upsert products and variations ───────────────
+            foreach ($parsedRows as $rowIndex => $rowData) {
+                $productSku   = trim($rowData['product sku']   ?? '');
                 $variationSku = trim($rowData['variation sku'] ?? '');
 
-                if (empty($productSku)) {
-                    continue; // nothing useful in this row
-                }
+                if ($productSku === '') continue;
 
                 $importedProductSKUs[] = $productSku;
 
-                // ── Upsert Product ──────────────────────────────────────
-                $product = Product::updateOrCreate(
-                    ['sku' => $productSku],
-                    [
-                        'name'               => trim($rowData['product name'] ?? ''),
-                        'category_id'        => (int)($rowData['category id'] ?? 0) ?: null,
-                        'measurement_unit'   => (int)($rowData['unit id'] ?? 0) ?: null,
-                        'item_type'          => trim($rowData['item type'] ?? 'fg'),
-                        'description'        => $rowData['description'] ?? null,
-                        'vendor_id'          => ($rowData['vendor id'] ?? '') !== '' ? (int)$rowData['vendor id'] : null, // ← vendor
-                        'manufacturing_cost' => (float)($rowData['manufacturing cost'] ?? 0),
-                        'selling_price'      => (float)($rowData['selling price'] ?? 0),
-                        'opening_stock'      => (float)($rowData['opening stock'] ?? 0),
-                        'reorder_level'      => (float)($rowData['reorder level'] ?? 0),
-                        'max_stock_level'    => (float)($rowData['max stock level'] ?? 0),
-                        'minimum_order_qty'  => (float)($rowData['min order qty'] ?? 0),
-                    ]
-                );
+                // Resolve category
+                $categoryId = $resolveCategory($rowData['category id'] ?? '');
+                if ($categoryId === null) $categoryId = $getFallbackCategoryId();
 
-                // ── Upsert Variation (only when SKU present) ────────────
-                if ($variationSku !== '') {
-                    $importedVariationSKUs[] = $variationSku;
+                // Resolve unit
+                $rawUnitId = trim($rowData['unit id'] ?? '');
+                $unitId    = is_numeric($rawUnitId) && (int)$rawUnitId > 0
+                    ? (int) $rawUnitId
+                    : $defaultUnit;
 
-                    $variation = ProductVariation::updateOrCreate(
-                        ['sku' => $variationSku],
+                // ── Upsert Product ────────────────────────────────────────
+                try {
+                    $productName = trim($rowData['product name'] ?? '');
+                    if (strtolower($productName) === 'nan') $productName = '';
+
+                    // Deduplicate names across different product SKUs
+                    if ($productName !== '') {
+                        $conflict = Product::where('name', $productName)
+                            ->where('sku', '!=', $productSku)
+                            ->exists();
+                        if ($conflict) {
+                            $productName .= ' [' . $productSku . ']';
+                        }
+                    }
+
+                    $wasNew  = !Product::where('sku', $productSku)->exists();
+                    $product = Product::updateOrCreate(
+                        ['sku' => $productSku],
                         [
-                            'product_id'    => $product->id,
-                            'barcode'       => $rowData['variation barcode'] ?? null,
-                            'selling_price' => (float)($rowData['variation price'] ?? 0),
-                            'stock_quantity'=> (float)($rowData['variation stock'] ?? 0),
+                            'name'               => $productName,
+                            'category_id'        => $categoryId,
+                            'measurement_unit'   => $unitId,
+                            'item_type'          => trim($rowData['item type'] ?? 'fg') ?: 'fg',
+                            'description'        => trim($rowData['description'] ?? '') ?: null,
+                            'vendor_id'          => is_numeric($rowData['vendor id'] ?? '') && (int)($rowData['vendor id']) > 0
+                                                    ? (int)$rowData['vendor id'] : null,
+                            'manufacturing_cost' => is_numeric($rowData['manufacturing cost'] ?? null) ? (float)$rowData['manufacturing cost'] : 0,
+                            'selling_price'      => is_numeric($rowData['selling price']      ?? null) ? (float)$rowData['selling price']      : 0,
+                            'opening_stock'      => is_numeric($rowData['opening stock']      ?? null) ? (float)$rowData['opening stock']      : 0,
+                            'reorder_level'      => is_numeric($rowData['reorder level']      ?? null) ? (float)$rowData['reorder level']      : 0,
+                            'max_stock_level'    => is_numeric($rowData['max stock level']    ?? null) ? (float)$rowData['max stock level']    : 0,
+                            'minimum_order_qty'  => is_numeric($rowData['min order qty']      ?? null) ? (float)$rowData['min order qty']      : 1,
                         ]
                     );
 
-                    // Sync attribute values
+                    $wasNew ? $productsCreated++ : $productsUpdated++;
+
+                } catch (\Throwable $e) {
+                    $productsFailed++;
+                    Log::error('[Bulk Import] Product failed', [
+                        'row'   => $rowIndex + 2,
+                        'sku'   => $productSku,
+                        'error' => $e->getMessage(),
+                    ]);
+                    continue;
+                }
+
+                // ── Upsert Variation ──────────────────────────────────────
+                if ($variationSku === '') continue;
+
+                try {
+                    $importedVariationSKUs[] = $variationSku;
+
+                    $wasNew    = !ProductVariation::where('sku', $variationSku)->exists();
+                    $variation = ProductVariation::updateOrCreate(
+                        ['sku' => $variationSku],
+                        [
+                            'product_id'         => $product->id,
+                            'barcode'            => trim($rowData['variation barcode'] ?? '') ?: null,
+                            'selling_price'      => is_numeric($rowData['variation price'] ?? null) ? (float)$rowData['variation price'] : 0,
+                            'stock_quantity'     => is_numeric($rowData['variation stock'] ?? null) ? (float)$rowData['variation stock'] : 0,
+                            'manufacturing_cost' => is_numeric($rowData['manufacturing cost'] ?? null) ? (float)$rowData['manufacturing cost'] : 0,
+                        ]
+                    );
+
+                    // Sync all attribute values
                     $syncIds = [];
                     foreach ($dbAttributes as $attrKey => $attribute) {
                         $value = trim($rowData[$attrKey] ?? '');
-                        if ($value === '') {
-                            continue;
-                        }
-                        $attrValue = AttributeValue::firstOrCreate([
-                            'attribute_id' => $attribute->id,
-                            'value'        => ucfirst(strtolower($value)),
-                        ]);
+                        if ($value === '' || strtolower($value) === 'nan') continue;
+
+                        $attrValue = AttributeValue::firstOrCreate(
+                            ['attribute_id' => $attribute->id, 'value' => ucfirst(strtolower($value))]
+                        );
                         $syncIds[] = $attrValue->id;
                     }
-
                     $variation->attributeValues()->sync($syncIds);
+
+                    $wasNew ? $variationsCreated++ : $variationsUpdated++;
+
+                } catch (\Throwable $e) {
+                    $variationsFailed++;
+                    Log::error('[Bulk Import] Variation failed', [
+                        'row'           => $rowIndex + 2,
+                        'variation_sku' => $variationSku,
+                        'product_sku'   => $productSku,
+                        'error'         => $e->getMessage(),
+                    ]);
                 }
             }
 
-            // ── Optionally delete records not present in file ───────────
+            // ── Optionally delete missing ─────────────────────────────────
             if ($request->boolean('delete_missing')) {
                 if (!empty($importedVariationSKUs)) {
                     ProductVariation::whereNotIn('sku', $importedVariationSKUs)->delete();
@@ -619,12 +779,21 @@ class ProductController extends Controller
 
             DB::commit();
 
-            $deleted = $request->boolean('delete_missing') ? 'Yes' : 'No';
-            return back()->with('success', "Products imported successfully. Deleted missing: {$deleted}.");
+            $summary = "Products: {$productsCreated} created, {$productsUpdated} updated"
+                . ($productsFailed  > 0 ? ", {$productsFailed} failed"  : '')
+                . " | Variations: {$variationsCreated} created, {$variationsUpdated} updated"
+                . ($variationsFailed > 0 ? ", {$variationsFailed} failed" : '');
+
+            $deleted   = $request->boolean('delete_missing') ? ' | Missing deleted.' : '';
+            $flashType = ($productsFailed > 0 || $variationsFailed > 0) ? 'error' : 'success';
+
+            Log::info('[Bulk Import] Complete', ['summary' => $summary]);
+
+            return back()->with($flashType, "Import complete. {$summary}{$deleted}");
 
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('[Bulk Import] Failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            Log::error('[Bulk Import] Fatal', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return back()->with('error', 'Bulk import failed: ' . $e->getMessage());
         }
     }
@@ -634,11 +803,11 @@ class ProductController extends Controller
      * ================================================================ */
     public function bulkUploadTemplate()
     {
-        $attributes = Attribute::pluck('name')->toArray();
-        $categories = ProductCategory::pluck('id', 'name')->toArray();
-        $units      = MeasurementUnit::pluck('id', 'name')->toArray();
+        $attributes = Attribute::orderBy('id')->pluck('name')->toArray();
+        $categories = ProductCategory::orderBy('id')->get(['id', 'name']);
+        $units      = MeasurementUnit::orderBy('id')->get(['id', 'name', 'shortcode']);
 
-        $columns = array_merge([
+        $fixedCols = [
             'Product SKU',
             'Product Name',
             'Category ID',
@@ -656,7 +825,9 @@ class ProductController extends Controller
             'Variation Barcode',
             'Variation Price',
             'Variation Stock',
-        ], $attributes);
+        ];
+
+        $columns = array_merge($fixedCols, $attributes);
 
         $headers = [
             'Content-Type'        => 'text/csv',
@@ -666,420 +837,173 @@ class ProductController extends Controller
             'Expires'             => '0',
         ];
 
-        $callback = function () use ($columns, $categories, $units) {
-            $file    = fopen('php://output', 'w');
+        $callback = function () use ($columns, $attributes, $categories, $units) {
+            $file = fopen('php://output', 'w');
+
+            // ── Row 1: Column headers ─────────────────────────────────────
             fputcsv($file, $columns);
 
-            $catIds  = array_values($categories);
-            $unitIds = array_values($units);
+            // ── Row 2: Helper row — shows allowed values ──────────────────
+            $catList  = $categories->map(fn($c) => $c->id . '=' . $c->name)->implode(' | ');
+            $unitList = $units->map(fn($u) => $u->id . '=' . $u->shortcode)->implode(' | ');
 
-            // ── Finished goods with variations ──────────────────────────
-            $finishedGoods = [
-                ['CHR001', 'Office Chair',   'Ergonomic chair',         [['CHR001-B-M', '1234567890123', '5000', '20', 'Black', 'Medium'], ['CHR001-W-L', '1234567890124', '5200', '15', 'White', 'Large']]],
-                ['DSK001', 'Wooden Desk',    'Solid oak office desk',   [['DSK001-B-STD', '2234567890123', '12000', '10', 'Brown', 'Standard'], ['DSK001-W-STD', '2234567890124', '12500', '8', 'White', 'Standard']]],
-                ['LPT001', 'Laptop Table',   'Adjustable laptop table', [['LPT001-B-S', '3234567890123', '3000', '30', 'Black', 'Small'], ['LPT001-B-L', '3234567890124', '3500', '25', 'Black', 'Large']]],
+            $helperRow = [
+                '← your SKU',
+                '← product name',
+                $catList,
+                $unitList,
+                'fg | raw | service',
+                'optional description',
+                'leave blank',
+                'cost price',
+                'selling price',
+                'opening qty',
+                'reorder qty',
+                'max qty',
+                'min order qty',
+                '← variation SKU (blank if no variations)',
+                'barcode (optional)',
+                'variation sell price',
+                'variation stock qty',
             ];
 
-            foreach ($finishedGoods as $fg) {
-                foreach ($fg[3] as $variation) {
-                    fputcsv($file, [
-                        $fg[0], $fg[1], $catIds[0] ?? 1, $unitIds[0] ?? 1, 'fg', $fg[2],
-                        '',     // Vendor ID (optional)
-                        '1500', // Manufacturing Cost
-                        $variation[2], // Selling Price
-                        '0',    // Opening Stock
-                        '5',    // Reorder Level
-                        '100',  // Max Stock Level
-                        '1',    // Min Order Qty
-                        $variation[0], $variation[1], $variation[2], $variation[3],
-                        $variation[4] ?? '',
-                        $variation[5] ?? '',
-                    ]);
+            // Append attribute hints
+            foreach ($attributes as $attr) {
+                $helperRow[] = '← ' . $attr . ' value';
+            }
+
+            fputcsv($file, $helperRow);
+
+            // ── Example rows ──────────────────────────────────────────────
+            $defaultCatId  = $categories->first()?->id ?? 1;
+            $defaultUnitId = $units->first()?->id ?? 1;
+
+            // Build blank attribute array (filled per example)
+            $blankAttrs = array_fill(0, count($attributes), '');
+
+            $attrIdx = array_flip(array_map('strtolower', $attributes));
+
+            $makeAttrRow = function (array $vals) use ($attributes, $attrIdx): array {
+                $row = array_fill(0, count($attributes), '');
+                foreach ($vals as $attrName => $val) {
+                    $key = strtolower($attrName);
+                    if (isset($attrIdx[$key])) {
+                        $row[$attrIdx[$key]] = $val;
+                    }
                 }
-            }
+                return $row;
+            };
 
-            // ── Raw materials (no variations) ────────────────────────────
-            $rawProducts = [
-                ['RAW001', 'Wood Plank',   'Solid oak plank 2x4 feet'],
-                ['RAW002', 'Steel Rod',    'High-strength steel rod 12mm'],
-                ['RAW003', 'Foam Sheet',   'High density foam sheet'],
-                ['RAW004', 'Leather Roll', 'Genuine brown leather roll'],
-                ['RAW005', 'Glass Sheet',  'Tempered glass sheet 4x6'],
+            // ── Example 1: FG product WITH size + color variations ────────
+            $fgExamples = [
+                ['sku' => 'JKT-BLK-S',  'color' => 'Black', 'size' => 'S',   'stock' => 10, 'price' => 5000],
+                ['sku' => 'JKT-BLK-M',  'color' => 'Black', 'size' => 'M',   'stock' => 15, 'price' => 5000],
+                ['sku' => 'JKT-BLK-L',  'color' => 'Black', 'size' => 'L',   'stock' => 12, 'price' => 5000],
+                ['sku' => 'JKT-BRN-S',  'color' => 'Brown', 'size' => 'S',   'stock' => 8,  'price' => 5200],
+                ['sku' => 'JKT-BRN-M',  'color' => 'Brown', 'size' => 'M',   'stock' => 10, 'price' => 5200],
             ];
 
-            foreach ($rawProducts as $raw) {
-                fputcsv($file, [
-                    $raw[0], $raw[1], $catIds[1] ?? 1, $unitIds[1] ?? 1, 'raw', $raw[2],
-                    '',   // Vendor ID
-                    '200', '0', '50', '10', '500', '1',
-                    '',   // Variation SKU (blank = no variation)
-                    '',   // Variation Barcode
-                    '0',  // Variation Price
-                    '0',  // Variation Stock
-                ]);
+            foreach ($fgExamples as $v) {
+                fputcsv($file, array_merge([
+                    'JKT-001',               // Product SKU — same for all variations
+                    'Classic Leather Jacket',
+                    $defaultCatId,
+                    $defaultUnitId,
+                    'fg',
+                    'Premium quality leather jacket',
+                    '',
+                    '2500',
+                    $v['price'],
+                    '0',
+                    '5',
+                    '100',
+                    '1',
+                    $v['sku'],               // Variation SKU
+                    '',
+                    $v['price'],
+                    $v['stock'],
+                ], $makeAttrRow(['size' => $v['size'], 'color' => $v['color']])));
             }
+
+            // ── Example 2: FG product WITH engraving variations ───────────
+            $engravingExamples = [
+                ['sku' => 'WLT-BLK-NO',  'color' => 'Black', 'add engraving?' => 'No',  'stock' => 20, 'price' => 1800],
+                ['sku' => 'WLT-BLK-YES', 'color' => 'Black', 'add engraving?' => 'Yes', 'stock' => 10, 'price' => 2100],
+                ['sku' => 'WLT-BRN-NO',  'color' => 'Brown', 'add engraving?' => 'No',  'stock' => 18, 'price' => 1800],
+                ['sku' => 'WLT-BRN-YES', 'color' => 'Brown', 'add engraving?' => 'Yes', 'stock' => 8,  'price' => 2100],
+            ];
+
+            foreach ($engravingExamples as $v) {
+                fputcsv($file, array_merge([
+                    'WLT-001',
+                    'Leather Bifold Wallet',
+                    $defaultCatId,
+                    $defaultUnitId,
+                    'fg',
+                    'Genuine leather wallet with optional engraving',
+                    '',
+                    '700',
+                    $v['price'],
+                    '0',
+                    '5',
+                    '50',
+                    '1',
+                    $v['sku'],
+                    '',
+                    $v['price'],
+                    $v['stock'],
+                ], $makeAttrRow(['color' => $v['color'], 'add engraving?' => $v['add engraving?']])));
+            }
+
+            // ── Example 3: FG product WITHOUT variations ──────────────────
+            fputcsv($file, array_merge([
+                'BELT-001',
+                'Classic Leather Belt',
+                $defaultCatId,
+                $defaultUnitId,
+                'fg',
+                'Hand-stitched genuine leather belt',
+                '',
+                '400',
+                '1200',
+                '25',
+                '5',
+                '100',
+                '1',
+                '',   // no variation SKU
+                '',
+                '0',
+                '0',
+            ], $blankAttrs));
+
+            // ── Example 4: Raw material (no variations) ───────────────────
+            $rawUnit = $units->firstWhere('shortcode', 'sq.ft')?->id
+                    ?? $units->skip(1)->first()?->id
+                    ?? $defaultUnitId;
+
+            fputcsv($file, array_merge([
+                'RAW-LEA-001',
+                'Genuine Sheep Leather',
+                $defaultCatId,
+                $rawUnit,
+                'raw',
+                'Raw sheep leather for jacket production',
+                '',
+                '150',
+                '0',
+                '200',
+                '20',
+                '1000',
+                '1',
+                '',
+                '',
+                '0',
+                '0',
+            ], $blankAttrs));
 
             fclose($file);
         };
 
         return response()->stream($callback, 200, $headers);
-    }
-
-public function importAsaanRetail(Request $request)
-{
-    $request->validate([
-        'file' => 'required|mimes:xlsx,csv,txt',
-    ]);
-
-    DB::beginTransaction();
-    try {
-        $rows = Excel::toArray([], $request->file('file'))[0] ?? [];
-        if (empty($rows)) {
-            throw new \Exception('Uploaded file is empty.');
-        }
-
-        // ── Normalise header ──────────────────────────────────────────
-        $rawHeader = array_shift($rows);
-        $header    = array_map(fn($h) => strtolower(trim((string)$h)), $rawHeader);
-        $colCount  = count($header);
-
-        Log::info('[AR Import] Header parsed', ['headers' => $header]);
-
-        // ── Helper: clean a cell value ────────────────────────────────
-        // Must be defined BEFORE any loop that uses it
-        $clean = function ($val): string {
-            $s = trim((string) $val);
-            $s = trim($s, '"');
-            if (strtolower($s) === 'nan' || $s === '') return '';
-            return $s;
-        };
-
-        // Identify Code_* attribute columns
-        $attributeColumns = [];
-        foreach ($header as $idx => $col) {
-            if (str_starts_with($col, 'code_')) {
-                $attributeColumns[$idx] = trim(substr($col, 5));
-            }
-        }
-        Log::info('[AR Import] Attribute columns', $attributeColumns);
-
-        // Pre-load / create Attribute records
-        $dbAttributes = [];
-        foreach (array_unique(array_values($attributeColumns)) as $attrName) {
-            $attr = Attribute::firstOrCreate(
-                ['slug' => \Illuminate\Support\Str::slug($attrName)],
-                ['name' => ucwords($attrName)]
-            );
-            $dbAttributes[strtolower($attrName)] = $attr;
-        }
-
-        // Pre-load categories by lowercase name
-        $categoryMap = ProductCategory::all()
-            ->keyBy(fn($c) => strtolower(trim($c->name)));
-
-        Log::info('[AR Import] Categories in DB', $categoryMap->keys()->toArray());
-
-        $defaultUnit = MeasurementUnit::first()?->id ?? 1;
-
-        // ── First pass: parse ALL rows into indexed array ─────────────
-        // Also collect every category name seen so we can auto-create missing ones
-        $allRows          = [];
-        $seenCategories   = []; // lowercase => original case
-        $skippedRows      = 0;
-
-        foreach ($rows as $row) {
-            $row  = array_pad(array_slice(array_map('strval', $row), 0, $colCount), $colCount, '');
-            $data = array_combine($header, $row);
-
-            $sku = $clean($data['sku'] ?? '');
-            if ($sku === '') {
-                $skippedRows++;
-                continue;
-            }
-
-            // Collect category
-            $catRaw = $clean($data['category'] ?? '');
-            if ($catRaw !== '' && !str_starts_with(strtolower($catRaw), 'http')) {
-                $seenCategories[strtolower($catRaw)] = $catRaw;
-            }
-
-            $data['_sku_clean']        = $sku;
-            $data['_parent_sku_clean'] = $clean($data['parent sku'] ?? '');
-            $allRows[$sku]             = $data;
-        }
-
-        Log::info('[AR Import] First pass', [
-            'total'    => count($allRows),
-            'skipped'  => $skippedRows,
-            'cats_seen'=> array_keys($seenCategories),
-        ]);
-
-        // ── Auto-create missing categories BEFORE inserting products ──
-        // This ensures category_id is never null (NOT NULL constraint)
-        foreach ($seenCategories as $lowerName => $originalName) {
-            if (!isset($categoryMap[$lowerName])) {
-                $newCat = ProductCategory::create([
-                    'name' => ucwords($originalName),
-                    'code' => \Illuminate\Support\Str::slug($originalName),
-                ]);
-                $categoryMap[$lowerName] = $newCat;
-                Log::info('[AR Import] Created category', ['name' => $originalName, 'id' => $newCat->id]);
-            }
-        }
-
-        // Fallback category — used when category is empty or a URL
-        $fallbackCategory = $categoryMap->first();
-        if (!$fallbackCategory) {
-            $fallbackCategory = ProductCategory::create(['name' => 'Imported', 'code' => 'imported']);
-            $categoryMap['imported'] = $fallbackCategory;
-        }
-
-        Log::info('[AR Import] Category map after auto-create', $categoryMap->keys()->toArray());
-
-        // ── Separate parents from variations ──────────────────────────
-        $parentRows    = [];
-        $variationRows = [];
-
-        foreach ($allRows as $sku => $data) {
-            $parentSku = $data['_parent_sku_clean'];
-            if ($parentSku !== '' && isset($allRows[$parentSku])) {
-                $variationRows[$sku] = $data;
-            } else {
-                $parentRows[$sku] = $data;
-            }
-        }
-
-        Log::info('[AR Import] Split', [
-            'parents'    => count($parentRows),
-            'variations' => count($variationRows),
-        ]);
-
-        // ── Helper: resolve category_id (NEVER returns null) ──────────
-        $resolveCategoryId = function (string $catName) use ($categoryMap, $fallbackCategory): int {
-            $key = strtolower($catName);
-            if ($key !== '' && isset($categoryMap[$key])) {
-                return $categoryMap[$key]->id;
-            }
-            return $fallbackCategory->id; // guaranteed non-null
-        };
-
-        // ── Helper: item type ─────────────────────────────────────────
-        $resolveItemType = fn(string $raw): string => match(strtolower($raw)) {
-            'goods', 'fg' => 'fg',
-            'raw'         => 'raw',
-            'service'     => 'service',
-            default       => 'fg',
-        };
-
-        // ── Helper: build product payload ─────────────────────────────
-        $buildProductPayload = function (array $data) use ($clean, $resolveCategoryId, $resolveItemType, $defaultUnit): array {
-            return [
-                'name'               => $clean($data['name'] ?? '') ?: ($data['_sku_clean'] ?? 'Unknown'),
-                'description'        => $clean($data['description'] ?? '') ?: null,
-                'category_id'        => $resolveCategoryId($clean($data['category'] ?? '')),
-                'measurement_unit'   => $defaultUnit,
-                'item_type'          => $resolveItemType($clean($data['type'] ?? '')),
-                'manufacturing_cost' => is_numeric($data['cost price'] ?? null) ? (float)$data['cost price'] : 0,
-                'selling_price'      => is_numeric($data['selling price'] ?? null) ? (float)$data['selling price'] : 0,
-                'opening_stock'      => is_numeric($data['sellable stock'] ?? null) ? (float)$data['sellable stock'] : 0,
-                'reorder_level'      => 0,
-                'max_stock_level'    => 0,
-                'minimum_order_qty'  => 1,
-                'is_active'          => true,
-            ];
-        };
-
-        // ── Upsert parent products ────────────────────────────────────
-        $skuToProductId  = [];
-        $productsCreated = 0;
-        $productsUpdated = 0;
-        $productsFailed  = 0;
-
-        foreach ($parentRows as $sku => $data) {
-            try {
-                $payload = $buildProductPayload($data);
-
-                // Handle duplicate names — append [SKU] to make unique
-                $nameConflict = Product::where('name', $payload['name'])
-                    ->where('sku', '!=', $sku)
-                    ->exists();
-                if ($nameConflict) {
-                    $payload['name'] = $payload['name'] . ' [' . $sku . ']';
-                    Log::info('[AR Import] Name conflict resolved', ['sku' => $sku, 'name' => $payload['name']]);
-                }
-
-                $wasNew  = !Product::where('sku', $sku)->exists();
-                $product = Product::updateOrCreate(['sku' => $sku], $payload);
-
-                $skuToProductId[$sku] = $product->id;
-                $wasNew ? $productsCreated++ : $productsUpdated++;
-
-                Log::info('[AR Import] Product upserted', [
-                    'sku'         => $sku,
-                    'product_id'  => $product->id,
-                    'category_id' => $product->category_id,
-                    'new'         => $wasNew,
-                ]);
-
-                // If parent row has Code_* attribute values → make it a variation too
-                $parentAttrIds = $this->extractAttributeValues($data, $attributeColumns, $dbAttributes, $clean);
-                if (!empty($parentAttrIds)) {
-                    $variation = ProductVariation::updateOrCreate(
-                        ['sku' => $sku . '-VAR'],
-                        [
-                            'product_id'         => $product->id,
-                            'selling_price'      => $payload['selling_price'],
-                            'stock_quantity'     => $payload['opening_stock'],
-                            'manufacturing_cost' => $payload['manufacturing_cost'],
-                        ]
-                    );
-                    $variation->attributeValues()->sync($parentAttrIds);
-                }
-
-            } catch (\Throwable $e) {
-                $productsFailed++;
-                Log::error('[AR Import] Product failed', [
-                    'sku'         => $sku,
-                    'name'        => $data['name'] ?? '',
-                    'category_id' => $resolveCategoryId($clean($data['category'] ?? '')),
-                    'error'       => $e->getMessage(),
-                    'line'        => $e->getLine(),
-                    'file'        => $e->getFile(),
-                ]);
-            }
-        }
-
-        Log::info('[AR Import] Products done', [
-            'created' => $productsCreated,
-            'updated' => $productsUpdated,
-            'failed'  => $productsFailed,
-        ]);
-
-        // ── Upsert variations ─────────────────────────────────────────
-        $variationsCreated = 0;
-        $variationsUpdated = 0;
-        $variationsFailed  = 0;
-
-        foreach ($variationRows as $sku => $data) {
-            try {
-                $parentSku = $data['_parent_sku_clean'];
-                $productId = $skuToProductId[$parentSku] ?? null;
-
-                // Parent wasn't in parentRows (edge case) — create it now
-                if (!$productId) {
-                    $parentData = $allRows[$parentSku] ?? [];
-                    if (empty($parentData)) {
-                        Log::warning('[AR Import] Parent SKU not found in file', [
-                            'variation_sku' => $sku,
-                            'parent_sku'    => $parentSku,
-                        ]);
-                        $variationsFailed++;
-                        continue;
-                    }
-
-                    $parentPayload = $buildProductPayload($parentData);
-                    $parentConflict = Product::where('name', $parentPayload['name'])
-                        ->where('sku', '!=', $parentSku)
-                        ->exists();
-                    if ($parentConflict) {
-                        $parentPayload['name'] .= ' [' . $parentSku . ']';
-                    }
-
-                    $parentProduct = Product::updateOrCreate(['sku' => $parentSku], $parentPayload);
-                    $productId                  = $parentProduct->id;
-                    $skuToProductId[$parentSku] = $productId;
-
-                    Log::info('[AR Import] Parent created on-the-fly', [
-                        'parent_sku' => $parentSku,
-                        'product_id' => $productId,
-                    ]);
-                }
-
-                $wasNew    = !ProductVariation::where('sku', $sku)->exists();
-                $variation = ProductVariation::updateOrCreate(
-                    ['sku' => $sku],
-                    [
-                        'product_id'         => $productId,
-                        'selling_price'      => is_numeric($data['selling price'] ?? null) ? (float)$data['selling price'] : 0,
-                        'stock_quantity'     => is_numeric($data['sellable stock'] ?? null) ? (float)$data['sellable stock'] : 0,
-                        'manufacturing_cost' => is_numeric($data['cost price'] ?? null) ? (float)$data['cost price'] : 0,
-                    ]
-                );
-
-                $syncIds = $this->extractAttributeValues($data, $attributeColumns, $dbAttributes, $clean);
-                $variation->attributeValues()->sync($syncIds);
-                $wasNew ? $variationsCreated++ : $variationsUpdated++;
-
-            } catch (\Throwable $e) {
-                $variationsFailed++;
-                Log::error('[AR Import] Variation failed', [
-                    'sku'        => $sku,
-                    'parent_sku' => $data['_parent_sku_clean'] ?? '',
-                    'error'      => $e->getMessage(),
-                    'line'       => $e->getLine(),
-                    'file'       => $e->getFile(),
-                ]);
-            }
-        }
-
-        Log::info('[AR Import] Variations done', [
-            'created' => $variationsCreated,
-            'updated' => $variationsUpdated,
-            'failed'  => $variationsFailed,
-        ]);
-
-        DB::commit();
-
-        $summary = "Products: {$productsCreated} created, {$productsUpdated} updated"
-            . ($productsFailed > 0 ? ", {$productsFailed} failed" : '')
-            . " | Variations: {$variationsCreated} created, {$variationsUpdated} updated"
-            . ($variationsFailed > 0 ? ", {$variationsFailed} failed" : '');
-
-        $type = ($productsFailed > 0 || $variationsFailed > 0) ? 'error' : 'success';
-
-        Log::info('[AR Import] Complete', ['summary' => $summary]);
-
-        return back()->with($type, "Import complete. {$summary}");
-
-    } catch (\Throwable $e) {
-        DB::rollBack();
-        Log::error('[AR Import] Fatal rollback', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-        ]);
-        return back()->with('error', 'Import failed: ' . $e->getMessage());
-    }
-}
-
-    /**
-     * Extract non-empty Code_* attribute values from a row.
-     * $clean callable normalises nan/empty/quoted values to "".
-     */
-    private function extractAttributeValues(
-        array    $rowData,
-        array    $attributeColumns,
-        array    $dbAttributes,
-        callable $clean = null
-    ): array {
-        $clean ??= fn($v) => trim(trim((string)$v, '"'));
-        $syncIds = [];
-
-        foreach ($attributeColumns as $colIndex => $attrName) {
-            $colKey = 'code_' . $attrName;
-            $value  = $clean($rowData[$colKey] ?? '');
-
-            if ($value === '') continue;
-
-            $attr = $dbAttributes[strtolower($attrName)] ?? null;
-            if (!$attr) continue;
-
-            $attrValue = AttributeValue::firstOrCreate(
-                ['attribute_id' => $attr->id, 'value' => ucfirst(strtolower($value))]
-            );
-
-            $syncIds[] = $attrValue->id;
-        }
-
-        return $syncIds;
     }
 }

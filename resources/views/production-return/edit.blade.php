@@ -31,7 +31,7 @@
           <div class="row mb-3">
             <div class="col-md-3">
               <label>Vendor (Production Unit) <span class="text-danger">*</span></label>
-              <select name="vendor_id" class="form-control select2-js" required>
+              <select name="vendor_id" data-plugin-selecttwo class="form-control select2-js" required>
                 <option value="">Select Vendor</option>
                 @foreach($vendors as $vendor)
                   <option value="{{ $vendor->id }}"
@@ -79,7 +79,7 @@
                     </td>
                     <td>
                       <select name="items[{{ $i }}][item_id]"
-                              class="form-control select2-js product-select"
+                              data-plugin-selecttwo class="form-control select2-js product-select"
                               onchange="onReturnItemChange(this)" required>
                         <option value="">Select Item</option>
                         @foreach($products as $product)
@@ -94,7 +94,7 @@
                     </td>
                     <td>
                       <select name="items[{{ $i }}][variation_id]"
-                              class="form-control select2-js variation-select">
+                              data-plugin-selecttwo class="form-control select2-js variation-select">
                         <option value="">No Variation</option>
                         @foreach($item->product->variations ?? [] as $var)
                           <option value="{{ $var->id }}"
@@ -106,7 +106,7 @@
                     </td>
                     <td>
                       <select name="items[{{ $i }}][production_id]"
-                              class="form-control select2-js production-select">
+                              data-plugin-selecttwo class="form-control select2-js production-select">
                         <option value="">Select Production</option>
                         @if($item->production_id)
                           <option value="{{ $item->production_id }}" selected>
@@ -123,7 +123,7 @@
                     </td>
                     <td>
                       <select name="items[{{ $i }}][unit]"
-                              class="form-control unit-select" required>
+                              data-plugin-selecttwo class="form-control select2-js unit-select" required>
                         <option value="">Unit</option>
                         @foreach($units as $unit)
                           <option value="{{ $unit->id }}"
@@ -235,7 +235,7 @@
                    class="form-control product-code" placeholder="Scan"></td>
         <td>
           <select name="items[${retIdx}][item_id]"
-                  class="form-control select2-js product-select"
+                  data-plugin-selecttwo class="form-control product-select select2-js"
                   onchange="onReturnItemChange(this)" required>
             <option value="">Select Item</option>
             ${productOpts}
@@ -243,13 +243,13 @@
         </td>
         <td>
           <select name="items[${retIdx}][variation_id]"
-                  class="form-control select2-js variation-select">
+                  data-plugin-selecttwo  class="form-control select2-js variation-select">
             <option value="">No Variation</option>
           </select>
         </td>
         <td>
           <select name="items[${retIdx}][production_id]"
-                  class="form-control select2-js production-select">
+                  data-plugin-selecttwo class="form-control select2-js production-select">
             <option value="">Select Production</option>
           </select>
         </td>
@@ -257,7 +257,7 @@
                    class="form-control quantity" step="any" value="0"
                    onchange="rowTotal(this)" required></td>
         <td>
-          <select name="items[${retIdx}][unit]" class="form-control unit-select" required>
+          <select name="items[${retIdx}][unit]" data-plugin-selecttwo class="form-control select2-js unit-select" required>
             <option value="">Unit</option>
             ${unitOpts}
           </select>

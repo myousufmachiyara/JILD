@@ -39,7 +39,7 @@
               <tr>
                 <td>{{ $loop->iteration }}</td>
                 <td>{{ $category->name }}</td>
-                <td><code>{{ $category->code }}</code></td>
+                <td>{{ $category->code }}</td>
                 <td>
                   <a class="text-primary modal-with-form" href="#editCategoryModal{{ $category->id }}">
                     <i class="fa fa-edit"></i>

@@ -108,7 +108,7 @@
               </div>
               <div class="col-lg-6 mb-2">
                 <label>Account Debit <span class="text-danger">*</span></label>
-                <select class="form-control select2-js" name="ac_dr_sid" required>
+                <select data-plugin-selecttwo class="form-control select2-js" name="ac_dr_sid" required>
                   <option value="" disabled selected>Select Account</option>
                   @foreach($accounts as $account)
                     <option value="{{ $account->id }}">{{ $account->name }}</option>
@@ -117,7 +117,7 @@
               </div>
               <div class="col-lg-6 mb-2">
                 <label>Account Credit <span class="text-danger">*</span></label>
-                <select class="form-control select2-js" name="ac_cr_sid" required>
+                <select data-plugin-selecttwo class="form-control select2-js" name="ac_cr_sid" required>
                   <option value="" disabled selected>Select Account</option>
                   @foreach($accounts as $account)
                     <option value="{{ $account->id }}">{{ $account->name }}</option>
@@ -172,7 +172,7 @@
               </div>
               <div class="col-lg-6 mb-2">
                 <label>Account Debit <span class="text-danger">*</span></label>
-                <select class="form-control select2-js" name="ac_dr_sid" id="update_ac_dr_sid" required>
+                <select data-plugin-selecttwo class="form-control select2-js" name="ac_dr_sid" id="update_ac_dr_sid" required>
                   <option value="" disabled>Select Account</option>
                   @foreach($accounts as $account)
                     <option value="{{ $account->id }}">{{ $account->name }}</option>
@@ -181,7 +181,7 @@
               </div>
               <div class="col-lg-6 mb-2">
                 <label>Account Credit <span class="text-danger">*</span></label>
-                <select class="form-control select2-js" name="ac_cr_sid" id="update_ac_cr_sid" required>
+                <select data-plugin-selecttwo class="form-control select2-js" name="ac_cr_sid" id="update_ac_cr_sid" required>
                   <option value="" disabled>Select Account</option>
                   @foreach($accounts as $account)
                     <option value="{{ $account->id }}">{{ $account->name }}</option>

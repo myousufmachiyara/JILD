@@ -21,7 +21,7 @@
                 <div class="row">
                     <div class="col-md-3">
                         <label>Product</label>
-                        <select name="item_id" class="form-control">
+                        <select name="item_id" data-plugin-selecttwo class="form-control select2-js">
                             <option value="">-- All Products --</option>
                             @foreach($products as $product)
                                 <option value="{{ $product->id }}" {{ request('item_id') == $product->id ? 'selected' : '' }}>
@@ -110,7 +110,7 @@
                 <div class="row">
                     <div class="col-md-3">
                         <label>Product</label>
-                        <select name="item_id" class="form-control">
+                        <select name="item_id" data-plugin-selecttwo class="form-control select2-js">
                             <option value="">-- All Products --</option>
                             @foreach($products as $product)
                                 <option value="{{ $product->id }}" {{ request('item_id') == $product->id ? 'selected' : '' }}>
@@ -128,7 +128,7 @@
                     {{-- costing method --}}
                     <div class="col-md-3">
                         <label>Costing Method</label>
-                        <select name="costing_method" class="form-control">
+                        <select name="costing_method" data-plugin-selecttwo class="form-control select2-js">
                             <option value="avg" {{ request('costing_method') == 'avg' ? 'selected' : '' }}>Average Rate</option>
                             <option value="max" {{ request('costing_method') == 'max' ? 'selected' : '' }}>Max Rate</option>
                             <option value="min" {{ request('costing_method') == 'min' ? 'selected' : '' }}>Min Rate</option>
@@ -203,7 +203,7 @@
                 <div class="row">
                     <div class="col-md-3">
                         <label>From Location</label>
-                        <select name="from_location_id" class="form-control">
+                        <select name="from_location_id" data-plugin-selecttwo class="form-control select2-js">
                             <option value="">-- All --</option>
                             @foreach($locations as $loc)
                                 <option value="{{ $loc->id }}" {{ request('from_location_id') == $loc->id ? 'selected' : '' }}>
@@ -214,7 +214,7 @@
                     </div>
                     <div class="col-md-3">
                         <label>To Location</label>
-                        <select name="to_location_id" class="form-control">
+                        <select name="to_location_id" data-plugin-selecttwo class="form-control select2-js">
                             <option value="">-- All --</option>
                             @foreach($locations as $loc)
                                 <option value="{{ $loc->id }}" {{ request('to_location_id') == $loc->id ? 'selected' : '' }}>
@@ -282,7 +282,7 @@
                 <div class="row">
                     <div class="col-md-3">
                         <label>Product</label>
-                        <select name="item_id" class="form-control">
+                        <select name="item_id" data-plugin-selecttwo class="form-control select2-js">
                             <option value="">-- All Products --</option>
                             @foreach($products as $product)
                                 <option value="{{ $product->id }}" {{ request('item_id') == $product->id ? 'selected' : '' }}>
@@ -331,7 +331,7 @@
                 <div class="row">
                     <div class="col-md-3">
                         <label>Product</label>
-                        <select name="item_id" class="form-control">
+                        <select name="item_id" data-plugin-selecttwo class="form-control select2-js">
                             <option value="">-- All Products --</option>
                             @foreach($products as $product)
                                 <option value="{{ $product->id }}" {{ request('item_id') == $product->id ? 'selected' : '' }}>

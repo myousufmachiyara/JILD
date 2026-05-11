@@ -156,7 +156,7 @@
               <div class="row g-3 align-items-end">
                 <div class="col-md-3">
                   <label class="form-label fw-bold">Receive Into <span class="text-danger">*</span></label>
-                  <select name="account_id" class="form-control" required>
+                  <select data-plugin-selecttwo class="form-control select2-js" name="account_id" required>
                     <option value="">Select Account</option>
                     @foreach($accounts as $acc)
                       <option value="{{ $acc->id }}">{{ $acc->name }}</option>
@@ -279,7 +279,7 @@
         <div class="modal-body">
           <div class="mb-3">
             <label class="fw-bold">Account <span class="text-danger">*</span></label>
-            <select name="account_id" id="ep_account" class="form-control" required>
+            <select name="account_id" id="ep_account" data-plugin-selecttwo class="form-control select2-js" required>
               @foreach($accounts as $acc)
                 <option value="{{ $acc->id }}">{{ $acc->name }}</option>
               @endforeach

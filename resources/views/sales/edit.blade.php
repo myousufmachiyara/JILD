@@ -67,7 +67,7 @@
             </div>
             <div class="col-md-3 mb-3">
               <label>Customer</label>
-              <select name="account_id" class="form-control select2-js">
+              <select name="account_id" data-plugin-selecttwo class="form-control select2-js">
                 <option value="">Walk-in Customer</option>
                 @foreach($customers as $c)
                   <option value="{{ $c->id }}"
@@ -79,7 +79,7 @@
             </div>
             <div class="col-md-2 mb-3">
               <label>Type <span class="text-danger">*</span></label>
-              <select name="type" class="form-control" required>
+              <select name="type" data-plugin-selecttwo class="form-control select2-js" required>
                 <option value="credit" {{ $invoice->type === 'credit' ? 'selected' : '' }}>Credit</option>
                 <option value="cash"   {{ $invoice->type === 'cash'   ? 'selected' : '' }}>Cash</option>
               </select>
@@ -132,7 +132,7 @@
                     <td>
                       <select name="items[{{ $key }}][product_id]"
                               id="product_{{ $rowNum }}"
-                              class="form-control select2-js product-select"
+                              data-plugin-selecttwo class="form-control select2-js product-select"
                               onchange="onProductChange(this)" required>
                         <option value="">Select Item</option>
                         @foreach($products as $p)
@@ -149,7 +149,7 @@
                     <td>
                       <select name="items[{{ $key }}][variation_id]"
                               id="variation_{{ $rowNum }}"
-                              class="form-control select2-js variation-select">
+                              data-plugin-selecttwo  class="form-control select2-js variation-select">
                         <option value="">No Variation</option>
                         @foreach($item->product->variations ?? [] as $var)
                           <option value="{{ $var->id }}"
@@ -169,7 +169,7 @@
                     <td>
                       <select name="items[{{ $key }}][unit]"
                               id="unit_{{ $rowNum }}"
-                              class="form-control" required>
+                              data-plugin-selecttwo class="form-control select2-js" required>
                         <option value="">Unit</option>
                         @foreach($units as $unit)
                           <option value="{{ $unit->id }}"
@@ -423,14 +423,14 @@
                    class="form-control product-code"></td>
         <td>
           <select name="items[${rowKey}][product_id]" id="product_${i}"
-                  class="form-control select2-js product-select"
+                  data-plugin-selecttwo class="form-control select2-js product-select"
                   onchange="onProductChange(this)" required>
             <option value="">Select Item</option>${productOpts}
           </select>
         </td>
         <td>
           <select name="items[${rowKey}][variation_id]" id="variation_${i}"
-                  class="form-control select2-js variation-select">
+                  data-plugin-selecttwo class="form-control select2-js variation-select">
             <option value="">No Variation</option>
           </select>
         </td>
@@ -439,7 +439,7 @@
                    onchange="rowTotal(${i})" required></td>
         <td>
           <select name="items[${rowKey}][unit]" id="unit_${i}"
-                  class="form-control" required>
+                  data-plugin-selecttwo class="form-control select2-js" required>
             <option value="">Unit</option>${unitOpts}
           </select>
         </td>

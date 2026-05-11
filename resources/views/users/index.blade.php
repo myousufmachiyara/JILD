@@ -101,7 +101,7 @@
             </div>
             <div class="mb-2">
               <label>Role</label>
-              <select name="role" class="form-control" required>
+              <select name="role" data-plugin-selecttwo class="form-control select2-js" required>
                 <option value="">-- Select Role --</option>
                 @foreach($roles as $role)
                   <option value="{{ $role->id }}">{{ $role->name }}</option>
@@ -139,7 +139,7 @@
             </div>
             <div class="mb-2">
               <label>Role</label>
-              <select name="role" id="edit_role" class="form-control" required>
+              <select name="role" id="edit_role" data-plugin-selecttwo class="form-control select2-js" required>
                 <option value="">-- Select Role --</option>
                 @foreach($roles as $role)
                   <option value="{{ $role->id }}">{{ $role->name }}</option>
