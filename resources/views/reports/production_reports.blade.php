@@ -261,8 +261,7 @@
 
       <div class="alert alert-info mb-3">
         <i class="fas fa-info-circle me-1"></i>
-        Shows raw material that should currently be at each vendor's warehouse
-        (sent minus wastage returned).
+        Shows raw material remaining at each vendor: <strong>Sent − Consumed in FG (from product consumption) − Wastage Returned</strong>
       </div>
 
       @forelse($vendorRawBalance as $vb)
@@ -277,6 +276,7 @@
                 <tr>
                   <th>Raw Material</th>
                   <th class="text-end">Total Sent</th>
+                  <th class="text-end">Consumed in FG</th>
                   <th class="text-end">Wastage Returned</th>
                   <th class="text-end">Remaining at Vendor</th>
                 </tr>
@@ -286,9 +286,10 @@
                   <tr>
                     <td>{{ $b->product }}</td>
                     <td class="text-end">{{ number_format($b->sent, 2) }} {{ $b->unit }}</td>
-                    <td class="text-end">{{ number_format($b->returned, 2) }}</td>
-                    <td class="text-end fw-bold text-warning">
-                      {{ number_format($b->remaining, 2) }} {{ $b->unit }}
+                    <td class="text-end text-success">{{ number_format($b->consumed, 4) }} {{ $b->unit }}</td>
+                    <td class="text-end text-info">{{ number_format($b->returned, 2) }} {{ $b->unit }}</td>
+                    <td class="text-end fw-bold {{ $b->remaining > 0 ? 'text-warning' : 'text-success' }}">
+                      {{ number_format($b->remaining, 4) }} {{ $b->unit }}
                     </td>
                   </tr>
                 @endforeach

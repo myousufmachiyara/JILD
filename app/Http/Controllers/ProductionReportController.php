@@ -170,46 +170,81 @@ class ProductionReportController extends Controller
             $vendorRawBalance = $vendors->map(function ($vendor) use ($from, $to) {
                 $productions = Production::with([
                         'details.product.measurementUnit',
+                        'receivings.details.product',   // ← need product.consumption
                         'wastageReceivings.details',
                     ])
                     ->where('vendor_id', $vendor->id)
                     ->where('order_date', '<=', $to)
                     ->get();
 
-                // Per-product raw balance at this vendor
-                $rawSent     = collect();
-                $wastageBack = collect();
+                $rawSent        = collect(); // product_id => [name, unit, qty_sent]
+                $rawConsumed    = collect(); // product_id => qty consumed in FG production
+                $wastageBack    = collect(); // product_id => qty returned as wastage
 
+                // ── Raw sent to vendor ────────────────────────────────────
                 foreach ($productions as $prod) {
                     foreach ($prod->details as $d) {
                         $pid  = $d->product_id;
                         $name = $d->product->name ?? '-';
                         $unit = $d->product->measurementUnit->shortcode ?? '-';
 
-                        $rawSent->put($pid, [
-                            'name'     => $name,
-                            'unit'     => $unit,
-                            'qty_sent' => ($rawSent->get($pid)['qty_sent'] ?? 0) + $d->qty,
-                        ]);
+                        $existing = $rawSent->get($pid, ['name' => $name, 'unit' => $unit, 'qty_sent' => 0]);
+                        $existing['qty_sent'] += (float) $d->qty;
+                        $rawSent->put($pid, $existing);
                     }
 
+                    // ── Raw consumed in FG (FG qty × product.consumption) ─
+                    // Each receiving detail has a product (FG) with a consumption column
+                    // consumption = how much raw (sq.ft/meters) is used per FG piece
+                    foreach ($prod->receivings as $rec) {
+                        foreach ($rec->details as $rd) {
+                            $fgQty       = (float) $rd->received_qty;
+                            $consumption = (float) ($rd->product->consumption ?? 0);
+
+                            if ($consumption <= 0 || $fgQty <= 0) continue;
+
+                            // The raw consumed belongs to the raw products issued for this production
+                            // Apportion consumed qty across all raw products sent for this production
+                            // If multiple raw products, split proportionally by qty sent
+                            $totalRawForThisProd = $prod->details->sum('qty');
+
+                            if ($totalRawForThisProd <= 0) continue;
+
+                            $totalConsumed = $fgQty * $consumption;
+
+                            foreach ($prod->details as $d) {
+                                $pid   = $d->product_id;
+                                $share = $totalRawForThisProd > 0
+                                    ? ($d->qty / $totalRawForThisProd) * $totalConsumed
+                                    : 0;
+
+                                $rawConsumed->put($pid, ($rawConsumed->get($pid, 0) + $share));
+                            }
+                        }
+                    }
+
+                    // ── Wastage returned ──────────────────────────────────
                     foreach ($prod->wastageReceivings as $wr) {
                         foreach ($wr->details as $wd) {
                             $pid = $wd->product_id;
-                            $wastageBack->put($pid, ($wastageBack->get($pid) ?? 0) + $wd->quantity);
+                            $wastageBack->put($pid, ($wastageBack->get($pid, 0) + (float) $wd->quantity));
                         }
                     }
                 }
 
-                $balance = $rawSent->map(function ($item, $pid) use ($wastageBack) {
+                // ── Calculate remaining at vendor ─────────────────────────
+                $balance = $rawSent->map(function ($item, $pid) use ($rawConsumed, $wastageBack) {
+                    $consumed  = $rawConsumed->get($pid, 0);
                     $returned  = $wastageBack->get($pid, 0);
-                    $remaining = max(0, $item['qty_sent'] - $returned);
+                    $remaining = max(0, $item['qty_sent'] - $consumed - $returned);
+
                     return (object)[
                         'product'   => $item['name'],
                         'unit'      => $item['unit'],
                         'sent'      => $item['qty_sent'],
+                        'consumed'  => round($consumed, 4),
                         'returned'  => $returned,
-                        'remaining' => $remaining,
+                        'remaining' => round($remaining, 4),
                     ];
                 })->values()->filter(fn($r) => $r->remaining > 0);
 
