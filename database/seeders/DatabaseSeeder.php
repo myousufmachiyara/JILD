@@ -12,7 +12,7 @@ use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use App\Models\MeasurementUnit;
 use App\Models\ProductCategory;
-use App\Models\ProductSubCategory;
+use App\Models\ProductSubcategory;
 use App\Models\Attribute;
 use App\Models\AttributeValue;
 use App\Models\BarcodeSequence;
