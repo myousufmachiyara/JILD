@@ -16,7 +16,7 @@ use App\Http\Controllers\{
     RoleController,
     AttributeController,
     ProductCategoryController,
-    ProductSubCategoryController,
+    ProductSubcategoryController,
     ProductionReceivingController,
     VoucherController,
     InventoryReportController,
@@ -100,7 +100,7 @@ Route::middleware(['auth'])->group(function () {
         // Products
         'products'              => ['controller' => ProductController::class,         'permission' => 'products'],
         'product_categories'    => ['controller' => ProductCategoryController::class, 'permission' => 'product_categories'],
-        'product_subcategories' => ['controller' => ProductSubCategoryController::class, 'permission' => 'product_subcategories'],
+        'product_subcategories' => ['controller' => ProductSubcategoryController::class, 'permission' => 'product_subcategories'],
         'attributes'            => ['controller' => AttributeController::class,       'permission' => 'attributes'],
 
         // Stock Management
