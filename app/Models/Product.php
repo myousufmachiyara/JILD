@@ -11,6 +11,7 @@ class Product extends Model
 
     protected $fillable = [
         'category_id',
+        'subcategory_id',
         'vendor_id',            // ← NEW: optional vendor/manufacturer
         'name',
         'sku',

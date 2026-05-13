@@ -16,6 +16,7 @@ use App\Http\Controllers\{
     RoleController,
     AttributeController,
     ProductCategoryController,
+    ProductSubCategoryController,
     ProductionReceivingController,
     VoucherController,
     InventoryReportController,
@@ -52,6 +53,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/product/{product}/variations',         [ProductController::class, 'getVariations'])->name('product.variations');
     Route::get('/product/{product}/variations2',        [ProductController::class, 'getVariations2'])->name('product.variations2');
     Route::get('/product/{product}/productions',        [ProductionController::class, 'getProductProductions'])->name('product.productions');
+    Route::get('/get-subcategories/{category_id}', [ProductCategoryController::class, 'getSubcategories'])->name('products.getSubcategories');
 
     Route::get('/products/bulk-upload/template', [ProductController::class, 'bulkUploadTemplate'])->name('products.bulk-upload.template')->middleware('check.permission:products.create');
     Route::get('/products/bulk-export',          [ProductController::class, 'bulkExport'])->name('products.bulk-export')->middleware('check.permission:products.create');
@@ -96,9 +98,10 @@ Route::middleware(['auth'])->group(function () {
         'shoa' => ['controller' => SubHeadOfAccController::class, 'permission' => 'shoa'],
 
         // Products
-        'products'           => ['controller' => ProductController::class,         'permission' => 'products'],
-        'product_categories' => ['controller' => ProductCategoryController::class, 'permission' => 'product_categories'],
-        'attributes'         => ['controller' => AttributeController::class,       'permission' => 'attributes'],
+        'products'              => ['controller' => ProductController::class,         'permission' => 'products'],
+        'product_categories'    => ['controller' => ProductCategoryController::class, 'permission' => 'product_categories'],
+        'product_subcategories' => ['controller' => ProductSubCategoryController::class, 'permission' => 'product_subcategories'],
+        'attributes'            => ['controller' => AttributeController::class,       'permission' => 'attributes'],
 
         // Stock Management
         'locations'      => ['controller' => LocationController::class,     'permission' => 'locations'],

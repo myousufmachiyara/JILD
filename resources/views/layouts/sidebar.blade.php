@@ -79,6 +79,9 @@
               @can('product_categories.index')
                 <li><a class="nav-link" href="{{ route('product_categories.index') }}">Categories</a></li>
               @endcan
+              @can('product_subcategories.index')
+                <li><a class="nav-link" href="{{ route('product_subcategories.index') }}">Sub Category</a></li>
+              @endcan
               @can('attributes.index')
                 <li><a class="nav-link" href="{{ route('attributes.index') }}">Attributes</a></li>
               @endcan

@@ -12,6 +12,7 @@ use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use App\Models\MeasurementUnit;
 use App\Models\ProductCategory;
+use App\Models\ProductSubCategory;
 use App\Models\Attribute;
 use App\Models\AttributeValue;
 use App\Models\BarcodeSequence;
@@ -51,6 +52,7 @@ class DatabaseSeeder extends Seeder
             // Products
             'products',
             'product_categories',
+            'product_subcategories',
             'attributes',
 
             // Stock Management
@@ -392,41 +394,136 @@ class DatabaseSeeder extends Seeder
             ['id' => 105, 'attribute_id' => 6, 'value' => '41',                    'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
         ]);
 
-        // 📦 Product Categories
-        ProductCategory::insert([
-            ['id' => 1,  'name' => 'Raw Leather',                  'code' => 'raw-leather',              'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 2,  'name' => 'Women Jackets',                'code' => 'women-jackets',            'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 3,  'name' => 'Bags',                         'code' => 'bags',                     'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 4,  'name' => 'Skirts',                       'code' => 'skirts',                   'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 5,  'name' => 'Mens Jackets',                 'code' => 'men-jacket',               'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 6,  'name' => 'Pant',                         'code' => 'pant',                     'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 7,  'name' => 'Wallets',                      'code' => 'wallets',                  'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 8,  'name' => 'Rugs',                         'code' => 'rugs',                     'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 9,  'name' => 'Belts',                        'code' => 'belts',                    'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 10, 'name' => 'Wallet',                       'code' => 'wallet',                   'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 11, 'name' => 'Default',                      'code' => 'default',                  'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 12, 'name' => 'Jackets',                      'code' => 'jackets',                  'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 13, 'name' => 'Jacket',                       'code' => 'jacket',                   'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 14, 'name' => 'Gift Sets',                    'code' => 'gift-sets',                'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 15, 'name' => 'Watch Straps',                 'code' => 'watch-straps',             'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 16, 'name' => 'Tote Bags',                    'code' => 'tote-bags',                'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 17, 'name' => 'Leather Blazers',              'code' => 'leather-blazers',          'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 18, 'name' => 'Laptop Bags',                  'code' => 'laptop-bags',              'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 19, 'name' => "Men's Leather Trench Coat",    'code' => 'mens-leather-trench-coat', 'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 20, 'name' => 'Shoes',                        'code' => 'shoes',                    'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 21, 'name' => 'Eyewear Pouch',                'code' => 'eyewear-pouch',            'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 22, 'name' => 'Caps',                         'code' => 'caps',                     'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 23, 'name' => 'Backpack',                     'code' => 'backpack',                 'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 24, 'name' => 'Duffle Bag',                   'code' => 'duffle-bag',               'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 25, 'name' => 'Services',                     'code' => 'services',                 'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 26, 'name' => 'CROSSBODY BAG',                'code' => 'crossbody-bag',            'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 27, 'name' => 'Mules',                        'code' => 'mules',                    'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 28, 'name' => 'Men Biker Jacket',             'code' => 'men-biker-jacket',         'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 29, 'name' => 'Card Holder',                  'code' => 'card-holder',              'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 30, 'name' => 'Bomber Jackets',               'code' => 'bomber-jackets',           'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-            ['id' => 31, 'name' => 'OTHER',                        'code' => 'other',                    'deleted_at' => null, 'created_at' => $now, 'updated_at' => $now],
-        ]);
 
+        /*
+        |--------------------------------------------------------------------------
+        | Product Categories
+        |--------------------------------------------------------------------------
+        */
+
+        $categories = [
+            ['id' => 1,  'name' => 'Default',         'code' => 'DEFAULT'],
+            ['id' => 2,  'name' => 'Raw Leather',     'code' => 'RAW-LEATHER'],
+            ['id' => 3,  'name' => 'Jackets',         'code' => 'JACKETS'],
+            ['id' => 4,  'name' => 'Bags',            'code' => 'BAGS'],
+            ['id' => 5,  'name' => 'Skirt',           'code' => 'SKIRT'],
+            ['id' => 6,  'name' => 'Pant',            'code' => 'PANT'],
+            ['id' => 7,  'name' => 'Wallets',         'code' => 'WALLETS'],
+            ['id' => 8,  'name' => 'Belts',           'code' => 'BELTS'],
+            ['id' => 9,  'name' => 'Gift Set',        'code' => 'GIFT-SET'],
+            ['id' => 10, 'name' => 'Rugs',            'code' => 'RUGS'],
+            ['id' => 11, 'name' => 'Watch Strap',     'code' => 'WATCH-STRAP'],
+            ['id' => 12, 'name' => 'Shoes',           'code' => 'SHOES'],
+            ['id' => 13, 'name' => 'Eyewear Pouch',   'code' => 'EYEWEAR-POUCH'],
+            ['id' => 14, 'name' => 'Caps',            'code' => 'CAPS'],
+        ];
+
+        foreach ($categories as $cat) {
+            ProductCategory::firstOrCreate(
+                ['code' => $cat['code']],
+                array_merge($cat, [
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ])
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Product Sub Categories
+        |--------------------------------------------------------------------------
+        */
+
+        $subCategories = [
+
+            // Jackets
+            [
+                'category_id' => 3,
+                'name'        => "Women's Jackets",
+                'code'        => 'JACKETS-WOMEN',
+            ],
+            [
+                'category_id' => 3,
+                'name'        => "Men Jackets",
+                'code'        => 'JACKETS-MEN',
+            ],
+            [
+                'category_id' => 3,
+                'name'        => "Blazer",
+                'code'        => 'JACKETS-BLAZER',
+            ],
+            [
+                'category_id' => 3,
+                'name'        => "Coats",
+                'code'        => 'JACKETS-COATS',
+            ],
+
+            // Bags
+            [
+                'category_id' => 4,
+                'name'        => 'Laptop Bags',
+                'code'        => 'BAGS-LAPTOP',
+            ],
+            [
+                'category_id' => 4,
+                'name'        => 'Bag Packs',
+                'code'        => 'BAGS-BACKPACKS',
+            ],
+            [
+                'category_id' => 4,
+                'name'        => "Women Leather Tote Bag",
+                'code'        => 'BAGS-TOTE',
+            ],
+            [
+                'category_id' => 4,
+                'name'        => 'Travel Bags (Duffle Bag)',
+                'code'        => 'BAGS-DUFFLE',
+            ],
+            [
+                'category_id' => 4,
+                'name'        => 'Cross Body Bag',
+                'code'        => 'BAGS-CROSSBODY',
+            ],
+
+            // Wallets
+            [
+                'category_id' => 7,
+                'name'        => "Men's Wallet",
+                'code'        => 'WALLETS-MEN',
+            ],
+            [
+                'category_id' => 7,
+                'name'        => "Women's Wallet",
+                'code'        => 'WALLETS-WOMEN',
+            ],
+            [
+                'category_id' => 7,
+                'name'        => 'Card Holder',
+                'code'        => 'WALLETS-CARD-HOLDER',
+            ],
+
+            // Shoes
+            [
+                'category_id' => 12,
+                'name'        => 'Women (Mules)',
+                'code'        => 'SHOES-WOMEN-MULES',
+            ],
+            [
+                'category_id' => 12,
+                'name'        => 'Kids',
+                'code'        => 'SHOES-KIDS',
+            ],
+        ];
+
+        foreach ($subCategories as $sub) {
+            ProductSubcategory::firstOrCreate(
+                ['code' => $sub['code']],
+                array_merge($sub, [
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ])
+            );
+        }
         // 📏 Measurement Units
         MeasurementUnit::insert([
             ['id' => 1, 'name' => 'Piece', 'shortcode' => 'pcs'],

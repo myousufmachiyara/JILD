@@ -42,6 +42,15 @@
             </div>
 
             <div class="col-md-2">
+              <label>Sub Category </label>
+              <select name="subcategory_id" class="form-control">
+                @foreach($subcategories as $subcat)
+                  <option value="{{ $subcat->id }}" {{ $product->subcategory_id == $subcat->id ? 'selected' : '' }}>{{ $subcat->name }}</option>
+                @endforeach
+              </select>
+            </div>
+
+            <div class="col-md-2">
               <label>Vendor / Manufacturer</label>
               <select name="vendor_id" class="form-control select2-js">
                 <option value="">-- None --</option>
@@ -348,6 +357,33 @@ $(document).ready(function () {
     productForm.appendChild(input);
   });
 
+  $('select[name="category_id"]').on('change', function () {
+    let categoryId = $(this).val();
+    let subCategorySelect = $('#subcategory_id');
+
+    subCategorySelect.empty().append('<option value="">Loading...</option>');
+
+    if (categoryId) {
+      $.ajax({
+        url: "{{ route('products.getSubcategories', ':id') }}".replace(':id', categoryId),
+        type: "GET",
+        success: function (data) {
+          subCategorySelect.empty();
+          subCategorySelect.append('<option value="">Select Sub Category</option>');
+
+          if (data.length > 0) {
+            $.each(data, function (key, subcat) {
+              subCategorySelect.append(
+                `<option value="${subcat.id}">${subcat.name}</option>`
+              );
+            });
+          }
+        }
+      });
+    } else {
+      subCategorySelect.empty().append('<option value="">Select Sub Category</option>');
+    }
+  });
 });
 </script>
 @endsection

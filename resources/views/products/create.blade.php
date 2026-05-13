@@ -39,6 +39,13 @@
               @error('category_id')<div class="text-danger">{{ $message }}</div>@enderror
             </div>
             <div class="col-md-2">
+              <label>Sub Category</label>
+              <select name="subcategory_id" id="subcategory_id" class="form-control">
+                <option value="">Select Sub Category</option>
+              </select>
+              @error('subcategory_id')<div class="text-danger">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-md-2">
               <label>Vendor / Manufacturer</label>
               <select name="vendor_id" class="form-control select2-js">
                 <option value="">-- None --</option>
@@ -244,6 +251,34 @@
       let rest = buildCombinations(arr, index + 1);
       return values.flatMap(v => rest.map(r => [v, ...r]));
     }
+
+    $('select[name="category_id"]').on('change', function () {
+      let categoryId = $(this).val();
+      let subCategorySelect = $('#subcategory_id');
+
+      subCategorySelect.empty().append('<option value="">Loading...</option>');
+
+      if (categoryId) {
+        $.ajax({
+          url: "{{ route('products.getSubcategories', ':id') }}".replace(':id', categoryId),
+          type: "GET",
+          success: function (data) {
+            subCategorySelect.empty();
+            subCategorySelect.append('<option value="">Select Sub Category</option>');
+
+            if (data.length > 0) {
+              $.each(data, function (key, subcat) {
+                subCategorySelect.append(
+                  `<option value="${subcat.id}">${subcat.name}</option>`
+                );
+              });
+            }
+          }
+        });
+      } else {
+        subCategorySelect.empty().append('<option value="">Select Sub Category</option>');
+      }
+    });
 
     document.getElementById("imageUpload").addEventListener("change", function(event) {
         const files = event.target.files;

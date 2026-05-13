@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\ProductCategory;
+use App\Models\ProductSubcategory;
 
 class ProductCategoryController extends Controller
 {
@@ -47,5 +48,16 @@ class ProductCategoryController extends Controller
 
         return redirect()->route('product_categories.index')
             ->with('success', 'Category deleted successfully.');
+    }
+
+    public function getSubcategories($categoryId)
+    {
+        try {
+            $subcategories = ProductSubcategory::where('category_id', $categoryId)->get();
+            return response()->json($subcategories);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching subcategories: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to fetch subcategories'], 500);
+        }
     }
 }
