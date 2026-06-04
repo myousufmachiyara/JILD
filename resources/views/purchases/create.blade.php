@@ -79,9 +79,11 @@
                     <select name="items[0][item_id]" id="item_name1" class="form-control select2-js product-select" onchange="onItemNameChange(this)">
                       <option value="">Select Item</option>
                       @foreach ($products as $product)
+                        {{-- In create.blade.php @foreach --}}
                         <option value="{{ $product->id }}" 
                                 data-barcode="{{ $product->barcode }}" 
-                                data-unit-id="{{ $product->measurement_unit }}">
+                                data-unit-id="{{ $product->measurement_unit }}"
+                                data-cost-price="{{ $product->cost_price ?? 0 }}">
                           {{ $product->name }}
                         </option>
                       @endforeach
@@ -282,24 +284,28 @@
 
   // 🔹 Keep all your existing functions exactly as they are
   function onItemNameChange(selectElement) {
-    const row = selectElement.closest('tr');
-    const selectedOption = selectElement.options[selectElement.selectedIndex];
+      const row = selectElement.closest('tr');
+      const selectedOption = selectElement.options[selectElement.selectedIndex];
 
-    const itemId = selectedOption.value;
-    const unitId = selectedOption.getAttribute('data-unit-id');
+      const unitId     = selectedOption.getAttribute('data-unit-id');
+      const barcode    = selectedOption.getAttribute('data-barcode');
+      const costPrice  = selectedOption.getAttribute('data-cost-price') || '0';
 
-    const barcode = selectedOption.getAttribute('data-barcode');
+      const idMatch = selectElement.id.match(/\d+$/);
+      if (!idMatch) return;
+      const index = idMatch[0];
 
-    const idMatch = selectElement.id.match(/\d+$/);
-    if (!idMatch) return;
+      document.getElementById(`item_cod${index}`).value  = barcode;
+      document.getElementById(`barcode${index}`).value   = barcode;
 
-    const index = idMatch[0];
+      // ← Set cost price into price field
+      document.getElementById(`pur_price${index}`).value = parseFloat(costPrice).toFixed(2);
 
-    document.getElementById(`item_cod${index}`).value = barcode;
-    document.getElementById(`barcode${index}`).value = barcode;
+      const unitSelector = $(`#unit${index}`);
+      unitSelector.val(String(unitId)).trigger('change.select2');
 
-    const unitSelector = $(`#unit${index}`);
-    unitSelector.val(String(unitId)).trigger('change.select2');
+      // Recalculate row total
+      rowTotal(index);
   }
 
   function removeRow(button) {
@@ -327,8 +333,12 @@
         <td>
           <select name="items[${rowIndex}][item_id]" id="item_name${index}" class="form-control select2-js product-select" onchange="onItemNameChange(this)">
             <option value="">Select Item</option>
+            // In addNewRow() JS function — the products.map() line:
             ${products.map(product => 
-              `<option value="${product.id}" data-barcode="${product.barcode}" data-unit-id="${product.measurement_unit}">
+              `<option value="${product.id}" 
+                      data-barcode="${product.barcode}" 
+                      data-unit-id="${product.measurement_unit}"
+                      data-cost-price="${product.cost_price ?? 0}">
                 ${product.name}
               </option>`).join('')}
           </select>

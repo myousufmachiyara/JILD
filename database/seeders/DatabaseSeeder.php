@@ -74,6 +74,7 @@ class DatabaseSeeder extends Seeder
             'production',
             'production_receiving',
             'production_return',
+            'production_wastage',
 
             // POS
             'pos_system',

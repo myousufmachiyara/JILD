@@ -30,6 +30,7 @@ use App\Http\Controllers\{
     LocationController,
     StockTransferController,
     ProductionReturnController,
+    ProductionWastageController,
     PosController,
 };
 
@@ -122,7 +123,8 @@ Route::middleware(['auth'])->group(function () {
         'production'           => ['controller' => ProductionController::class,          'permission' => 'production'],
         'production_receiving' => ['controller' => ProductionReceivingController::class, 'permission' => 'production_receiving'],
         'production_return'    => ['controller' => ProductionReturnController::class,    'permission' => 'production_return'],
-
+        'production_wastage'   => ['controller' => ProductionWastageController::class, 'permission' => 'production_wastage'],
+        
         // POS System — treated exactly like other modules
         'pos_system' => ['controller' => PosController::class, 'permission' => 'pos_system'],
     ];

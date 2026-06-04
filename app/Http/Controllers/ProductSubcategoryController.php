@@ -12,6 +12,7 @@ class ProductSubcategoryController extends Controller
     {
         $subcategories = ProductSubcategory::with('category')->get();
         $categories = ProductCategory::all(); // for dropdown
+        $subcategories = ProductSubcategory::all();
         return view('products.subcategories', compact('subcategories', 'categories'));
     }
 

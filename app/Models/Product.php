@@ -12,12 +12,13 @@ class Product extends Model
     protected $fillable = [
         'category_id',
         'subcategory_id',
-        'vendor_id',            // ← NEW: optional vendor/manufacturer
+        'vendor_id',
         'name',
         'sku',
         'barcode',
         'description',
-        'manufacturing_cost',
+        'cmt_cost',
+        'cost_price',
         'opening_stock',
         'selling_price',
         'consumption',
@@ -25,7 +26,7 @@ class Product extends Model
         'max_stock_level',
         'minimum_order_qty',
         'measurement_unit',
-        'item_type',            // fg, raw, service
+        'item_type',
         'is_active',
     ];
 
@@ -39,23 +40,19 @@ class Product extends Model
                     'service' => 'SRV-',
                     default   => 'PRD-',
                 };
-
                 $product->barcode = generateGlobalBarcode($prefix);
             }
         });
     }
-
-    /* ----------------- Relationships ----------------- */
 
     public function category()
     {
         return $this->belongsTo(ProductCategory::class, 'category_id');
     }
 
-    // ← NEW: optional vendor/manufacturer
     public function vendor()
     {
-        return $this->belongsTo(Vendor::class, 'vendor_id');
+        return $this->belongsTo(ChartOfAccounts::class, 'vendor_id');
     }
 
     public function variations()

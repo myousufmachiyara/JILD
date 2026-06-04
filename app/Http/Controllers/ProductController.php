@@ -87,7 +87,7 @@ class ProductController extends Controller
                 'trace'   => $e->getTraceAsString(),
                 'request' => $request->all(),
             ]);
-            return back()->with('error', 'Something went wrong while generating barcodes. Check logs for details.');
+            return back()->with('error', 'Something went wrong while generating barcodes.');
         }
     }
 
@@ -114,7 +114,8 @@ class ProductController extends Controller
             'description'        => 'nullable|string',
             'measurement_unit'   => 'required|exists:measurement_units,id',
             'item_type'          => 'required|in:fg,raw,service',
-            'manufacturing_cost' => 'nullable|numeric',
+            'cmt_cost'           => 'nullable|numeric',
+            'cost_price'         => 'nullable|numeric',
             'consumption'        => 'nullable|numeric',
             'selling_price'      => 'nullable|numeric',
             'opening_stock'      => 'required|numeric',
@@ -127,15 +128,15 @@ class ProductController extends Controller
 
         DB::beginTransaction();
         try {
-            $productData = $request->only([
+            $product = Product::create($request->only([
                 'name', 'category_id', 'subcategory_id', 'vendor_id',
                 'sku', 'barcode', 'description',
-                'measurement_unit', 'item_type', 'manufacturing_cost',
+                'measurement_unit', 'item_type',
+                'cmt_cost', 'cost_price',
                 'opening_stock', 'selling_price', 'consumption',
                 'reorder_level', 'max_stock_level', 'minimum_order_qty', 'is_active',
-            ]);
+            ]));
 
-            $product = Product::create($productData);
             Log::info('[Product Store] Product created', ['product_id' => $product->id]);
 
             if ($request->hasFile('prod_att')) {
@@ -148,10 +149,8 @@ class ProductController extends Controller
             if ($request->has('variations')) {
                 foreach ($request->variations as $variationData) {
                     $variation = $product->variations()->create([
-                        'sku'                => $variationData['sku'] ?? null,
-                        'manufacturing_cost' => $variationData['manufacturing_cost'] ?? 0,
-                        'stock_quantity'     => $variationData['stock_quantity'] ?? 0,
-                        'selling_price'      => $variationData['selling_price'] ?? 0,
+                        'sku'            => $variationData['sku'] ?? null,
+                        'stock_quantity' => $variationData['stock_quantity'] ?? 0,
                     ]);
 
                     if (!empty($variationData['attributes'])) {
@@ -180,11 +179,12 @@ class ProductController extends Controller
     {
         $product = Product::findOrFail($request->id);
         return response()->json([
-            'id'    => $product->id,
-            'name'  => $product->name,
-            'code'  => $product->item_code ?? '',
-            'unit'  => $product->unit ?? '',
-            'price' => $product->price ?? 0,
+            'id'         => $product->id,
+            'name'       => $product->name,
+            'code'       => $product->item_code ?? '',
+            'unit'       => $product->unit ?? '',
+            'cost_price' => $product->cost_price ?? 0,
+            'cmt_cost'   => $product->cmt_cost ?? 0,
         ]);
     }
 
@@ -219,7 +219,8 @@ class ProductController extends Controller
             $product->update($request->only([
                 'name', 'category_id', 'subcategory_id', 'vendor_id',
                 'sku', 'measurement_unit', 'item_type',
-                'manufacturing_cost', 'opening_stock', 'description', 'selling_price',
+                'cmt_cost', 'cost_price',
+                'opening_stock', 'description', 'selling_price',
                 'consumption', 'reorder_level', 'max_stock_level', 'minimum_order_qty', 'is_active',
             ]));
 
@@ -229,10 +230,8 @@ class ProductController extends Controller
                 foreach ($request->variations as $variationData) {
                     $variation = ProductVariation::findOrFail($variationData['id']);
                     $variation->update([
-                        'sku'                => $variationData['sku'],
-                        'manufacturing_cost' => $variationData['manufacturing_cost'] ?? 0,
-                        'stock_quantity'     => $variationData['stock_quantity'] ?? 0,
-                        'selling_price'      => $variationData['selling_price'] ?? 0,
+                        'sku'            => $variationData['sku'],
+                        'stock_quantity' => $variationData['stock_quantity'] ?? 0,
                     ]);
 
                     if (!empty($variationData['attributes'])) {
@@ -246,10 +245,8 @@ class ProductController extends Controller
             if (is_array($request->new_variations)) {
                 foreach ($request->new_variations as $newVar) {
                     $variation = $product->variations()->create([
-                        'sku'                => $newVar['sku'],
-                        'manufacturing_cost' => $newVar['manufacturing_cost'] ?? 0,
-                        'stock_quantity'     => $newVar['stock_quantity'] ?? 0,
-                        'selling_price'      => $newVar['selling_price'] ?? 0,
+                        'sku'            => $newVar['sku'],
+                        'stock_quantity' => $newVar['stock_quantity'] ?? 0,
                     ]);
 
                     if (!empty($newVar['attributes'])) {
@@ -315,7 +312,9 @@ class ProductController extends Controller
                         'sku'        => $variation->sku,
                         'barcode'    => $variation->barcode,
                         'name'       => $variation->product->name,
-                        'm.cost'     => $variation->product->manufacturing_cost,
+                        'cost_price' => $variation->product->cost_price ?? 0,
+                        'cmt_cost'   => $variation->product->cmt_cost ?? 0,
+                        'selling_price' => $variation->product->selling_price ?? 0,
                     ],
                 ]);
             }
@@ -327,11 +326,13 @@ class ProductController extends Controller
                     'success' => true,
                     'type'    => 'product',
                     'product' => [
-                        'id'      => $product->id,
-                        'name'    => $product->name,
-                        'barcode' => $product->barcode,
-                        'sku'     => $product->sku,
-                        'm.cost'  => $product->manufacturing_cost,
+                        'id'            => $product->id,
+                        'name'          => $product->name,
+                        'barcode'       => $product->barcode,
+                        'sku'           => $product->sku,
+                        'cost_price'    => $product->cost_price ?? 0,
+                        'cmt_cost'      => $product->cmt_cost ?? 0,
+                        'selling_price' => $product->selling_price ?? 0,
                     ],
                 ]);
             }
@@ -363,10 +364,12 @@ class ProductController extends Controller
             'success'   => true,
             'variation' => $variations,
             'product'   => [
-                'id'                 => $product->id,
-                'name'               => $product->name,
-                'manufacturing_cost' => $product->manufacturing_cost,
-                'unit'               => $unitId,
+                'id'            => $product->id,
+                'name'          => $product->name,
+                'cmt_cost'      => $product->cmt_cost,
+                'cost_price'    => $product->cost_price,
+                'selling_price' => $product->selling_price,
+                'unit'          => $unitId,
             ],
         ]);
     }
@@ -398,10 +401,12 @@ class ProductController extends Controller
             'success'   => true,
             'variation' => $variations,
             'product'   => [
-                'id'                 => $product->id,
-                'name'               => $product->name,
-                'manufacturing_cost' => $product->manufacturing_cost,
-                'unit'               => $unitId,
+                'id'            => $product->id,
+                'name'          => $product->name,
+                'cmt_cost'      => $product->cmt_cost,
+                'cost_price'    => $product->cost_price,
+                'selling_price' => $product->selling_price,
+                'unit'          => $unitId,
             ],
         ]);
     }
@@ -422,7 +427,8 @@ class ProductController extends Controller
             'Item Type',
             'Description',
             'Vendor ID',
-            'Manufacturing Cost',
+            'CMT Cost',
+            'Cost Price',
             'Selling Price',
             'Opening Stock',
             'Reorder Level',
@@ -430,7 +436,6 @@ class ProductController extends Controller
             'Min Order Qty',
             'Variation SKU',
             'Variation Barcode',
-            'Variation Price',
             'Variation Stock',
         ], $attributes);
 
@@ -443,8 +448,8 @@ class ProductController extends Controller
         ];
 
         $callback = function () use ($columns, $attributes) {
-            $file     = fopen('php://output', 'w');
-            fputcsv($file, $columns);
+            $file = fopen('php://output', 'w');
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM for Excel
 
             $products = Product::with(['variations.attributeValues.attribute'])->get();
 
@@ -458,7 +463,8 @@ class ProductController extends Controller
                     $product->item_type,
                     $product->description,
                     $product->vendor_id ?? '',
-                    $product->manufacturing_cost ?? 0,
+                    $product->cmt_cost ?? 0,
+                    $product->cost_price ?? 0,
                     $product->selling_price ?? 0,
                     $product->opening_stock ?? 0,
                     $product->reorder_level ?? 0,
@@ -469,7 +475,7 @@ class ProductController extends Controller
                 if ($product->variations->isEmpty()) {
                     fputcsv($file, array_merge(
                         $productRow,
-                        ['', '', 0, 0],
+                        ['', '', 0],
                         array_fill(0, count($attributes), '')
                     ));
                 } else {
@@ -477,7 +483,6 @@ class ProductController extends Controller
                         $variationRow = [
                             $variation->sku,
                             $variation->barcode ?? '',
-                            $variation->selling_price ?? 0,
                             $variation->stock_quantity ?? 0,
                         ];
 
@@ -517,37 +522,24 @@ class ProductController extends Controller
                 throw new \Exception('Uploaded file is empty.');
             }
 
-            // ── Normalise header ──────────────────────────────────────────
             $rawHeader = array_shift($rows);
             $header    = array_map(fn($h) => strtolower(trim((string)$h)), $rawHeader);
             $colCount  = count($header);
 
-            // Skip helper/hint row (starts with "←")
             if (!empty($rows) && str_starts_with(trim((string)($rows[0][0] ?? '')), '←')) {
                 array_shift($rows);
             }
 
-            // ── Pre-load lookups ──────────────────────────────────────────
-            $dbAttributes = Attribute::orderBy('id')->get()->keyBy(fn($a) => strtolower($a->name));
+            $dbAttributes   = Attribute::orderBy('id')->get()->keyBy(fn($a) => strtolower($a->name));
+            $categoryMap    = ProductCategory::all()->keyBy(fn($c) => strtolower(trim($c->name)));
+            $subcategoryMap = ProductSubcategory::all()->keyBy(fn($s) => strtolower(trim($s->name)));
+            $defaultUnit    = MeasurementUnit::first()?->id ?? 1;
 
-            $categoryMap = ProductCategory::all()
-                ->keyBy(fn($c) => strtolower(trim($c->name)));
-
-            $subcategoryMap = ProductSubcategory::all()
-                ->keyBy(fn($s) => strtolower(trim($s->name)));
-
-            $defaultUnit = MeasurementUnit::first()?->id ?? 1;
-
-            // ── Resolve category ──────────────────────────────────────────
             $resolveCategory = function (string $raw) use (&$categoryMap): ?int {
                 $raw = trim($raw);
                 if ($raw === '' || strtolower($raw) === 'nan') return null;
                 if (str_starts_with(strtolower($raw), 'http')) return null;
-
-                if (is_numeric($raw)) {
-                    $id = (int) $raw;
-                    return $id > 0 ? $id : null;
-                }
+                if (is_numeric($raw)) return (int)$raw > 0 ? (int)$raw : null;
 
                 $key = strtolower($raw);
                 if (!isset($categoryMap[$key])) {
@@ -556,7 +548,6 @@ class ProductController extends Controller
                         'code' => \Illuminate\Support\Str::slug($raw),
                     ]);
                     $categoryMap[$key] = $newCat;
-                    Log::info('[Bulk Import] Created category', ['name' => $raw, 'id' => $newCat->id]);
                 }
                 return $categoryMap[$key]->id;
             };
@@ -568,26 +559,20 @@ class ProductController extends Controller
                 return $cat->id;
             };
 
-            // ── Resolve subcategory ───────────────────────────────────────
             $resolveSubcategory = function (string $raw) use (&$subcategoryMap): ?int {
                 $raw = trim($raw);
                 if ($raw === '' || strtolower($raw) === 'nan') return null;
-
-                if (is_numeric($raw)) {
-                    $id = (int) $raw;
-                    return $id > 0 ? $id : null;
-                }
+                if (is_numeric($raw)) return (int)$raw > 0 ? (int)$raw : null;
 
                 $key = strtolower($raw);
                 if (!isset($subcategoryMap[$key])) {
                     $newSub = ProductSubcategory::create(['name' => ucwords($raw)]);
                     $subcategoryMap[$key] = $newSub;
-                    Log::info('[Bulk Import] Created subcategory', ['name' => $raw, 'id' => $newSub->id]);
                 }
                 return $subcategoryMap[$key]->id;
             };
 
-            // ── First pass: normalise all rows ────────────────────────────
+            // ── First pass ────────────────────────────────────────────────
             $parsedRows  = [];
             $lastProduct = [];
             $seenVarSKUs = [];
@@ -603,7 +588,6 @@ class ProductController extends Controller
                 $productSku = trim($data['product sku'] ?? '');
                 if (str_starts_with($productSku, '←') || $productSku === '') continue;
 
-                // Forward-fill product-level fields across variation rows
                 $productName = trim($data['product name'] ?? '');
                 $isNan       = strtolower($productName) === 'nan';
 
@@ -611,9 +595,9 @@ class ProductController extends Controller
                     if (isset($lastProduct[$productSku])) {
                         foreach ([
                             'product name', 'category id', 'subcategory id', 'unit id',
-                            'item type', 'description', 'vendor id', 'manufacturing cost',
-                            'selling price', 'opening stock', 'reorder level',
-                            'max stock level', 'min order qty',
+                            'item type', 'description', 'vendor id',
+                            'cmt cost', 'cost price', 'selling price',
+                            'opening stock', 'reorder level', 'max stock level', 'min order qty',
                         ] as $col) {
                             if (($data[$col] ?? '') === '' || strtolower($data[$col] ?? '') === 'nan') {
                                 $data[$col] = $lastProduct[$productSku][$col] ?? '';
@@ -624,7 +608,6 @@ class ProductController extends Controller
                     $lastProduct[$productSku] = $data;
                 }
 
-                // Deduplicate variation SKUs for engraving pairs
                 $variationSku = trim($data['variation sku'] ?? '');
                 if ($variationSku !== '') {
                     if (isset($seenVarSKUs[$variationSku])) {
@@ -636,11 +619,6 @@ class ProductController extends Controller
                         if ($prevEng !== '' && $currEng !== '') {
                             $prevData['variation sku'] = $variationSku . '-' . $prevEng;
                             $data['variation sku']     = $variationSku . '-' . $currEng;
-                            Log::info('[Bulk Import] Deduplicated variation SKU', [
-                                'original' => $variationSku,
-                                'fixed_a'  => $prevData['variation sku'],
-                                'fixed_b'  => $data['variation sku'],
-                            ]);
                         }
                     } else {
                         $seenVarSKUs[$variationSku] = ['data' => &$data];
@@ -650,17 +628,12 @@ class ProductController extends Controller
                 $parsedRows[] = $data;
             }
 
-            // ── Counters ──────────────────────────────────────────────────
             $importedProductSKUs   = [];
             $importedVariationSKUs = [];
-            $productsCreated       = 0;
-            $productsUpdated       = 0;
-            $productsFailed        = 0;
-            $variationsCreated     = 0;
-            $variationsUpdated     = 0;
-            $variationsFailed      = 0;
+            $productsCreated  = 0; $productsUpdated  = 0; $productsFailed  = 0;
+            $variationsCreated = 0; $variationsUpdated = 0; $variationsFailed = 0;
 
-            // ── Second pass: upsert products and variations ───────────────
+            // ── Second pass ───────────────────────────────────────────────
             foreach ($parsedRows as $rowIndex => $rowData) {
                 $productSku   = trim($rowData['product sku']   ?? '');
                 $variationSku = trim($rowData['variation sku'] ?? '');
@@ -671,62 +644,49 @@ class ProductController extends Controller
 
                 $categoryId    = $resolveCategory($rowData['category id'] ?? '');
                 if ($categoryId === null) $categoryId = $getFallbackCategoryId();
-
                 $subcategoryId = $resolveSubcategory($rowData['subcategory id'] ?? '');
 
                 $rawUnitId = trim($rowData['unit id'] ?? '');
-                $unitId    = is_numeric($rawUnitId) && (int)$rawUnitId > 0
-                    ? (int) $rawUnitId
-                    : $defaultUnit;
+                $unitId    = is_numeric($rawUnitId) && (int)$rawUnitId > 0 ? (int)$rawUnitId : $defaultUnit;
 
-                // ── Upsert Product ────────────────────────────────────────
                 try {
                     $productName = trim($rowData['product name'] ?? '');
                     if (strtolower($productName) === 'nan') $productName = '';
 
                     if ($productName !== '') {
-                        $conflict = Product::where('name', $productName)
-                            ->where('sku', '!=', $productSku)
-                            ->exists();
-                        if ($conflict) {
-                            $productName .= ' [' . $productSku . ']';
-                        }
+                        $conflict = Product::where('name', $productName)->where('sku', '!=', $productSku)->exists();
+                        if ($conflict) $productName .= ' [' . $productSku . ']';
                     }
 
                     $wasNew  = !Product::where('sku', $productSku)->exists();
                     $product = Product::updateOrCreate(
                         ['sku' => $productSku],
                         [
-                            'name'               => $productName,
-                            'category_id'        => $categoryId,
-                            'subcategory_id'     => $subcategoryId,
-                            'measurement_unit'   => $unitId,
-                            'item_type'          => trim($rowData['item type'] ?? 'fg') ?: 'fg',
-                            'description'        => trim($rowData['description'] ?? '') ?: null,
-                            'vendor_id'          => is_numeric($rowData['vendor id'] ?? '') && (int)($rowData['vendor id']) > 0
-                                                    ? (int)$rowData['vendor id'] : null,
-                            'manufacturing_cost' => is_numeric($rowData['manufacturing cost'] ?? null) ? (float)$rowData['manufacturing cost'] : 0,
-                            'selling_price'      => is_numeric($rowData['selling price']      ?? null) ? (float)$rowData['selling price']      : 0,
-                            'opening_stock'      => is_numeric($rowData['opening stock']      ?? null) ? (float)$rowData['opening stock']      : 0,
-                            'reorder_level'      => is_numeric($rowData['reorder level']      ?? null) ? (float)$rowData['reorder level']      : 0,
-                            'max_stock_level'    => is_numeric($rowData['max stock level']    ?? null) ? (float)$rowData['max stock level']    : 0,
-                            'minimum_order_qty'  => is_numeric($rowData['min order qty']      ?? null) ? (float)$rowData['min order qty']      : 1,
+                            'name'              => $productName,
+                            'category_id'       => $categoryId,
+                            'subcategory_id'    => $subcategoryId,
+                            'measurement_unit'  => $unitId,
+                            'item_type'         => trim($rowData['item type'] ?? 'fg') ?: 'fg',
+                            'description'       => trim($rowData['description'] ?? '') ?: null,
+                            'vendor_id'         => is_numeric($rowData['vendor id'] ?? '') && (int)($rowData['vendor id']) > 0
+                                                   ? (int)$rowData['vendor id'] : null,
+                            'cmt_cost'          => is_numeric($rowData['cmt cost']      ?? null) ? (float)$rowData['cmt cost']      : 0,
+                            'cost_price'        => is_numeric($rowData['cost price']    ?? null) ? (float)$rowData['cost price']    : 0,
+                            'selling_price'     => is_numeric($rowData['selling price'] ?? null) ? (float)$rowData['selling price'] : 0,
+                            'opening_stock'     => is_numeric($rowData['opening stock'] ?? null) ? (float)$rowData['opening stock'] : 0,
+                            'reorder_level'     => is_numeric($rowData['reorder level'] ?? null) ? (float)$rowData['reorder level'] : 0,
+                            'max_stock_level'   => is_numeric($rowData['max stock level'] ?? null) ? (float)$rowData['max stock level'] : 0,
+                            'minimum_order_qty' => is_numeric($rowData['min order qty']   ?? null) ? (float)$rowData['min order qty']   : 1,
                         ]
                     );
-
                     $wasNew ? $productsCreated++ : $productsUpdated++;
 
                 } catch (\Throwable $e) {
                     $productsFailed++;
-                    Log::error('[Bulk Import] Product failed', [
-                        'row'   => $rowIndex + 2,
-                        'sku'   => $productSku,
-                        'error' => $e->getMessage(),
-                    ]);
+                    Log::error('[Bulk Import] Product failed', ['row' => $rowIndex + 2, 'sku' => $productSku, 'error' => $e->getMessage()]);
                     continue;
                 }
 
-                // ── Upsert Variation ──────────────────────────────────────
                 if ($variationSku === '') continue;
 
                 try {
@@ -736,11 +696,9 @@ class ProductController extends Controller
                     $variation = ProductVariation::updateOrCreate(
                         ['sku' => $variationSku],
                         [
-                            'product_id'         => $product->id,
-                            'barcode'            => trim($rowData['variation barcode'] ?? '') ?: null,
-                            'selling_price'      => is_numeric($rowData['variation price'] ?? null) ? (float)$rowData['variation price'] : 0,
-                            'stock_quantity'     => is_numeric($rowData['variation stock'] ?? null) ? (float)$rowData['variation stock'] : 0,
-                            'manufacturing_cost' => is_numeric($rowData['manufacturing cost'] ?? null) ? (float)$rowData['manufacturing cost'] : 0,
+                            'product_id'     => $product->id,
+                            'barcode'        => trim($rowData['variation barcode'] ?? '') ?: null,
+                            'stock_quantity' => is_numeric($rowData['variation stock'] ?? null) ? (float)$rowData['variation stock'] : 0,
                         ]
                     );
 
@@ -760,23 +718,13 @@ class ProductController extends Controller
 
                 } catch (\Throwable $e) {
                     $variationsFailed++;
-                    Log::error('[Bulk Import] Variation failed', [
-                        'row'           => $rowIndex + 2,
-                        'variation_sku' => $variationSku,
-                        'product_sku'   => $productSku,
-                        'error'         => $e->getMessage(),
-                    ]);
+                    Log::error('[Bulk Import] Variation failed', ['row' => $rowIndex + 2, 'variation_sku' => $variationSku, 'error' => $e->getMessage()]);
                 }
             }
 
-            // ── Optionally delete missing ─────────────────────────────────
             if ($request->boolean('delete_missing')) {
-                if (!empty($importedVariationSKUs)) {
-                    ProductVariation::whereNotIn('sku', $importedVariationSKUs)->delete();
-                }
-                if (!empty($importedProductSKUs)) {
-                    Product::whereNotIn('sku', $importedProductSKUs)->delete();
-                }
+                if (!empty($importedVariationSKUs)) ProductVariation::whereNotIn('sku', $importedVariationSKUs)->delete();
+                if (!empty($importedProductSKUs))   Product::whereNotIn('sku', $importedProductSKUs)->delete();
             }
 
             DB::commit();
@@ -785,12 +733,9 @@ class ProductController extends Controller
                 . ($productsFailed  > 0 ? ", {$productsFailed} failed"  : '')
                 . " | Variations: {$variationsCreated} created, {$variationsUpdated} updated"
                 . ($variationsFailed > 0 ? ", {$variationsFailed} failed" : '');
-            $deleted   = $request->boolean('delete_missing') ? ' | Missing deleted.' : '';
             $flashType = ($productsFailed > 0 || $variationsFailed > 0) ? 'error' : 'success';
 
-            Log::info('[Bulk Import] Complete', ['summary' => $summary]);
-
-            return back()->with($flashType, "Import complete. {$summary}{$deleted}");
+            return back()->with($flashType, "Import complete. {$summary}" . ($request->boolean('delete_missing') ? ' | Missing deleted.' : ''));
 
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -818,7 +763,8 @@ class ProductController extends Controller
             'Item Type',
             'Description',
             'Vendor ID',
-            'Manufacturing Cost',
+            'CMT Cost',
+            'Cost Price',
             'Selling Price',
             'Opening Stock',
             'Reorder Level',
@@ -826,7 +772,6 @@ class ProductController extends Controller
             'Min Order Qty',
             'Variation SKU',
             'Variation Barcode',
-            'Variation Price',
             'Variation Stock',
         ];
 
@@ -842,11 +787,8 @@ class ProductController extends Controller
 
         $callback = function () use ($columns, $attributes, $categories, $subcategories, $units) {
             $file = fopen('php://output', 'w');
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM for Excel
 
-            // Row 1: headers
-            fputcsv($file, $columns);
-
-            // Row 2: helper hints
             $catList  = $categories->map(fn($c) => $c->id . '=' . $c->name)->implode(' | ');
             $subList  = $subcategories->count()
                 ? $subcategories->map(fn($s) => $s->id . '=' . $s->name)->implode(' | ')
@@ -862,7 +804,8 @@ class ProductController extends Controller
                 'fg | raw | service',
                 'optional description',
                 'leave blank',
-                'cost price',
+                'CMT/making cost',
+                'default purchase rate',
                 'selling price',
                 'opening qty',
                 'reorder qty',
@@ -870,7 +813,6 @@ class ProductController extends Controller
                 'min order qty',
                 '← variation SKU (blank if no variations)',
                 'barcode (optional)',
-                'variation sell price',
                 'variation stock qty',
             ];
 
@@ -880,59 +822,55 @@ class ProductController extends Controller
 
             fputcsv($file, $helperRow);
 
-            // Example data
             $defaultCatId  = $categories->first()?->id ?? 1;
             $defaultSubId  = '';
             $defaultUnitId = $units->first()?->id ?? 1;
             $blankAttrs    = array_fill(0, count($attributes), '');
-
-            $attrIdx = array_flip(array_map('strtolower', $attributes));
+            $attrIdx       = array_flip(array_map('strtolower', $attributes));
 
             $makeAttrRow = function (array $vals) use ($attributes, $attrIdx): array {
                 $row = array_fill(0, count($attributes), '');
                 foreach ($vals as $attrName => $val) {
                     $key = strtolower($attrName);
-                    if (isset($attrIdx[$key])) {
-                        $row[$attrIdx[$key]] = $val;
-                    }
+                    if (isset($attrIdx[$key])) $row[$attrIdx[$key]] = $val;
                 }
                 return $row;
             };
 
             // Example 1: FG with size + color
             $fgExamples = [
-                ['sku' => 'JKT-BLK-S', 'color' => 'Black', 'size' => 'S', 'stock' => 10, 'price' => 5000],
-                ['sku' => 'JKT-BLK-M', 'color' => 'Black', 'size' => 'M', 'stock' => 15, 'price' => 5000],
-                ['sku' => 'JKT-BLK-L', 'color' => 'Black', 'size' => 'L', 'stock' => 12, 'price' => 5000],
-                ['sku' => 'JKT-BRN-S', 'color' => 'Brown', 'size' => 'S', 'stock' => 8,  'price' => 5200],
-                ['sku' => 'JKT-BRN-M', 'color' => 'Brown', 'size' => 'M', 'stock' => 10, 'price' => 5200],
+                ['sku' => 'JKT-BLK-S', 'color' => 'Black', 'size' => 'S', 'stock' => 10],
+                ['sku' => 'JKT-BLK-M', 'color' => 'Black', 'size' => 'M', 'stock' => 15],
+                ['sku' => 'JKT-BLK-L', 'color' => 'Black', 'size' => 'L', 'stock' => 12],
+                ['sku' => 'JKT-BRN-S', 'color' => 'Brown', 'size' => 'S', 'stock' => 8],
+                ['sku' => 'JKT-BRN-M', 'color' => 'Brown', 'size' => 'M', 'stock' => 10],
             ];
-
             foreach ($fgExamples as $v) {
                 fputcsv($file, array_merge([
                     'JKT-001', 'Classic Leather Jacket',
                     $defaultCatId, $defaultSubId, $defaultUnitId,
-                    'fg', 'Premium quality leather jacket', '', '2500',
-                    $v['price'], '0', '5', '100', '1',
-                    $v['sku'], '', $v['price'], $v['stock'],
+                    'fg', 'Premium quality leather jacket', '',
+                    '2500', '3000', '5000',
+                    '0', '5', '100', '1',
+                    $v['sku'], '', $v['stock'],
                 ], $makeAttrRow(['size' => $v['size'], 'color' => $v['color']])));
             }
 
             // Example 2: FG with engraving
             $engravingExamples = [
-                ['sku' => 'WLT-BLK-NO',  'color' => 'Black', 'add engraving?' => 'No',  'stock' => 20, 'price' => 1800],
-                ['sku' => 'WLT-BLK-YES', 'color' => 'Black', 'add engraving?' => 'Yes', 'stock' => 10, 'price' => 2100],
-                ['sku' => 'WLT-BRN-NO',  'color' => 'Brown', 'add engraving?' => 'No',  'stock' => 18, 'price' => 1800],
-                ['sku' => 'WLT-BRN-YES', 'color' => 'Brown', 'add engraving?' => 'Yes', 'stock' => 8,  'price' => 2100],
+                ['sku' => 'WLT-BLK-NO',  'color' => 'Black', 'add engraving?' => 'No',  'stock' => 20],
+                ['sku' => 'WLT-BLK-YES', 'color' => 'Black', 'add engraving?' => 'Yes', 'stock' => 10],
+                ['sku' => 'WLT-BRN-NO',  'color' => 'Brown', 'add engraving?' => 'No',  'stock' => 18],
+                ['sku' => 'WLT-BRN-YES', 'color' => 'Brown', 'add engraving?' => 'Yes', 'stock' => 8],
             ];
-
             foreach ($engravingExamples as $v) {
                 fputcsv($file, array_merge([
                     'WLT-001', 'Leather Bifold Wallet',
                     $defaultCatId, $defaultSubId, $defaultUnitId,
-                    'fg', 'Genuine leather wallet with optional engraving', '', '700',
-                    $v['price'], '0', '5', '50', '1',
-                    $v['sku'], '', $v['price'], $v['stock'],
+                    'fg', 'Genuine leather wallet with optional engraving', '',
+                    '700', '900', '1800',
+                    '0', '5', '50', '1',
+                    $v['sku'], '', $v['stock'],
                 ], $makeAttrRow(['color' => $v['color'], 'add engraving?' => $v['add engraving?']])));
             }
 
@@ -940,9 +878,10 @@ class ProductController extends Controller
             fputcsv($file, array_merge([
                 'BELT-001', 'Classic Leather Belt',
                 $defaultCatId, $defaultSubId, $defaultUnitId,
-                'fg', 'Hand-stitched genuine leather belt', '', '400',
-                '1200', '25', '5', '100', '1',
-                '', '', '0', '0',
+                'fg', 'Hand-stitched genuine leather belt', '',
+                '400', '500', '1200',
+                '25', '5', '100', '1',
+                '', '', '0',
             ], $blankAttrs));
 
             // Example 4: Raw material
@@ -953,9 +892,10 @@ class ProductController extends Controller
             fputcsv($file, array_merge([
                 'RAW-LEA-001', 'Genuine Sheep Leather',
                 $defaultCatId, $defaultSubId, $rawUnit,
-                'raw', 'Raw sheep leather for jacket production', '', '150',
-                '0', '200', '20', '1000', '1',
-                '', '', '0', '0',
+                'raw', 'Raw sheep leather for jacket production', '',
+                '0', '150', '0',
+                '200', '20', '1000', '1',
+                '', '', '0',
             ], $blankAttrs));
 
             fclose($file);

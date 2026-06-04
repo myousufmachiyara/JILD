@@ -121,6 +121,12 @@
                          title="Receive FG">
                         <i class="fas fa-box-open"></i>
                       </a>
+                      {{-- Wastage Return --}}
+                      <a href="{{ route('production_wastage.create', ['id' => $prod->id]) }}"
+                        class="btn btn-xs btn-outline-info"
+                        title="Raw Material Wastage Return">
+                        <i class="fas fa-recycle"></i>
+                      </a>
                       {{-- Delete --}}
                       <form action="{{ route('production.destroy', $prod->id) }}"
                             method="POST" style="display:inline;"

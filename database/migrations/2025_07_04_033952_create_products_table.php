@@ -23,8 +23,9 @@ return new class extends Migration
             $table->text('description')->nullable();
 
             // Inventory & Pricing
-            $table->decimal('manufacturing_cost', 10, 2)->default(0);
+            $table->decimal('cmt_cost', 10, 2)->default(0);
             $table->decimal('opening_stock', 10, 2)->default(0);
+            $table->decimal('cost_price', 10, 2)->default(0);
             $table->decimal('selling_price', 10, 2)->default(0);
             $table->decimal('consumption', 10, 2)->default(0);
 

@@ -89,6 +89,7 @@
                       @foreach ($products as $product)
                         <option value="{{ $product->id }}" data-barcode="{{ $product->barcode }}" 
                                 data-unit-id="{{ $product->measurement_unit }}"
+                                data-cost-price="{{ $product->cost_price ?? 0 }}"
                                 {{ $item->item_id == $product->id ? 'selected' : '' }}>
                           {{ $product->name }}
                         </option>
@@ -284,23 +285,26 @@
     });
   });
 
-  // 🔹 Item name change handler
   function onItemNameChange(selectElement) {
-    const row = selectElement.closest('tr');
-    const selectedOption = selectElement.options[selectElement.selectedIndex];
+      const row = selectElement.closest('tr');
+      const selectedOption = selectElement.options[selectElement.selectedIndex];
 
-    const unitId = selectedOption.getAttribute('data-unit-id');
-    const barcode = selectedOption.getAttribute('data-barcode');
+      const unitId    = selectedOption.getAttribute('data-unit-id');
+      const barcode   = selectedOption.getAttribute('data-barcode');
+      const costPrice = selectedOption.getAttribute('data-cost-price') || '0';
 
-    const idMatch = selectElement.id.match(/\d+$/);
-    if (!idMatch) return;
-    const index = idMatch[0];
+      const idMatch = selectElement.id.match(/\d+$/);
+      if (!idMatch) return;
+      const index = idMatch[0];
 
-    document.getElementById(`item_cod${index}`).value = barcode;
-    document.getElementById(`barcode${index}`).value = barcode;
+      document.getElementById(`item_cod${index}`).value   = barcode;
+      document.getElementById(`barcode${index}`).value    = barcode;
+      document.getElementById(`pur_price${index}`).value  = parseFloat(costPrice).toFixed(2);
 
-    const unitSelector = $(`#unit${index}`);
-    unitSelector.val(String(unitId)).trigger('change.select2');
+      const unitSelector = $(`#unit${index}`);
+      unitSelector.val(String(unitId)).trigger('change.select2');
+
+      rowTotal(index);
   }
 
   // 🔹 Remove row
@@ -332,7 +336,7 @@
           <select name="items[${rowIndex}][item_id]" id="item_name${index}" class="form-control select2-js product-select" onchange="onItemNameChange(this)">
             <option value="">Select Item</option>
             ${products.map(product => 
-              `<option value="${product.id}" data-barcode="${product.barcode}" data-unit-id="${product.measurement_unit}">
+              `<option value="${product.id}" data-barcode="${product.barcode}" data-unit-id="${product.measurement_unit}" data-cost-price="${product.cost_price ?? 0}">
                 ${product.name}
               </option>`).join('')}
           </select>
