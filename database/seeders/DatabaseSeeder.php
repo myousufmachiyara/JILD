@@ -158,9 +158,6 @@ class DatabaseSeeder extends Seeder
             ['account_code' => '102001', 'shoa_id' => 2,  'name' => 'Meezan Bank',            'account_type' => 'bank',     'receivables' => 0, 'payables' => 0],
             ['account_code' => '102002', 'shoa_id' => 2,  'name' => 'HBL Account',            'account_type' => 'bank',     'receivables' => 0, 'payables' => 0],
 
-            // Accounts Receivable (customers added here dynamically)
-            ['account_code' => '103001', 'shoa_id' => 3,  'name' => 'Customer 01',            'account_type' => 'customer', 'receivables' => 0, 'payables' => 0],
-
             // Inventory
             ['account_code' => '104001', 'shoa_id' => 4,  'name' => 'Stock in Hand',          'account_type' => 'asset',    'receivables' => 0, 'payables' => 0],
             ['account_code' => '104002', 'shoa_id' => 4,  'name' => 'Raw Material Stock',     'account_type' => 'asset',    'receivables' => 0, 'payables' => 0],
@@ -173,8 +170,6 @@ class DatabaseSeeder extends Seeder
             ['account_code' => '105003', 'shoa_id' => 5,  'name' => 'Security Deposits',      'account_type' => 'asset',    'receivables' => 0, 'payables' => 0],
 
             // ── LIABILITIES ─────────────────────────────────────────────────
-            // Accounts Payable (vendors added here dynamically)
-            ['account_code' => '205001', 'shoa_id' => 6,  'name' => 'Vendor 01',              'account_type' => 'vendor',   'receivables' => 0, 'payables' => 0],
 
             // Loans
             ['account_code' => '206001', 'shoa_id' => 7,  'name' => 'Bank Loan',              'account_type' => 'liability','receivables' => 0, 'payables' => 0],

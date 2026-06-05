@@ -447,9 +447,11 @@ class ProductController extends Controller
             'Expires'             => '0',
         ];
 
-        $callback = function () use ($columns, $attributes) {
+        $callback = function () use ($columns, $attributes, $categories, $subcategories, $units) {
             $file = fopen('php://output', 'w');
             fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM for Excel
+
+            fputcsv($file, $columns); // ← column headers row
 
             $products = Product::with(['variations.attributeValues.attribute'])->get();
 
@@ -788,6 +790,8 @@ class ProductController extends Controller
         $callback = function () use ($columns, $attributes, $categories, $subcategories, $units) {
             $file = fopen('php://output', 'w');
             fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM for Excel
+
+            fputcsv($file, $columns); // ← column headers row
 
             $catList  = $categories->map(fn($c) => $c->id . '=' . $c->name)->implode(' | ');
             $subList  = $subcategories->count()
