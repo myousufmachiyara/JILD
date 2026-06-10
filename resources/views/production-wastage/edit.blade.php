@@ -77,6 +77,7 @@
                 <tr>
                   <th>Raw Material</th>
                   <th>Variation</th>
+                  <th width="12%">Return Type</th>   {{-- ← add --}}
                   <th width="12%">Unit</th>
                   <th width="12%">Quantity</th>
                   <th>Remarks</th>
@@ -109,6 +110,17 @@
                             </option>
                           @endforeach
                         @endif
+                      </select>
+                    </td>
+                    <td>
+                      <select name="items[{{ $i }}][return_type]"
+                              data-plugin-selecttwo class="form-control select2-js return-type-select" required>
+                        <option value="extra"   {{ ($detail->return_type ?? 'extra') == 'extra'   ? 'selected' : '' }}>
+                          Extra (Back to Stock)
+                        </option>
+                        <option value="wastage" {{ ($detail->return_type ?? 'extra') == 'wastage' ? 'selected' : '' }}>
+                          Wastage (Write-off)
+                        </option>
                       </select>
                     </td>
                     <td>
@@ -202,6 +214,12 @@
       <tr>
         <td><select name="items[${rowCount}][product_id]" data-plugin-selecttwo class="form-control select2-js product-select" required>${productOpts}</select></td>
         <td><select name="items[${rowCount}][variation_id]" data-plugin-selecttwo class="form-control select2-js variation-select"><option value="">No Variation</option></select></td>
+        <td>
+          <select name="items[${rowCount}][return_type]" data-plugin-selecttwo class="form-control select2-js return-type-select" required>
+            <option value="extra">Extra (Back to Stock)</option>
+            <option value="wastage">Wastage (Write-off)</option>
+          </select>
+        </td>
         <td><select name="items[${rowCount}][unit_id]" data-plugin-selecttwo class="form-control select2-js unit-select" required>${unitOpts}</select></td>
         <td><input type="number" name="items[${rowCount}][quantity]" class="form-control qty-input" step="any" value="0" required></td>
         <td><input type="text" name="items[${rowCount}][remarks]" class="form-control" placeholder="Optional"></td>

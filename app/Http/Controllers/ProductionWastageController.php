@@ -75,6 +75,7 @@ class ProductionWastageController extends Controller
                     'variation_id'         => $item['variation_id'] ?? null,
                     'unit_id'              => $item['unit_id'],
                     'quantity'             => $item['quantity'],
+                    'return_type'          => $item['return_type'],   // ← add
                     'remarks'              => $item['remarks'] ?? null,
                 ]);
             }
@@ -135,6 +136,7 @@ class ProductionWastageController extends Controller
                     'variation_id'         => $item['variation_id'] ?? null,
                     'unit_id'              => $item['unit_id'],
                     'quantity'             => $item['quantity'],
+                    'return_type'          => $item['return_type'],   // ← add
                     'remarks'              => $item['remarks'] ?? null,
                 ]);
             }
@@ -189,6 +191,10 @@ class ProductionWastageController extends Controller
         $logoPath = public_path('assets/img/Jild-Logo.png');
         if (file_exists($logoPath)) $pdf->Image($logoPath, 10, 10, 30);
 
+        // Totals for summary box
+        $totalExtra   = $wastage->details->where('return_type', 'extra')->sum('quantity');
+        $totalWastage = $wastage->details->where('return_type', 'wastage')->sum('quantity');
+
         $pdf->SetXY(130, 12);
         $pdf->writeHTML('
             <table border="1" cellpadding="4" style="font-size:10px;line-height:14px;border-collapse:collapse;">
@@ -196,6 +202,8 @@ class ProductionWastageController extends Controller
                 <tr><td><b>Date</b></td><td>' . Carbon::parse($wastage->rec_date)->format('d/m/Y') . '</td></tr>
                 <tr><td><b>Production #</b></td><td>' . ($wastage->production_id ? 'PO-' . $wastage->production_id : '-') . '</td></tr>
                 <tr><td><b>Vendor</b></td><td>' . ($wastage->vendor->name ?? '-') . '</td></tr>
+                <tr><td><b>Extra (Stock)</b></td><td>' . number_format($totalExtra, 3) . '</td></tr>
+                <tr><td><b>Wastage (W/O)</b></td><td>' . number_format($totalWastage, 3) . '</td></tr>
             </table>',
         false, false, false, false, '');
 
@@ -211,24 +219,37 @@ class ProductionWastageController extends Controller
         $html = '
         <table border="0.3" cellpadding="4" style="text-align:center;font-size:10px;">
             <tr style="background-color:#f5f5f5;font-weight:bold;">
-                <th width="6%">S.No</th>
-                <th width="30%">Raw Material</th>
-                <th width="20%">Variation</th>
-                <th width="15%">Qty</th>
-                <th width="10%">Unit</th>
+                <th width="5%">S.No</th>
+                <th width="28%">Raw Material</th>
+                <th width="16%">Variation</th>
+                <th width="13%">Type</th>
+                <th width="11%">Qty</th>
+                <th width="8%">Unit</th>
                 <th width="19%">Remarks</th>
             </tr>';
 
-        $count = 0;
-        $totalQty = 0;
+        $count    = 0;
+        $sumExtra = 0;
+        $sumWaste = 0;
+
         foreach ($wastage->details as $detail) {
             $count++;
-            $totalQty += $detail->quantity;
+            $isExtra     = ($detail->return_type ?? 'extra') === 'extra';
+            $typeLabel   = $isExtra ? 'Extra'   : 'Wastage';
+            $typeColor   = $isExtra ? '#166534' : '#dc2626';
+            $typeSub     = $isExtra ? '(Back to Stock)' : '(Write-off)';
+
+            if ($isExtra) $sumExtra += $detail->quantity;
+            else          $sumWaste += $detail->quantity;
+
             $html .= '
             <tr>
                 <td>' . $count . '</td>
                 <td align="left">' . ($detail->product->name ?? '-') . '</td>
                 <td>' . ($detail->variation->sku ?? '-') . '</td>
+                <td style="color:' . $typeColor . ';font-weight:bold;font-size:9px;">
+                    ' . $typeLabel . '<br><span style="font-weight:normal;color:#666;">' . $typeSub . '</span>
+                </td>
                 <td>' . number_format($detail->quantity, 3) . '</td>
                 <td>' . ($detail->unit->shortcode ?? '-') . '</td>
                 <td>' . ($detail->remarks ?? '-') . '</td>
@@ -236,9 +257,22 @@ class ProductionWastageController extends Controller
         }
 
         $html .= '
+            <tr style="background-color:#e8f4e8;font-weight:bold;">
+                <td colspan="3" align="right">Extra Returned (Back to Stock)</td>
+                <td></td>
+                <td style="color:#166534;">' . number_format($sumExtra, 3) . '</td>
+                <td colspan="2"></td>
+            </tr>
+            <tr style="background-color:#fde8e8;font-weight:bold;">
+                <td colspan="3" align="right">Wastage (Write-off)</td>
+                <td></td>
+                <td style="color:#dc2626;">' . number_format($sumWaste, 3) . '</td>
+                <td colspan="2"></td>
+            </tr>
             <tr style="background-color:#f5f5f5;font-weight:bold;">
                 <td colspan="3" align="right">Total Returned</td>
-                <td>' . number_format($totalQty, 3) . '</td>
+                <td></td>
+                <td>' . number_format($sumExtra + $sumWaste, 3) . '</td>
                 <td colspan="2"></td>
             </tr>
         </table>';

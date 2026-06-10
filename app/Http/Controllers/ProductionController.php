@@ -124,7 +124,11 @@ class ProductionController extends Controller
 
     public function edit($id)
     {
-        $production = Production::with(['details.variation', 'details.product'])->findOrFail($id);
+        $production = Production::with([
+            'details.variation',
+            'details.product',
+            'details.invoice.vendor',
+        ])->findOrFail($id);
         $vendors    = ChartOfAccounts::where('account_type', 'vendor')->get();
         $categories = ProductCategory::all();
         $units      = MeasurementUnit::all();

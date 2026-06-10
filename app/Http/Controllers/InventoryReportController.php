@@ -43,6 +43,7 @@ class InventoryReportController extends Controller
 
         $itemLedger     = collect();
         $stockInHand    = collect();
+        $wastageStock   = collect();
         $stockTransfers = collect();
         $nonMovingItems = collect();
         $reorderLevel   = collect();
@@ -73,12 +74,9 @@ class InventoryReportController extends Controller
             };
         };
 
-        // ── Helper: current stock qty ─────────────────────────────────
-        // All four production movements included:
-        //   Production Order       → raw OUT
-        //   Production Receiving   → FG IN
-        //   Production Return      → FG OUT (defective back to vendor)
-        //   Wastage Receiving      → raw IN (unused raw returned by vendor)
+        // ── Helper: current real stock qty ────────────────────────────
+        // Only 'extra' type wastage returns come back to real stock.
+        // 'wastage' type is a write-off — not counted in inventory.
         $getStockQty = function (Product $product, ?object $var) {
             $vid = $var->id ?? null;
 
@@ -102,23 +100,21 @@ class InventoryReportController extends Controller
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
                                 ->sum('qty');
 
-            // Raw OUT → production order
             $rawIssued      = (float) ProductionDetail::where('product_id', $product->id)
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
                                 ->sum('qty');
 
-            // FG IN → production receiving
             $fgReceived     = (float) ProductionReceivingDetail::where('product_id', $product->id)
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
                                 ->sum('received_qty');
 
-            // FG OUT → production return (defective)
             $fgReturned     = (float) ProductionReturnItem::where('product_id', $product->id)
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
                                 ->sum('quantity');
 
-            // Raw IN → wastage receiving (vendor returns unused raw)
+            // ONLY extra type → back to real stock (wastage type = write-off, excluded)
             $wastageIn      = (float) ProductionWastageReceivingDetail::where('product_id', $product->id)
+                                ->where('return_type', 'extra')
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
                                 ->sum('quantity');
 
@@ -155,7 +151,7 @@ class InventoryReportController extends Controller
                     $vid    = $var->id ?? null;
                     $ledger = collect();
 
-                    // ── Purchases IN ──────────────────────────────────────
+                    // Purchases IN
                     $ledger = $ledger->concat(
                         PurchaseInvoiceItem::with('invoice')
                             ->where('item_id', $product->id)
@@ -167,15 +163,17 @@ class InventoryReportController extends Controller
                                 'type'        => 'Purchase',
                                 'description' => 'Invoice: ' . ($row->invoice->invoice_no ?? $row->invoice->id)
                                     . ($row->invoice->bill_no ? ' | Bill: ' . $row->invoice->bill_no : ''),
-                                'qty_in'  => $row->quantity,
-                                'qty_out' => 0,
-                                'rate'    => $row->price,
-                                'product' => $product->name,
-                                'variation' => $var->sku ?? null,
+                                'qty_in'      => $row->quantity,
+                                'qty_out'     => 0,
+                                'rate'        => $row->price,
+                                'product'     => $product->name,
+                                'variation'   => $var->sku ?? null,
+                                'is_writeoff' => false,
+                                'writeoff_qty'=> 0,
                             ])
                     );
 
-                    // ── Purchase Returns OUT ──────────────────────────────
+                    // Purchase Returns OUT
                     $ledger = $ledger->concat(
                         PurchaseReturnItem::with('purchaseReturn')
                             ->where('item_id', $product->id)
@@ -186,15 +184,17 @@ class InventoryReportController extends Controller
                                 'date'        => $row->purchaseReturn->return_date,
                                 'type'        => 'Purchase Return',
                                 'description' => 'Return #' . ($row->purchaseReturn->reference_no ?? $row->purchaseReturn->id),
-                                'qty_in'  => 0,
-                                'qty_out' => $row->quantity,
-                                'rate'    => $row->price ?? 0,
-                                'product' => $product->name,
-                                'variation' => $var->sku ?? null,
+                                'qty_in'      => 0,
+                                'qty_out'     => $row->quantity,
+                                'rate'        => $row->price ?? 0,
+                                'product'     => $product->name,
+                                'variation'   => $var->sku ?? null,
+                                'is_writeoff' => false,
+                                'writeoff_qty'=> 0,
                             ])
                     );
 
-                    // ── Sales OUT ─────────────────────────────────────────
+                    // Sales OUT
                     $ledger = $ledger->concat(
                         SaleInvoiceItem::with('invoice')
                             ->where('product_id', $product->id)
@@ -205,15 +205,17 @@ class InventoryReportController extends Controller
                                 'date'        => $row->invoice->date,
                                 'type'        => 'Sale',
                                 'description' => 'Invoice: ' . ($row->invoice->invoice_no ?? $row->invoice->id),
-                                'qty_in'  => 0,
-                                'qty_out' => $row->quantity,
-                                'rate'    => $row->sale_price ?? 0,
-                                'product' => $product->name,
-                                'variation' => $var->sku ?? null,
+                                'qty_in'      => 0,
+                                'qty_out'     => $row->quantity,
+                                'rate'        => $row->sale_price ?? 0,
+                                'product'     => $product->name,
+                                'variation'   => $var->sku ?? null,
+                                'is_writeoff' => false,
+                                'writeoff_qty'=> 0,
                             ])
                     );
 
-                    // ── Sale Returns IN ───────────────────────────────────
+                    // Sale Returns IN
                     $ledger = $ledger->concat(
                         SaleReturnItem::with('saleReturn')
                             ->where('product_id', $product->id)
@@ -224,15 +226,17 @@ class InventoryReportController extends Controller
                                 'date'        => $row->saleReturn->return_date,
                                 'type'        => 'Sale Return',
                                 'description' => 'Return #' . ($row->saleReturn->reference_no ?? $row->saleReturn->id),
-                                'qty_in'  => $row->qty,
-                                'qty_out' => 0,
-                                'rate'    => 0,
-                                'product' => $product->name,
-                                'variation' => $var->sku ?? null,
+                                'qty_in'      => $row->qty,
+                                'qty_out'     => 0,
+                                'rate'        => 0,
+                                'product'     => $product->name,
+                                'variation'   => $var->sku ?? null,
+                                'is_writeoff' => false,
+                                'writeoff_qty'=> 0,
                             ])
                     );
 
-                    // ── Production Order — raw OUT ────────────────────────
+                    // Production Order — raw OUT
                     $ledger = $ledger->concat(
                         ProductionDetail::with('production')
                             ->where('product_id', $product->id)
@@ -244,15 +248,17 @@ class InventoryReportController extends Controller
                                 'type'        => 'Production Order',
                                 'description' => 'PO-' . str_pad($row->production->id, 4, '0', STR_PAD_LEFT)
                                     . ' — Raw issued to vendor',
-                                'qty_in'  => 0,
-                                'qty_out' => $row->qty,
-                                'rate'    => $row->rate ?? 0,
-                                'product' => $product->name,
-                                'variation' => $var->sku ?? null,
+                                'qty_in'      => 0,
+                                'qty_out'     => $row->qty,
+                                'rate'        => $row->rate ?? 0,
+                                'product'     => $product->name,
+                                'variation'   => $var->sku ?? null,
+                                'is_writeoff' => false,
+                                'writeoff_qty'=> 0,
                             ])
                     );
 
-                    // ── Production Receiving — FG IN ──────────────────────
+                    // Production Receiving — FG IN
                     $ledger = $ledger->concat(
                         ProductionReceivingDetail::with('receiving')
                             ->where('product_id', $product->id)
@@ -264,18 +270,19 @@ class InventoryReportController extends Controller
                                 'type'        => 'Production Receiving',
                                 'description' => 'GRN: ' . ($row->receiving->grn_no ?? $row->receiving->id)
                                     . ($row->receiving->production_id
-                                        ? ' — PO-' . $row->receiving->production_id
-                                        : '')
+                                        ? ' — PO-' . $row->receiving->production_id : '')
                                     . ' | Mfg Cost: ' . number_format($row->manufacturing_cost ?? 0, 2),
-                                'qty_in'  => $row->received_qty,
-                                'qty_out' => 0,
-                                'rate'    => $row->manufacturing_cost ?? 0,
-                                'product' => $product->name,
-                                'variation' => $var->sku ?? null,
+                                'qty_in'      => $row->received_qty,
+                                'qty_out'     => 0,
+                                'rate'        => $row->manufacturing_cost ?? 0,
+                                'product'     => $product->name,
+                                'variation'   => $var->sku ?? null,
+                                'is_writeoff' => false,
+                                'writeoff_qty'=> 0,
                             ])
                     );
 
-                    // ── Production Return — FG OUT ────────────────────────
+                    // Production Return — FG OUT
                     $ledger = $ledger->concat(
                         ProductionReturnItem::with('productionReturn')
                             ->where('product_id', $product->id)
@@ -288,35 +295,45 @@ class InventoryReportController extends Controller
                                 'description' => 'Return #' . $row->productionReturn->id
                                     . ($row->production_id ? ' — PO-' . $row->production_id : '')
                                     . ' — Defective FG returned to vendor',
-                                'qty_in'  => 0,
-                                'qty_out' => $row->quantity,
-                                'rate'    => $row->price ?? 0,
-                                'product' => $product->name,
-                                'variation' => $var->sku ?? null,
+                                'qty_in'      => 0,
+                                'qty_out'     => $row->quantity,
+                                'rate'        => $row->price ?? 0,
+                                'product'     => $product->name,
+                                'variation'   => $var->sku ?? null,
+                                'is_writeoff' => false,
+                                'writeoff_qty'=> 0,
                             ])
                     );
 
-                    // ── Wastage Receiving — raw IN ────────────────────────
+                    // Wastage Receiving — split by return_type
                     $ledger = $ledger->concat(
                         ProductionWastageReceivingDetail::with('wastageReceiving')
                             ->where('product_id', $product->id)
                             ->when($vid, fn($q) => $q->where('variation_id', $vid))
                             ->whereHas('wastageReceiving', fn($q) => $q->whereBetween('rec_date', [$from, $to]))
                             ->get()
-                            ->map(fn($row) => [
-                                'date'        => $row->wastageReceiving->rec_date,
-                                'type'        => 'Wastage Return',
-                                'description' => 'WRN: ' . ($row->wastageReceiving->grn_no ?? $row->wastageReceiving->id)
-                                    . ($row->wastageReceiving->production_id
-                                        ? ' — PO-' . $row->wastageReceiving->production_id
-                                        : '')
-                                    . ' — Unused raw returned by vendor',
-                                'qty_in'  => $row->quantity,
-                                'qty_out' => 0,
-                                'rate'    => 0,
-                                'product' => $product->name,
-                                'variation' => $var->sku ?? null,
-                            ])
+                            ->map(function ($row) use ($product, $var) {
+                                $isExtra = ($row->return_type ?? 'extra') === 'extra';
+                                return [
+                                    'date'        => $row->wastageReceiving->rec_date,
+                                    'type'        => $isExtra
+                                        ? 'Wastage Return (Extra)'
+                                        : 'Wastage Return (W/O)',
+                                    'description' => 'WRN: ' . ($row->wastageReceiving->grn_no ?? $row->wastageReceiving->id)
+                                        . ($row->wastageReceiving->production_id
+                                            ? ' — PO-' . $row->wastageReceiving->production_id : '')
+                                        . ($isExtra
+                                            ? ' — Unused raw returned to stock'
+                                            : ' — Wastage written off (no stock movement)'),
+                                    'qty_in'      => $isExtra ? $row->quantity : 0,
+                                    'qty_out'     => 0,
+                                    'rate'        => 0,
+                                    'product'     => $product->name,
+                                    'variation'   => $var->sku ?? null,
+                                    'is_writeoff' => !$isExtra,
+                                    'writeoff_qty'=> !$isExtra ? $row->quantity : 0,
+                                ];
+                            })
                     );
 
                     $itemLedger = $itemLedger->concat($ledger->sortBy('date'));
@@ -352,8 +369,8 @@ class InventoryReportController extends Controller
                     $vid      = $var->id ?? null;
                     $stockQty = $getStockQty($product, $var);
 
-                    $rawCostPerPiece   = 0;
-                    $mfgCostPerPiece   = 0;
+                    $rawCostPerPiece = 0;
+                    $mfgCostPerPiece = 0;
 
                     $isRaw             = $product->item_type === 'raw';
                     $isFg              = !$isRaw;
@@ -402,7 +419,6 @@ class InventoryReportController extends Controller
                         };
 
                     } elseif ($isFg && !$directlyPurchased) {
-                        // Manufactured FG — raw cost from production orders
                         $prodReceivings = ProductionReceivingDetail::where('product_id', $product->id)
                             ->when($vid, fn($q) => $q->where('variation_id', $vid))
                             ->with('receiving.production.details')
@@ -467,7 +483,71 @@ class InventoryReportController extends Controller
         }
 
         // ────────────────────────────────────────────────────────────────
-        // 3. STOCK TRANSFERS
+        // 3. WASTAGE STOCK (Write-off register)
+        // ────────────────────────────────────────────────────────────────
+        if ($tab === 'WST') {
+            $costingMethod = $request->costing_method ?? 'avg';
+
+            $wastageRows = ProductionWastageReceivingDetail::with([
+                    'product.measurementUnit',
+                    'variation',
+                    'unit',
+                    'wastageReceiving.vendor',
+                    'wastageReceiving.production',
+                ])
+                ->where('return_type', 'wastage')
+                ->whereHas('wastageReceiving', fn($q) => $q->whereBetween('rec_date', [$from, $to]))
+                ->get();
+
+            $grouped = collect();
+
+            foreach ($wastageRows as $row) {
+                $key = $row->product_id . '-' . ($row->variation_id ?? '0');
+
+                if (!$grouped->has($key)) {
+                    $costPerUnit = $getPurchaseCost(
+                        $row->product_id,
+                        $costingMethod,
+                        $row->variation_id
+                    );
+
+                    $grouped->put($key, [
+                        'product'       => $row->product->name ?? '-',
+                        'variation'     => $row->variation->sku ?? null,
+                        'unit'          => $row->unit->shortcode
+                            ?? $row->product->measurementUnit->shortcode
+                            ?? '-',
+                        'total_qty'     => 0,
+                        'cost_per_unit' => round($costPerUnit, 2),
+                        'total_cost'    => 0,
+                        'entries'       => [],
+                    ]);
+                }
+
+                $g = $grouped->get($key);
+                $g['total_qty']  += (float) $row->quantity;
+                $g['entries'][]   = [
+                    'date'          => $row->wastageReceiving->rec_date,
+                    'wrn_no'        => $row->wastageReceiving->grn_no ?? '-',
+                    'vendor'        => $row->wastageReceiving->vendor->name ?? '-',
+                    'production_id' => $row->wastageReceiving->production_id,
+                    'qty'           => (float) $row->quantity,
+                    'remarks'       => $row->remarks ?? '-',
+                ];
+                $grouped->put($key, $g);
+            }
+
+            $wastageStock = $grouped->map(function ($g) {
+                $g['total_qty']  = round($g['total_qty'], 3);
+                $g['total_cost'] = round($g['total_qty'] * $g['cost_per_unit'], 2);
+                // Sort entries by date ascending
+                usort($g['entries'], fn($a, $b) => strcmp($a['date'], $b['date']));
+                return (object) $g;
+            })->sortByDesc('total_qty')->values();
+        }
+
+        // ────────────────────────────────────────────────────────────────
+        // 4. STOCK TRANSFERS
         // ────────────────────────────────────────────────────────────────
         if ($tab === 'STR') {
             $stockTransfers = StockTransferDetail::with([
@@ -490,7 +570,7 @@ class InventoryReportController extends Controller
         }
 
         // ────────────────────────────────────────────────────────────────
-        // 4. NON-MOVING ITEMS
+        // 5. NON-MOVING ITEMS
         // ────────────────────────────────────────────────────────────────
         if ($tab === 'NMI') {
             $months    = (int) ($request->months ?? 3);
@@ -564,7 +644,7 @@ class InventoryReportController extends Controller
         }
 
         // ────────────────────────────────────────────────────────────────
-        // 5. REORDER LEVEL
+        // 6. REORDER LEVEL
         // ────────────────────────────────────────────────────────────────
         if ($tab === 'ROL') {
             foreach ($allProducts as $product) {
@@ -580,12 +660,12 @@ class InventoryReportController extends Controller
 
                     if ($stockQty <= $reorderLevelSetting) {
                         $reorderLevel->push([
-                            'product'        => $product->name,
-                            'variation'      => $var->sku ?? null,
-                            'stock_inhand'   => round($stockQty, 2),
-                            'reorder_level'  => $reorderLevelSetting,
-                            'min_order_qty'  => $product->minimum_order_qty ?? 1,
-                            'shortage'       => round(max(0, $reorderLevelSetting - $stockQty), 2),
+                            'product'       => $product->name,
+                            'variation'     => $var->sku ?? null,
+                            'stock_inhand'  => round($stockQty, 2),
+                            'reorder_level' => $reorderLevelSetting,
+                            'min_order_qty' => $product->minimum_order_qty ?? 1,
+                            'shortage'      => round(max(0, $reorderLevelSetting - $stockQty), 2),
                         ]);
                     }
                 }
@@ -599,6 +679,7 @@ class InventoryReportController extends Controller
             'tab'            => $tab,
             'itemLedger'     => $itemLedger->sortBy('date')->values(),
             'stockInHand'    => $stockInHand,
+            'wastageStock'   => $wastageStock,
             'stockTransfers' => $stockTransfers,
             'nonMovingItems' => $nonMovingItems,
             'reorderLevel'   => $reorderLevel,

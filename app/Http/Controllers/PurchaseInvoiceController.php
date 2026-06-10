@@ -351,9 +351,10 @@ class PurchaseInvoiceController extends Controller
                 return [
                     'id'         => $inv->id,
                     'invoice_no' => $inv->invoice_no,
-                    'number'     => $inv->invoice_no, // used by JS dropdown label
+                    'number'     => $inv->invoice_no,
                     'vendor'     => $inv->vendor->name,
                     'rate'       => $item?->price ?? 0,
+                    'bill_no'    => $inv->bill_no ?? '',
                 ];
             }));
 

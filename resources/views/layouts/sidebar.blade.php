@@ -136,10 +136,10 @@
               <span>Production</span>
             </a>
             <ul class="nav nav-children">
-              <li><a class="nav-link" href="{{ route('production.index') }}">Orders</a></li>
-              <li><a class="nav-link" href="{{ route('production_receiving.index') }}">Receiving</a></li>
-              <li><a class="nav-link" href="{{ route('production_return.index') }}">Returns</a></li>
-              <li><a class="nav-link" href="{{ route('production_wastage.index') }}">Wastage</a></li>
+              <li><a class="nav-link" href="{{ route('production.index') }}">Raw Issue</a></li>
+              <li><a class="nav-link" href="{{ route('production_receiving.index') }}">FG Receiving</a></li>
+              <li><a class="nav-link" href="{{ route('production_return.index') }}">FG Returns</a></li>
+              <li><a class="nav-link" href="{{ route('production_wastage.index') }}">Raw Wastage</a></li>
             </ul>
           </li>
           @endif

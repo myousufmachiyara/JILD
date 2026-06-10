@@ -30,7 +30,7 @@ class ProductionReceivingController extends Controller
     public function create(Request $request)
     {
         $productions          = Production::with('vendor')->orderBy('id', 'desc')->get();
-        $products             = Product::orderBy('name')->get();
+        $products             = Product::orderBy('name')->where('item_type','fg')->get();
         $accounts             = ChartOfAccounts::where('account_type', 'vendor')->orderBy('name')->get();
         $selectedProductionId = $request->query('id');
 

@@ -18,6 +18,12 @@
       </a>
     </li>
     <li class="nav-item">
+      <a class="nav-link {{ $tab=='WST'?'active':'' }}"
+         href="{{ route('reports.inventory') }}?tab=WST&from_date={{ $from }}&to_date={{ $to }}">
+        <i class="fas fa-trash-alt me-1"></i> Wastage Stock
+      </a>
+    </li>
+    <li class="nav-item">
       <a class="nav-link {{ $tab=='STR'?'active':'' }}"
          href="{{ route('reports.inventory') }}?tab=STR&from_date={{ $from }}&to_date={{ $to }}">
         <i class="fas fa-exchange-alt me-1"></i> Stock Transfer
@@ -80,12 +86,12 @@
         @php
           $totalIn  = $itemLedger->sum('qty_in');
           $totalOut = $itemLedger->sum('qty_out');
+          $totalWO  = $itemLedger->sum('writeoff_qty');
           $balance  = $totalIn - $totalOut;
         @endphp
 
         <div class="row mb-3">
           <div class="col">
-            {{-- Movement legend --}}
             <div class="d-flex flex-wrap gap-2">
               <span class="badge bg-success">Purchase → IN</span>
               <span class="badge bg-warning text-dark">Purchase Return → OUT</span>
@@ -93,13 +99,17 @@
               <span class="badge bg-info text-dark">Sale Return → IN</span>
               <span class="badge bg-secondary">Production Order → raw OUT</span>
               <span class="badge bg-primary">Production Receiving → FG IN</span>
-              <span class="badge" style="background:#dc3545">Production Return → FG OUT</span>
-              <span class="badge" style="background:#198754">Wastage Return → raw IN</span>
+              <span class="badge bg-danger">Production Return → FG OUT</span>
+              <span class="badge bg-success">Wastage Return (Extra) → raw IN</span>
+              <span class="badge bg-dark">Wastage Return (W/O) → Write-off</span>
             </div>
           </div>
           <div class="col-auto text-end">
             <span class="me-3">Total In: <strong class="text-success">{{ number_format($totalIn, 2) }}</strong></span>
             <span class="me-3">Total Out: <strong class="text-danger">{{ number_format($totalOut, 2) }}</strong></span>
+            @if($totalWO > 0)
+              <span class="me-3">Write-offs: <strong class="text-dark">{{ number_format($totalWO, 2) }}</strong></span>
+            @endif
             <span>Balance: <strong class="text-primary">{{ number_format($balance, 2) }}</strong></span>
           </div>
         </div>
@@ -115,6 +125,7 @@
                 <th>Variation</th>
                 <th class="text-end">Qty In</th>
                 <th class="text-end">Qty Out</th>
+                <th class="text-end">Write-off</th>
                 <th class="text-end">Rate</th>
               </tr>
             </thead>
@@ -122,22 +133,24 @@
               @foreach($itemLedger as $row)
                 @php
                   $typeMap = [
-                    'Purchase'             => ['bg-success',          'IN'],
-                    'Purchase Return'      => ['bg-warning text-dark','OUT'],
-                    'Sale'                 => ['bg-danger',           'OUT'],
-                    'Sale Return'          => ['bg-info text-dark',   'IN'],
-                    'Production Order'     => ['bg-secondary',        'raw OUT'],
-                    'Production Receiving' => ['bg-primary',          'FG IN'],
-                    'Production Return'    => ['bg-danger',           'FG OUT'],
-                    'Wastage Return'       => ['bg-success',          'raw IN'],
+                    'Purchase'                  => ['bg-success',          'IN'],
+                    'Purchase Return'           => ['bg-warning text-dark','OUT'],
+                    'Sale'                      => ['bg-danger',           'OUT'],
+                    'Sale Return'               => ['bg-info text-dark',   'IN'],
+                    'Production Order'          => ['bg-secondary',        'raw OUT'],
+                    'Production Receiving'      => ['bg-primary',          'FG IN'],
+                    'Production Return'         => ['bg-danger',           'FG OUT'],
+                    'Wastage Return (Extra)'    => ['bg-success',          'raw IN'],
+                    'Wastage Return (W/O)'      => ['bg-dark',             'Write-off'],
                   ];
-                  $badge   = $typeMap[$row['type']] ?? ['bg-secondary', ''];
-                  $rowClass = in_array($row['type'], ['Production Order', 'Sale', 'Purchase Return', 'Production Return'])
-                    ? 'table-danger' : '';
-                  $rowClass = in_array($row['type'], ['Purchase', 'Sale Return', 'Production Receiving', 'Wastage Return'])
-                    ? '' : $rowClass;
+                  $badge      = $typeMap[$row['type']] ?? ['bg-secondary', ''];
+                  $isWriteoff = $row['is_writeoff'] ?? false;
+                  $rowClass   = $isWriteoff ? 'table-dark' : (
+                    in_array($row['type'], ['Production Order', 'Sale', 'Purchase Return', 'Production Return'])
+                      ? 'table-danger' : ''
+                  );
                 @endphp
-                <tr>
+                <tr class="{{ $rowClass }}">
                   <td>{{ \Carbon\Carbon::parse($row['date'])->format('d-M-Y') }}</td>
                   <td>
                     <span class="badge {{ $badge[0] }}">{{ $row['type'] }}</span>
@@ -152,6 +165,13 @@
                   <td class="text-end text-danger fw-bold">
                     {{ $row['qty_out'] > 0 ? number_format($row['qty_out'], 2) : '—' }}
                   </td>
+                  <td class="text-end">
+                    @if($isWriteoff && ($row['writeoff_qty'] ?? 0) > 0)
+                      <span class="badge bg-dark">{{ number_format($row['writeoff_qty'], 2) }}</span>
+                    @else
+                      <span class="text-muted">—</span>
+                    @endif
+                  </td>
                   <td class="text-end">{{ $row['rate'] > 0 ? number_format($row['rate'], 2) : '—' }}</td>
                 </tr>
               @endforeach
@@ -161,11 +181,12 @@
                 <td colspan="5" class="text-end">Totals</td>
                 <td class="text-end text-success">{{ number_format($totalIn, 2) }}</td>
                 <td class="text-end text-danger">{{ number_format($totalOut, 2) }}</td>
+                <td class="text-end">{{ $totalWO > 0 ? number_format($totalWO, 2) : '—' }}</td>
                 <td></td>
               </tr>
               <tr>
-                <td colspan="5" class="text-end">Closing Balance</td>
-                <td colspan="3" class="text-primary">{{ number_format($balance, 2) }}</td>
+                <td colspan="5" class="text-end">Closing Balance (Real Stock)</td>
+                <td colspan="4" class="text-primary fw-bold">{{ number_format($balance, 2) }}</td>
               </tr>
             </tfoot>
           </table>
@@ -218,8 +239,10 @@
 
       <div class="alert alert-info mb-3">
         <i class="fas fa-info-circle me-1"></i>
-        Stock qty = Opening + Purchased + Sale Returns + FG Received + Wastage Returned (raw back)
-        − Sold − Purchase Returns − Raw Issued to Production − FG Returned (defective)
+        Stock qty = Opening + Purchased + Sale Returns + FG Received + <strong>Extra Raw Returned</strong>
+        − Sold − Purchase Returns − Raw Issued − FG Returned.
+        <strong class="text-danger">Wastage write-offs are excluded</strong> —
+        see the <a href="{{ route('reports.inventory') }}?tab=WST">Wastage Stock</a> tab.
       </div>
 
       @php
@@ -278,7 +301,161 @@
       </div>
     @endif
 
-    {{-- ── 3. STOCK TRANSFER ───────────────────────────────────── --}}
+    {{-- ── 3. WASTAGE STOCK ────────────────────────────────────── --}}
+    @if($tab === 'WST')
+      <form method="GET" action="{{ route('reports.inventory') }}" class="mb-3">
+        <input type="hidden" name="tab" value="WST">
+        <div class="row g-2 align-items-end">
+          <div class="col-md-2">
+            <label>From</label>
+            <input type="date" name="from_date" value="{{ request('from_date', $from) }}" class="form-control">
+          </div>
+          <div class="col-md-2">
+            <label>To</label>
+            <input type="date" name="to_date" value="{{ request('to_date', $to) }}" class="form-control">
+          </div>
+          <div class="col-md-3">
+            <label>Costing Method <small class="text-muted">(for estimated loss value)</small></label>
+            <select name="costing_method" class="form-control select2-js">
+              <option value="avg"    {{ request('costing_method','avg') == 'avg'    ? 'selected':'' }}>Average Rate</option>
+              <option value="max"    {{ request('costing_method','avg') == 'max'    ? 'selected':'' }}>Max Rate</option>
+              <option value="min"    {{ request('costing_method','avg') == 'min'    ? 'selected':'' }}>Min Rate</option>
+              <option value="latest" {{ request('costing_method','avg') == 'latest' ? 'selected':'' }}>Latest Rate</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="fas fa-filter me-1"></i> Filter
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <div class="alert alert-danger mb-3">
+        <i class="fas fa-exclamation-triangle me-1"></i>
+        <strong>Wastage Stock Register</strong> — Raw material written off as production wastage.
+        These quantities are <strong>NOT</strong> counted in real inventory stock.
+        Estimated loss value is based on the purchase cost using the selected costing method.
+      </div>
+
+      @php
+        $totalWstQty  = $wastageStock->sum('total_qty');
+        $totalWstCost = $wastageStock->sum('total_cost');
+      @endphp
+
+      <div class="row mb-3 text-center g-2">
+        <div class="col-md-3">
+          <div class="border rounded p-3 bg-danger bg-opacity-10">
+            <small class="text-light d-block">Products Written Off</small>
+            <strong class="text-light fs-4">{{ $wastageStock->count() }}</strong>
+            <small class="text-light d-block">product(s)</small>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="border rounded p-3 bg-danger bg-opacity-10">
+            <small class="text-light d-block">Total Wastage Qty</small>
+            <strong class="text-light fs-4">{{ number_format($totalWstQty, 3) }}</strong>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="border rounded p-3 bg-warning bg-opacity-10">
+            <small class="text-light d-block">Estimated Loss Value</small>
+            <strong class="text-light fs-4">PKR {{ number_format($totalWstCost, 0) }}</strong>
+            <small class="text-light d-block">based on purchase rate</small>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="border rounded p-3 bg-secondary bg-opacity-10">
+            <small class="text-light d-block">Period</small>
+            <strong class="text-light">{{ \Carbon\Carbon::parse($from)->format('d-M-Y') }}</strong>
+            <small class="text-light d-block">to {{ \Carbon\Carbon::parse($to)->format('d-M-Y') }}</small>
+          </div>
+        </div>
+      </div>
+
+      @forelse($wastageStock as $item)
+        <div class="card mb-3 border-danger">
+          <div class="card-header bg-danger bg-opacity-10 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <i class="fas fa-trash-alt text-danger me-1"></i>
+              <strong class="text-danger">{{ $item->product }}</strong>
+              @if($item->variation)
+                <span class="badge bg-secondary ms-2">{{ $item->variation }}</span>
+              @endif
+              <span class="ms-2 text-muted small">{{ $item->unit }}</span>
+            </div>
+            <div class="d-flex gap-3 align-items-center flex-wrap">
+              <div class="text-center">
+                <small class="text-muted d-block">Total Written Off</small>
+                <strong class="text-danger">{{ number_format($item->total_qty, 3) }} {{ $item->unit }}</strong>
+              </div>
+              <div class="text-center">
+                <small class="text-muted d-block">Cost / Unit</small>
+                <strong>PKR {{ number_format($item->cost_per_unit, 2) }}</strong>
+              </div>
+              <div class="text-center">
+                <small class="text-muted d-block">Est. Loss</small>
+                <strong class="text-warning">PKR {{ number_format($item->total_cost, 0) }}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-body p-0">
+            <table class="table table-sm table-bordered mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Date</th>
+                  <th>WRN #</th>
+                  <th>Vendor</th>
+                  <th>Production #</th>
+                  <th class="text-end">Qty Written Off</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody>
+                @foreach($item->entries as $entry)
+                  <tr>
+                    <td>{{ \Carbon\Carbon::parse($entry['date'])->format('d-M-Y') }}</td>
+                    <td>
+                      <strong class="text-danger">{{ $entry['wrn_no'] }}</strong>
+                    </td>
+                    <td>{{ $entry['vendor'] }}</td>
+                    <td>
+                      @if($entry['production_id'])
+                        <a href="{{ route('production.edit', $entry['production_id']) }}">
+                          PO-{{ $entry['production_id'] }}
+                        </a>
+                      @else
+                        <span class="text-muted">—</span>
+                      @endif
+                    </td>
+                    <td class="text-end text-danger fw-bold">
+                      {{ number_format($entry['qty'], 3) }}
+                    </td>
+                    <td><small class="text-muted">{{ $entry['remarks'] !== '-' ? $entry['remarks'] : '—' }}</small></td>
+                  </tr>
+                @endforeach
+              </tbody>
+              <tfoot class="table-light fw-bold">
+                <tr>
+                  <td colspan="4" class="text-end">Total Written Off</td>
+                  <td class="text-end text-danger">{{ number_format($item->total_qty, 3) }}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      @empty
+        <div class="text-center py-5">
+          <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
+          <p class="text-success fw-bold">No wastage write-offs found in this period.</p>
+          <small class="text-muted">All raw returns in this period were marked as "Extra" (back to stock).</small>
+        </div>
+      @endforelse
+    @endif
+
+    {{-- ── 4. STOCK TRANSFER ───────────────────────────────────── --}}
     @if($tab === 'STR')
       <form method="GET" action="{{ route('reports.inventory') }}" class="mb-3">
         <input type="hidden" name="tab" value="STR">
@@ -363,7 +540,7 @@
       </div>
     @endif
 
-    {{-- ── 4. NON-MOVING ITEMS ─────────────────────────────────── --}}
+    {{-- ── 5. NON-MOVING ITEMS ─────────────────────────────────── --}}
     @if($tab === 'NMI')
       <form method="GET" action="{{ route('reports.inventory') }}" class="mb-3">
         <input type="hidden" name="tab" value="NMI">
@@ -426,7 +603,7 @@
       </div>
     @endif
 
-    {{-- ── 5. REORDER LEVEL ────────────────────────────────────── --}}
+    {{-- ── 6. REORDER LEVEL ────────────────────────────────────── --}}
     @if($tab === 'ROL')
       <div class="alert alert-danger mb-3">
         <i class="fas fa-exclamation-circle me-1"></i>

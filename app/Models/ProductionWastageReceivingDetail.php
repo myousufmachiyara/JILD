@@ -12,6 +12,7 @@ class ProductionWastageReceivingDetail extends Model
         'variation_id',
         'unit_id',
         'quantity',
+        'return_type', // ← add
         'remarks',
     ];
 

@@ -11,79 +11,66 @@ class Production extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'vendor_id',
-        'category_id',
-        'order_date',
-        'production_type',
-        'remarks',
-        'attachments',
-        'created_by',
+        'vendor_id', 'category_id', 'order_date',
+        'production_type', 'remarks', 'attachments', 'created_by',
     ];
 
     protected $casts = ['attachments' => 'array'];
 
     // ── Relationships ─────────────────────────────────────────────────
 
-    public function vendor()
-    {
-        return $this->belongsTo(ChartOfAccounts::class, 'vendor_id');
-    }
-
-    public function category()
-    {
-        return $this->belongsTo(ProductCategory::class, 'category_id');
-    }
-
-    public function details()
-    {
-        return $this->hasMany(ProductionDetail::class);
-    }
-
-    public function receivings()
-    {
-        return $this->hasMany(ProductionReceiving::class);
-    }
+    public function vendor()      { return $this->belongsTo(ChartOfAccounts::class, 'vendor_id'); }
+    public function category()    { return $this->belongsTo(ProductCategory::class, 'category_id'); }
+    public function details()     { return $this->hasMany(ProductionDetail::class); }
+    public function receivings()  { return $this->hasMany(ProductionReceiving::class); }
+    public function returns()     { return $this->hasMany(ProductionReturnItem::class, 'production_id'); }
 
     public function wastageReceivings()
     {
         return $this->hasMany(ProductionWastageReceiving::class, 'production_id');
     }
 
-    public function returns()
-    {
-        return $this->hasMany(ProductionReturnItem::class, 'production_id');
-    }
-
     // ── Computed stats ────────────────────────────────────────────────
 
-    /** Total raw qty sent to vendor */
     public function getTotalRawGivenAttribute(): float
     {
         return (float) $this->details->sum('qty');
     }
 
-    /** Total raw cost sent to vendor */
     public function getTotalRawCostAttribute(): float
     {
         return (float) $this->details->sum(fn($d) => $d->qty * $d->rate);
     }
 
-    /** Total finished goods received back */
     public function getTotalFinishedReceivedAttribute(): float
     {
         return (float) $this->receivings->flatMap->details->sum('received_qty');
     }
 
-    /** Total wastage raw returned by vendor */
+    /**
+     * True wastage — actual scraps/write-off, NO stock movement
+     */
     public function getTotalWastageReturnedAttribute(): float
     {
-        return (float) $this->wastageReceivings->flatMap->details->sum('quantity');
+        return (float) $this->wastageReceivings
+            ->flatMap->details
+            ->where('return_type', 'wastage')
+            ->sum('quantity');
     }
 
     /**
-     * Expected raw consumed = sum(FG received qty × product.consumption)
-     * Uses the consumption field set on each FG product.
-     * This is what should have been consumed based on product baseline.
+     * Extra raw returned back to stock (unused, not waste)
+     */
+    public function getTotalExtraRawReturnedAttribute(): float
+    {
+        return (float) $this->wastageReceivings
+            ->flatMap->details
+            ->where('return_type', 'extra')
+            ->sum('quantity');
+    }
+
+    /**
+     * Expected raw consumed = sum(FG qty × product.consumption)
      */
     public function getExpectedConsumedAttribute(): float
     {
@@ -97,7 +84,7 @@ class Production extends Model
     }
 
     /**
-     * Actual consumption per FG piece = total raw sent / total FG received
+     * Actual consumption per FG piece = total raw given / total FG received
      */
     public function getActualConsumptionPerPcAttribute(): float
     {
@@ -107,26 +94,35 @@ class Production extends Model
 
     /**
      * Raw still at vendor (expected basis):
-     *   Sent − Expected Consumed − Wastage Returned
-     * This is the most useful figure for tracking accountability.
+     *   Sent − Expected Consumed − Wastage (write-off) − Extra (back to stock)
      */
     public function getRawAtVendorExpectedAttribute(): float
     {
-        return max(0, $this->total_raw_given - $this->expected_consumed - $this->total_wastage_returned);
+        return max(0,
+            $this->total_raw_given
+            - $this->expected_consumed
+            - $this->total_wastage_returned
+            - $this->total_extra_raw_returned
+        );
     }
 
     /**
      * Raw still at vendor (actual basis):
-     *   Sent − Actual Consumed − Wastage Returned
+     *   Sent − Actual Consumed − Wastage (write-off) − Extra (back to stock)
      */
     public function getRawAtVendorActualAttribute(): float
     {
         $actualConsumed = $this->actual_consumption_per_pc * $this->total_finished_received;
-        return max(0, $this->total_raw_given - $actualConsumed - $this->total_wastage_returned);
+        return max(0,
+            $this->total_raw_given
+            - $actualConsumed
+            - $this->total_wastage_returned
+            - $this->total_extra_raw_returned
+        );
     }
 
     /**
-     * Average manufacturing cost per FG piece from all receivings
+     * Average manufacturing (CMT) cost per FG piece
      */
     public function getAvgCmtCostAttribute(): float
     {
@@ -138,33 +134,26 @@ class Production extends Model
     }
 
     /**
-     * Average total product cost per FG piece = raw cost per pc + avg CMT cost
-     * This feeds into PnL as the product's landed cost.
+     * Avg total product cost/pc = raw cost/pc + avg CMT cost/pc
      */
     public function getAvgProductCostAttribute(): float
     {
         $fg = $this->total_finished_received;
         if ($fg <= 0) return 0;
-
         $rawCostPerPc = $this->total_raw_cost / $fg;
         return round($rawCostPerPc + $this->avg_cmt_cost, 2);
     }
 
     /**
-     * Consumption variance % = (actual - expected) / expected × 100
+     * Consumption variance % = (actual/pc − expected/pc) / expected/pc × 100
      * Positive = over-consumed, Negative = under-consumed
      */
     public function getConsumptionVariancePctAttribute(): ?float
     {
-        $expected = $this->actual_consumption_per_pc > 0
-            ? $this->receivings->flatMap->details->first()?->product?->consumption ?? 0
-            : 0;
-
-        // Use expected_consumed / FG for a per-pc expected figure
         $fg = $this->total_finished_received;
         if ($fg <= 0) return null;
 
-        $expectedPerPc = $fg > 0 ? $this->expected_consumed / $fg : 0;
+        $expectedPerPc = $this->expected_consumed / $fg;
         if ($expectedPerPc <= 0) return null;
 
         $actual = $this->actual_consumption_per_pc;

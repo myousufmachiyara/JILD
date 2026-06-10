@@ -143,11 +143,16 @@
                         <select name="item_details[{{ $idx }}][invoice]"
                                 id="invoiceSelect_{{ $idx }}"
                                 data-plugin-selecttwo class="form-control select2-js"
-                                onchange="onInvoiceChange(this)">
+                                onchange="onInvoiceChange(this)"
+                                data-preselect="{{ $detail->invoice_id }}">
                           <option value="">Select Invoice</option>
-                          @if($detail->invoice_id)
+                          @if($detail->invoice_id && $detail->invoice)
                             <option value="{{ $detail->invoice_id }}" selected>
-                              #{{ $detail->invoice_id }}
+                              {{ $detail->invoice->invoice_no }}{{ $detail->invoice->bill_no ? ' | Bill: '.$detail->invoice->bill_no : '' }} — {{ $detail->invoice->vendor->name ?? '' }}
+                            </option>
+                          @elseif($detail->invoice_id)
+                            <option value="{{ $detail->invoice_id }}" selected>
+                              Invoice #{{ $detail->invoice_id }}
                             </option>
                           @endif
                         </select>
@@ -411,7 +416,8 @@
       let opts = '<option value="">Select Invoice</option>';
       if (Array.isArray(data) && data.length) {
         data.forEach(inv => {
-          opts += `<option value="${inv.id}" data-rate="${inv.rate}">${inv.invoice_no}-${inv.vendor}</option>`;
+          const billPart = inv.bill_no ? ` | Bill: ${inv.bill_no}` : '';
+          opts += `<option value="${inv.id}" data-rate="${inv.rate}">${inv.invoice_no}${billPart} — ${inv.vendor}</option>`;
         });
       } else {
         opts = '<option value="">No Invoices Found</option>';

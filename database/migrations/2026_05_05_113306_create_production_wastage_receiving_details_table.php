@@ -18,6 +18,7 @@ return new class extends Migration
             $table->unsignedBigInteger('variation_id')->nullable();
             $table->unsignedBigInteger('unit_id');
             $table->decimal('quantity', 12, 3);
+            $table->enum('return_type', ['extra', 'wastage'])->default('extra');
             $table->text('remarks')->nullable();
             $table->timestamps();
 

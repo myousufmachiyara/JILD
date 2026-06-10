@@ -74,6 +74,7 @@
                 <tr>
                   <th>Raw Material</th>
                   <th>Variation</th>
+                  <th width="12%">Return Type</th>   {{-- ← add --}}
                   <th width="12%">Unit</th>
                   <th width="12%">Quantity</th>
                   <th>Remarks</th>
@@ -97,6 +98,13 @@
                     <select name="items[0][variation_id]"
                             data-plugin-selecttwo class="form-control select2-js variation-select">
                       <option value="">No Variation</option>
+                    </select>
+                  </td>
+                  <td>
+                    <select name="items[0][return_type]"
+                            data-plugin-selecttwo class="form-control select2-js return-type-select" required>
+                      <option value="extra">Extra (Back to Stock)</option>
+                      <option value="wastage">Wastage (Write-off)</option>
                     </select>
                   </td>
                   <td>
@@ -201,6 +209,12 @@
           <select name="items[${rowCount}][variation_id]"
                   data-plugin-selecttwo class="form-control select2-js variation-select">
             <option value="">No Variation</option>
+          </select>
+        </td>
+        <td>
+          <select name="items[${rowCount}][return_type]" data-plugin-selecttwo class="form-control select2-js return-type-select" required>
+            <option value="extra">Extra (Back to Stock)</option>
+            <option value="wastage">Wastage (Write-off)</option>
           </select>
         </td>
         <td>
