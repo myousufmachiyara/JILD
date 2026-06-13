@@ -447,7 +447,7 @@ class ProductController extends Controller
             'Expires'             => '0',
         ];
 
-        $callback = function () use ($columns, $attributes, $categories, $subcategories, $units) {
+        $callback = function () use ($columns, $attributes) {
             $file = fopen('php://output', 'w');
             fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM for Excel
 
