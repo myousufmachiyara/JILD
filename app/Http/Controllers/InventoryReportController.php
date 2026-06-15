@@ -77,45 +77,61 @@ class InventoryReportController extends Controller
         // ── Helper: current real stock qty ────────────────────────────
         // Only 'extra' type wastage returns come back to real stock.
         // 'wastage' type is a write-off — not counted in inventory.
-        $getStockQty = function (Product $product, ?object $var) {
+        $getStockQty = function (Product $product, ?object $var, ?string $asOfDate = null) {
             $vid = $var->id ?? null;
 
             $openingStock   = $vid
                 ? (float) ($var->stock_quantity ?? 0)
                 : (float) ($product->opening_stock ?? 0);
 
-            $purchased      = (float) PurchaseInvoiceItem::where('item_id', $product->id)
+            $purchased      = (float) PurchaseInvoiceItem::with('invoice')
+                                ->where('item_id', $product->id)
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
+                                ->when($asOfDate, fn($q) => $q->whereHas('invoice', fn($q2) => $q2->where('invoice_date', '<', $asOfDate)))
                                 ->sum('quantity');
 
-            $purchaseReturn = (float) PurchaseReturnItem::where('item_id', $product->id)
+            $purchaseReturn = (float) PurchaseReturnItem::with('purchaseReturn')
+                                ->where('item_id', $product->id)
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
+                                ->when($asOfDate, fn($q) => $q->whereHas('purchaseReturn', fn($q2) => $q2->where('return_date', '<', $asOfDate)))
                                 ->sum('quantity');
 
-            $sold           = (float) SaleInvoiceItem::where('product_id', $product->id)
+            $sold           = (float) SaleInvoiceItem::with('invoice')
+                                ->where('product_id', $product->id)
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
+                                ->when($asOfDate, fn($q) => $q->whereHas('invoice', fn($q2) => $q2->where('date', '<', $asOfDate)))
                                 ->sum('quantity');
 
-            $saleReturn     = (float) SaleReturnItem::where('product_id', $product->id)
+            $saleReturn     = (float) SaleReturnItem::with('saleReturn')
+                                ->where('product_id', $product->id)
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
+                                ->when($asOfDate, fn($q) => $q->whereHas('saleReturn', fn($q2) => $q2->where('return_date', '<', $asOfDate)))
                                 ->sum('qty');
 
-            $rawIssued      = (float) ProductionDetail::where('product_id', $product->id)
+            $rawIssued      = (float) ProductionDetail::with('production')
+                                ->where('product_id', $product->id)
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
+                                ->when($asOfDate, fn($q) => $q->whereHas('production', fn($q2) => $q2->where('order_date', '<', $asOfDate)))
                                 ->sum('qty');
 
-            $fgReceived     = (float) ProductionReceivingDetail::where('product_id', $product->id)
+            $fgReceived     = (float) ProductionReceivingDetail::with('receiving')
+                                ->where('product_id', $product->id)
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
+                                ->when($asOfDate, fn($q) => $q->whereHas('receiving', fn($q2) => $q2->where('rec_date', '<', $asOfDate)))
                                 ->sum('received_qty');
 
-            $fgReturned     = (float) ProductionReturnItem::where('product_id', $product->id)
+            $fgReturned     = (float) ProductionReturnItem::with('productionReturn')
+                                ->where('product_id', $product->id)
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
+                                ->when($asOfDate, fn($q) => $q->whereHas('productionReturn', fn($q2) => $q2->where('return_date', '<', $asOfDate)))
                                 ->sum('quantity');
 
             // ONLY extra type → back to real stock (wastage type = write-off, excluded)
-            $wastageIn      = (float) ProductionWastageReceivingDetail::where('product_id', $product->id)
+            $wastageIn      = (float) ProductionWastageReceivingDetail::with('wastageReceiving')
+                                ->where('product_id', $product->id)
                                 ->where('return_type', 'extra')
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
+                                ->when($asOfDate, fn($q) => $q->whereHas('wastageReceiving', fn($q2) => $q2->where('rec_date', '<', $asOfDate)))
                                 ->sum('quantity');
 
             return $openingStock
