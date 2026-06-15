@@ -19,12 +19,10 @@ class AccountsReportController extends Controller
 
         $chartOfAccounts = ChartOfAccounts::orderBy('account_code')->get();
 
-        // account_id only applies to GL and party_ledger
         $accountId = in_array($report, ['general_ledger', 'party_ledger'])
             ? ($request->account_id ? (int) $request->account_id : null)
             : null;
 
-        // Only compute the active report — not all 12 at once
         $reportData = match ($report) {
             'general_ledger'   => $this->generalLedger($accountId, $from, $to),
             'trial_balance'    => $this->trialBalance($from, $to),
@@ -58,9 +56,9 @@ class AccountsReportController extends Controller
         return (float) str_replace(',', '', $value);
     }
 
-    private function runningBalance(array $rows): array
+    private function runningBalance(array $rows, float $openingBalance = 0): array
     {
-        $balance = 0;
+        $balance = $openingBalance;
         foreach ($rows as &$row) {
             $balance += $this->unformat($row['debit']) - $this->unformat($row['credit']);
             $row['balance']    = $this->fmt(abs($balance));
@@ -70,8 +68,31 @@ class AccountsReportController extends Controller
         return $rows;
     }
 
+    /**
+     * Net opening balance for a vendor/customer account, as a signed DR amount.
+     * receivables = opening DR (they owe us)  → positive
+     * payables    = opening CR (we owe them)  → negative
+     * Returns 0 for non-party account types.
+     */
+    private function partyOpeningBalance(ChartOfAccounts $account): float
+    {
+        if (!in_array($account->account_type, ['customer', 'vendor'])) {
+            return 0;
+        }
+
+        $receivables = (float) ($account->receivables ?? 0);
+        $payables    = (float) ($account->payables ?? 0);
+
+        return $receivables - $payables;
+    }
+
+    private function partyOpeningBalanceById(int $accountId): float
+    {
+        $account = ChartOfAccounts::find($accountId);
+        return $account ? $this->partyOpeningBalance($account) : 0;
+    }
+
     // ── Voucher type label ────────────────────────────────────────────
-    // Maps all voucher_type values from PostsAccountingEntries to readable labels
     private function voucherLabel(Voucher $v): string
     {
         $typeMap = [
@@ -102,6 +123,9 @@ class AccountsReportController extends Controller
     {
         if (!$accountId) return [];
 
+        $account        = ChartOfAccounts::find($accountId);
+        $openingBalance = $account ? $this->partyOpeningBalance($account) : 0;
+
         $vouchers = Voucher::with(['debitAccount', 'creditAccount'])
             ->whereBetween('date', [$from, $to])
             ->where(fn($q) => $q->where('ac_dr_sid', $accountId)
@@ -126,6 +150,19 @@ class AccountsReportController extends Controller
                 'balance_dr' => true,
             ];
         })->toArray();
+
+        // Prepend an opening balance row if non-zero
+        if ($openingBalance != 0) {
+            array_unshift($rows, [
+                'date'       => $from,
+                'voucher'    => 'Opening Balance',
+                'account'    => '-',
+                'debit'      => $openingBalance > 0 ? $this->fmt($openingBalance) : '0.00',
+                'credit'     => $openingBalance < 0 ? $this->fmt(abs($openingBalance)) : '0.00',
+                'balance'    => '0.00',
+                'balance_dr' => true,
+            ]);
+        }
 
         return $this->runningBalance($rows);
     }
@@ -155,22 +192,61 @@ class AccountsReportController extends Controller
             )
             ->groupBy('coa.id', 'coa.account_code', 'coa.name', 'coa.account_type');
 
-        return $debits->unionAll($credits)
+        $voucherTotals = $debits->unionAll($credits)
             ->get()
             ->groupBy('id')
             ->map(function ($rows) {
                 $first  = $rows->first();
-                $debit  = $rows->sum('total_debit');
-                $credit = $rows->sum('total_credit');
-                $net    = $debit - $credit;
                 return [
+                    'id'           => $first->id,
                     'account_code' => $first->account_code,
                     'account'      => $first->name,
                     'account_type' => $first->account_type,
-                    'debit'        => $this->fmt($debit),
-                    'credit'       => $this->fmt($credit),
+                    'debit'        => $rows->sum('total_debit'),
+                    'credit'       => $rows->sum('total_credit'),
+                ];
+            });
+
+        // ── Fold in opening balances for vendor/customer accounts ──────
+        $partyAccounts = ChartOfAccounts::whereIn('account_type', ['customer', 'vendor'])->get();
+
+        foreach ($partyAccounts as $account) {
+            $opening = $this->partyOpeningBalance($account);
+            if ($opening == 0) continue;
+
+            $existing = $voucherTotals->get($account->id);
+
+            $debit  = $existing['debit']  ?? 0;
+            $credit = $existing['credit'] ?? 0;
+
+            // Add opening DR to debit side, opening CR to credit side
+            if ($opening > 0) {
+                $debit += $opening;
+            } else {
+                $credit += abs($opening);
+            }
+
+            $voucherTotals->put($account->id, [
+                'id'           => $account->id,
+                'account_code' => $account->account_code,
+                'account'      => $account->name,
+                'account_type' => $account->account_type,
+                'debit'        => $debit,
+                'credit'       => $credit,
+            ]);
+        }
+
+        return $voucherTotals
+            ->map(function ($row) {
+                $net = $row['debit'] - $row['credit'];
+                return [
+                    'account_code' => $row['account_code'],
+                    'account'      => $row['account'],
+                    'account_type' => $row['account_type'],
+                    'debit'        => $this->fmt($row['debit']),
+                    'credit'       => $this->fmt($row['credit']),
                     'net'          => $this->fmt(abs($net)),
-                    'net_dr'       => $net >= 0, // true = DR balance, false = CR balance
+                    'net_dr'       => $net >= 0,
                 ];
             })
             ->sortBy('account_code')
@@ -182,23 +258,18 @@ class AccountsReportController extends Controller
     {
         $trial = $this->trialBalance($from, $to);
 
-        // Revenue = credit-side accounts (sales revenue, other income)
-        // Net = credit - debit (revenue accounts are normally CR)
         $revenue = $trial->whereIn('account_type', ['revenue'])
             ->sum(fn($r) => $this->unformat($r['credit']) - $this->unformat($r['debit']));
 
-        // COGS = debit-side accounts
         $cogs = $trial->whereIn('account_type', ['cogs'])
             ->sum(fn($r) => $this->unformat($r['debit']) - $this->unformat($r['credit']));
 
-        // Operating expenses
         $expenses = $trial->whereIn('account_type', ['expense'])
             ->sum(fn($r) => $this->unformat($r['debit']) - $this->unformat($r['credit']));
 
         $grossProfit = $revenue - $cogs;
         $netProfit   = $grossProfit - $expenses;
 
-        // Build detailed breakdown
         $rows = [];
 
         $rows[] = ['particulars' => '── REVENUE ──', 'amount' => '', 'section' => 'header'];
@@ -268,7 +339,6 @@ class AccountsReportController extends Controller
                 ),
             ])->filter(fn($r) => $this->unformat($r['amount']) != 0)->values();
 
-        // Add net profit to equity
         $plData    = $this->profitLoss($from, $to);
         $netProfit = collect($plData)->firstWhere('section', 'net');
         if ($netProfit && $this->unformat($netProfit['amount']) != 0) {
@@ -292,7 +362,6 @@ class AccountsReportController extends Controller
             ];
         }
 
-        // Totals row
         $rows[] = [
             'asset'     => 'Total Assets',
             'asset_amt' => $this->fmt($totalAssets),
@@ -322,7 +391,6 @@ class AccountsReportController extends Controller
         }
 
         $rows = $query->get()->map(function ($v) use ($accountId, $partyAccountIds) {
-            // Resolve which side is the party
             if ($accountId) {
                 $resolvedId = $accountId;
             } else {
@@ -347,14 +415,34 @@ class AccountsReportController extends Controller
             ];
         })->toArray();
 
-        return collect($this->runningBalance($rows));
+        // Only meaningful to prepend an opening balance when viewing a single account
+        $openingBalance = 0;
+        if ($accountId) {
+            $openingBalance = $this->partyOpeningBalanceById($accountId);
+
+            if ($openingBalance != 0) {
+                $account = ChartOfAccounts::find($accountId);
+                array_unshift($rows, [
+                    'date'       => $from,
+                    'party'      => $account->name ?? '-',
+                    'voucher'    => 'Opening Balance',
+                    'debit'      => $openingBalance > 0 ? $this->fmt($openingBalance) : '0.00',
+                    'credit'     => $openingBalance < 0 ? $this->fmt(abs($openingBalance)) : '0.00',
+                    'balance'    => '0.00',
+                    'balance_dr' => true,
+                ]);
+                $openingBalance = 0; // already injected as a row; don't double-count in runningBalance seed
+            }
+        }
+
+        return collect($this->runningBalance($rows, $openingBalance));
     }
 
     // ── 6. Receivables ────────────────────────────────────────────────
     private function receivables(string $from, string $to): \Illuminate\Support\Collection
     {
         $accounts = ChartOfAccounts::whereIn('account_type', ['customer', 'vendor'])
-            ->get(['id', 'name', 'account_type']);
+            ->get(['id', 'name', 'account_type', 'receivables', 'payables']);
 
         return $accounts->map(function ($account) use ($from, $to) {
             $totalDebit  = (float) Voucher::where('ac_dr_sid', $account->id)
@@ -365,7 +453,9 @@ class AccountsReportController extends Controller
                 ->whereBetween('date', [$from, $to])
                 ->whereNull('deleted_at')
                 ->sum('amount');
-            $balance = $totalDebit - $totalCredit;
+
+            $opening = $this->partyOpeningBalance($account);
+            $balance = $opening + $totalDebit - $totalCredit;
 
             // Only show net debit balance = they owe us
             if ($balance <= 0) return null;
@@ -381,7 +471,10 @@ class AccountsReportController extends Controller
                 '0_30'             => $this->fmt($this->agingBucket($account->id, $to, 0,  30,   'debit')),
                 '31_60'            => $this->fmt($this->agingBucket($account->id, $to, 31, 60,   'debit')),
                 '61_90'            => $this->fmt($this->agingBucket($account->id, $to, 61, 90,   'debit')),
-                'over_90'          => $this->fmt($this->agingBucket($account->id, $to, 91, null, 'debit')),
+                'over_90'          => $this->fmt(
+                    $this->agingBucket($account->id, $to, 91, null, 'debit')
+                    + max(0, $opening) // opening receivable falls into >90 days bucket
+                ),
             ];
         })->filter()->values();
     }
@@ -389,9 +482,8 @@ class AccountsReportController extends Controller
     // ── 7. Payables ───────────────────────────────────────────────────
     private function payables(string $from, string $to): \Illuminate\Support\Collection
     {
-        // Vendors + customers who may have credit balances (e.g. advance payments)
         $accounts = ChartOfAccounts::whereIn('account_type', ['vendor', 'customer'])
-            ->get(['id', 'name', 'account_type']);
+            ->get(['id', 'name', 'account_type', 'receivables', 'payables']);
 
         return $accounts->map(function ($account) use ($from, $to) {
             $totalDebit  = (float) Voucher::where('ac_dr_sid', $account->id)
@@ -402,7 +494,9 @@ class AccountsReportController extends Controller
                 ->whereBetween('date', [$from, $to])
                 ->whereNull('deleted_at')
                 ->sum('amount');
-            $balance = $totalCredit - $totalDebit;
+
+            $opening = $this->partyOpeningBalance($account); // positive = DR, negative = CR
+            $balance = $totalCredit - $totalDebit - $opening;
 
             // Only show net credit balance = we owe them
             if ($balance <= 0) return null;
@@ -418,7 +512,10 @@ class AccountsReportController extends Controller
                 '0_30'          => $this->fmt($this->agingBucket($account->id, $to, 0,  30,   'credit')),
                 '31_60'         => $this->fmt($this->agingBucket($account->id, $to, 31, 60,   'credit')),
                 '61_90'         => $this->fmt($this->agingBucket($account->id, $to, 61, 90,   'credit')),
-                'over_90'       => $this->fmt($this->agingBucket($account->id, $to, 91, null, 'credit')),
+                'over_90'       => $this->fmt(
+                    $this->agingBucket($account->id, $to, 91, null, 'credit')
+                    + max(0, -$opening) // opening payable falls into >90 days bucket
+                ),
             ];
         })->filter()->values();
     }
@@ -549,7 +646,6 @@ class AccountsReportController extends Controller
     {
         $cashBankIds = ChartOfAccounts::whereIn('account_type', ['cash', 'bank'])->pluck('id');
 
-        // Operating: sales receipts, purchase payments, expense payments
         $operatingIn  = (float) Voucher::whereBetween('date', [$from, $to])
             ->whereIn('ac_dr_sid', $cashBankIds)
             ->whereIn('voucher_type', ['sale', 'receipt'])
@@ -562,7 +658,6 @@ class AccountsReportController extends Controller
             ->whereNull('deleted_at')
             ->sum('amount');
 
-        // Production-related cash flows
         $productionOut = (float) Voucher::whereBetween('date', [$from, $to])
             ->whereIn('ac_cr_sid', $cashBankIds)
             ->whereIn('voucher_type', ['production_receiving', 'production_return'])
@@ -575,7 +670,6 @@ class AccountsReportController extends Controller
             ->whereNull('deleted_at')
             ->sum('amount');
 
-        // All cash/bank inflows and outflows
         $totalIn  = (float) Voucher::whereBetween('date', [$from, $to])
             ->whereIn('ac_dr_sid', $cashBankIds)
             ->whereNull('deleted_at')
