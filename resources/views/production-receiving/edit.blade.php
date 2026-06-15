@@ -90,7 +90,7 @@
                   <th width="12%">Barcode / Code</th>
                   <th>Item</th>
                   <th>Variation</th>
-                  <th width="10%">Mfg. Cost</th>
+                  <th width="10%">CMT Cost</th>
                   <th width="10%">Received Qty</th>
                   <th>Remarks</th>
                   <th width="10%">Total</th>
@@ -107,11 +107,11 @@
                     </td>
                     <td>
                       <select name="item_details[{{ $idx }}][product_id]"
-                              data-plugin-selecttwo class="form-control variation-select select2-js" required>
+                              data-plugin-selecttwo class="form-control product-select select2-js" required>
                         <option value="">Select Item</option>
                         @foreach($products as $item)
                           <option value="{{ $item->id }}"
-                                  data-mfg-cost="{{ $item->manufacturing_cost }}"
+                                  data-cmt-cost="{{ $item->cmt_cost }}"
                                   data-barcode="{{ $item->barcode }}"
                                   {{ $item->id == $detail->product_id ? 'selected' : '' }}>
                             {{ $item->name }}
@@ -209,12 +209,12 @@
   $(document).ready(function () {
     $('.select2-js').select2({ width: '100%', dropdownAutoWidth: true });
 
-    // Product select change
+    // Product select change → auto-fill CMT cost from product (same for all variations)
     $(document).on('change', '.product-select', function () {
       const row       = $(this).closest('tr');
       const productId = $(this).val();
-      const mfgCost   = $(this).find(':selected').data('mfg-cost') || 0;
-      row.find('.manufacturing_cost').val(parseFloat(mfgCost).toFixed(2));
+      const cmtCost   = $(this).find(':selected').data('cmt-cost') || 0;
+      row.find('.manufacturing_cost').val(parseFloat(cmtCost).toFixed(2));
       if (productId) loadVariations(row, productId);
       recalcRow(row);
       recalcSummary();
@@ -236,13 +236,13 @@
           const v = res.variation;
           row.find('.product-select').val(v.product_id).trigger('change');
           loadVariations(row, v.product_id, v.id);
-          if (v['m.cost'] !== undefined) row.find('.manufacturing_cost').val(parseFloat(v['m.cost']).toFixed(2));
+          if (v.cmt_cost !== undefined) row.find('.manufacturing_cost').val(parseFloat(v.cmt_cost).toFixed(2));
           setTimeout(() => row.find('.received-qty').focus(), 300);
         }
         if (res.type === 'product') {
           const p = res.product;
           row.find('.product-select').val(p.id).trigger('change');
-          if (p['m.cost'] !== undefined) row.find('.manufacturing_cost').val(parseFloat(p['m.cost']).toFixed(2));
+          if (p.cmt_cost !== undefined) row.find('.manufacturing_cost').val(parseFloat(p.cmt_cost).toFixed(2));
         }
         recalcRow(row); recalcSummary();
       }).fail(() => alert('Error fetching product.'));
@@ -275,7 +275,7 @@
       <option value="">Select Item</option>
       @foreach($products as $item)
         <option value="{{ $item->id }}"
-                data-mfg-cost="{{ $item->manufacturing_cost }}"
+                data-cmt-cost="{{ $item->cmt_cost }}"
                 data-barcode="{{ $item->barcode }}">
           {{ $item->name }}
         </option>
@@ -327,8 +327,9 @@
       if ($var.hasClass('select2-hidden-accessible')) $var.select2('destroy');
       $var.select2({ width: '100%', dropdownAutoWidth: true });
 
-      if (data.product?.manufacturing_cost !== undefined) {
-        $mc.val(parseFloat(data.product.manufacturing_cost).toFixed(2));
+      // CMT cost is product-wise — same for all variations of this product
+      if (data.product?.cmt_cost !== undefined) {
+        $mc.val(parseFloat(data.product.cmt_cost).toFixed(2));
       }
       if (preselectId) $var.val(String(preselectId)).trigger('change');
 
