@@ -88,11 +88,30 @@
           $totalOut = $itemLedger->sum('qty_out');
           $totalWO  = $itemLedger->sum('writeoff_qty');
           $balance  = $totalIn - $totalOut;
+
+          $openingRow      = $itemLedger->firstWhere('type', 'Opening Balance');
+          $openingQty      = $openingRow
+              ? ($openingRow['qty_in'] > 0 ? $openingRow['qty_in'] : -$openingRow['qty_out'])
+              : 0;
         @endphp
+
+        @if($openingRow)
+          <div class="alert alert-secondary d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <i class="fas fa-history me-1"></i>
+              <strong>Opening Balance</strong> as of {{ \Carbon\Carbon::parse($from)->subDay()->format('d-M-Y') }}:
+              <strong class="{{ $openingQty >= 0 ? 'text-success' : 'text-danger' }}">
+                {{ number_format(abs($openingQty), 2) }} {{ $openingQty >= 0 ? '(IN)' : '(negative)' }}
+              </strong>
+            </div>
+            <small class="text-muted">All movements before the selected From Date are summarized into this single row.</small>
+          </div>
+        @endif
 
         <div class="row mb-3">
           <div class="col">
             <div class="d-flex flex-wrap gap-2">
+              <span class="badge bg-info text-dark">Opening Balance → B/F</span>
               <span class="badge bg-success">Purchase → IN</span>
               <span class="badge bg-warning text-dark">Purchase Return → OUT</span>
               <span class="badge bg-danger">Sale → OUT</span>
@@ -133,6 +152,7 @@
               @foreach($itemLedger as $row)
                 @php
                   $typeMap = [
+                    'Opening Balance'           => ['bg-info text-dark',    'B/F'],
                     'Purchase'                  => ['bg-success',          'IN'],
                     'Purchase Return'           => ['bg-warning text-dark','OUT'],
                     'Sale'                      => ['bg-danger',           'OUT'],
@@ -144,10 +164,13 @@
                     'Wastage Return (W/O)'      => ['bg-dark',             'Write-off'],
                   ];
                   $badge      = $typeMap[$row['type']] ?? ['bg-secondary', ''];
+                  $isOpening  = $row['type'] === 'Opening Balance';
                   $isWriteoff = $row['is_writeoff'] ?? false;
-                  $rowClass   = $isWriteoff ? 'table-dark' : (
-                    in_array($row['type'], ['Production Order', 'Sale', 'Purchase Return', 'Production Return'])
-                      ? 'table-danger' : ''
+                  $rowClass   = $isOpening ? 'table-secondary fw-bold' : (
+                    $isWriteoff ? 'table-dark' : (
+                      in_array($row['type'], ['Production Order', 'Sale', 'Purchase Return', 'Production Return'])
+                        ? 'table-danger' : ''
+                    )
                   );
                 @endphp
                 <tr class="{{ $rowClass }}">
@@ -664,7 +687,7 @@
     $('.select2-js').select2({ width: '100%' });
     $('#ilTable, #srTable, #strTable, #nmiTable, #rolTable').DataTable({
       pageLength: 100,
-      order: [[0, 'asc']],
+      order: [],
     });
   });
 </script>

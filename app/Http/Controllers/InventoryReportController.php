@@ -74,7 +74,7 @@ class InventoryReportController extends Controller
             };
         };
 
-        // ── Helper: current real stock qty ────────────────────────────
+        // ── Helper: current real stock qty (optionally as-of a date, exclusive) ──
         // Only 'extra' type wastage returns come back to real stock.
         // 'wastage' type is a write-off — not counted in inventory.
         $getStockQty = function (Product $product, ?object $var, ?string $asOfDate = null) {
@@ -84,51 +84,43 @@ class InventoryReportController extends Controller
                 ? (float) ($var->stock_quantity ?? 0)
                 : (float) ($product->opening_stock ?? 0);
 
-            $purchased      = (float) PurchaseInvoiceItem::with('invoice')
-                                ->where('item_id', $product->id)
+            $purchased      = (float) PurchaseInvoiceItem::where('item_id', $product->id)
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
                                 ->when($asOfDate, fn($q) => $q->whereHas('invoice', fn($q2) => $q2->where('invoice_date', '<', $asOfDate)))
                                 ->sum('quantity');
 
-            $purchaseReturn = (float) PurchaseReturnItem::with('purchaseReturn')
-                                ->where('item_id', $product->id)
+            $purchaseReturn = (float) PurchaseReturnItem::where('item_id', $product->id)
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
                                 ->when($asOfDate, fn($q) => $q->whereHas('purchaseReturn', fn($q2) => $q2->where('return_date', '<', $asOfDate)))
                                 ->sum('quantity');
 
-            $sold           = (float) SaleInvoiceItem::with('invoice')
-                                ->where('product_id', $product->id)
+            $sold           = (float) SaleInvoiceItem::where('product_id', $product->id)
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
                                 ->when($asOfDate, fn($q) => $q->whereHas('invoice', fn($q2) => $q2->where('date', '<', $asOfDate)))
                                 ->sum('quantity');
 
-            $saleReturn     = (float) SaleReturnItem::with('saleReturn')
-                                ->where('product_id', $product->id)
+            $saleReturn     = (float) SaleReturnItem::where('product_id', $product->id)
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
                                 ->when($asOfDate, fn($q) => $q->whereHas('saleReturn', fn($q2) => $q2->where('return_date', '<', $asOfDate)))
                                 ->sum('qty');
 
-            $rawIssued      = (float) ProductionDetail::with('production')
-                                ->where('product_id', $product->id)
+            $rawIssued      = (float) ProductionDetail::where('product_id', $product->id)
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
                                 ->when($asOfDate, fn($q) => $q->whereHas('production', fn($q2) => $q2->where('order_date', '<', $asOfDate)))
                                 ->sum('qty');
 
-            $fgReceived     = (float) ProductionReceivingDetail::with('receiving')
-                                ->where('product_id', $product->id)
+            $fgReceived     = (float) ProductionReceivingDetail::where('product_id', $product->id)
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
                                 ->when($asOfDate, fn($q) => $q->whereHas('receiving', fn($q2) => $q2->where('rec_date', '<', $asOfDate)))
                                 ->sum('received_qty');
 
-            $fgReturned     = (float) ProductionReturnItem::with('productionReturn')
-                                ->where('product_id', $product->id)
+            $fgReturned     = (float) ProductionReturnItem::where('product_id', $product->id)
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
                                 ->when($asOfDate, fn($q) => $q->whereHas('productionReturn', fn($q2) => $q2->where('return_date', '<', $asOfDate)))
                                 ->sum('quantity');
 
             // ONLY extra type → back to real stock (wastage type = write-off, excluded)
-            $wastageIn      = (float) ProductionWastageReceivingDetail::with('wastageReceiving')
-                                ->where('product_id', $product->id)
+            $wastageIn      = (float) ProductionWastageReceivingDetail::where('product_id', $product->id)
                                 ->where('return_type', 'extra')
                                 ->when($vid, fn($q) => $q->where('variation_id', $vid))
                                 ->when($asOfDate, fn($q) => $q->whereHas('wastageReceiving', fn($q2) => $q2->where('rec_date', '<', $asOfDate)))
@@ -166,6 +158,26 @@ class InventoryReportController extends Controller
                 foreach ($variations as $var) {
                     $vid    = $var->id ?? null;
                     $ledger = collect();
+
+                    // ── Opening Balance row: net stock from all movements strictly before $from ──
+                    $openingBalanceQty = $getStockQty($product, $var, $from);
+
+                    $openingRow = null;
+                    if ($openingBalanceQty != 0) {
+                        $openingRow = [
+                            'date'        => $from,
+                            'type'        => 'Opening Balance',
+                            'description' => 'Stock brought forward (as of '
+                                . \Carbon\Carbon::parse($from)->subDay()->format('d-M-Y') . ')',
+                            'qty_in'      => $openingBalanceQty > 0 ? $openingBalanceQty : 0,
+                            'qty_out'     => $openingBalanceQty < 0 ? abs($openingBalanceQty) : 0,
+                            'rate'        => 0,
+                            'product'     => $product->name,
+                            'variation'   => $var->sku ?? null,
+                            'is_writeoff' => false,
+                            'writeoff_qty'=> 0,
+                        ];
+                    }
 
                     // Purchases IN
                     $ledger = $ledger->concat(
@@ -352,7 +364,13 @@ class InventoryReportController extends Controller
                             })
                     );
 
-                    $itemLedger = $itemLedger->concat($ledger->sortBy('date'));
+                    // Sort period movements by date, then prepend opening balance (always first)
+                    $periodMovements = $ledger->sortBy('date')->values();
+
+                    if ($openingRow) {
+                        $itemLedger->push($openingRow);
+                    }
+                    $itemLedger = $itemLedger->concat($periodMovements);
                 }
             }
         }
@@ -379,15 +397,6 @@ class InventoryReportController extends Controller
             $productIds = $productsToProcess->pluck('id')->toArray();
 
             // ── Bulk preload all stock-movement sums, grouped by product_id + variation_id ──
-            $sumByProdVar = function ($model, string $qtyCol, ?string $extraWhere = null, $extraVal = null) use ($productIds) {
-                $q = $model::whereIn('product_id', $productIds);
-                if ($extraWhere) $q->where($extraWhere, $extraVal);
-                return $q->selectRaw("product_id, variation_id, SUM($qtyCol) as total")
-                    ->groupBy('product_id', 'variation_id')
-                    ->get()
-                    ->groupBy('product_id');
-            };
-
             $purchasedSums = PurchaseInvoiceItem::whereIn('item_id', $productIds)
                 ->selectRaw('item_id as product_id, variation_id, SUM(quantity) as total')
                 ->groupBy('item_id', 'variation_id')->get()->groupBy('product_id');
@@ -806,7 +815,7 @@ class InventoryReportController extends Controller
         return view('reports.inventory_reports', [
             'products'       => $allProducts,
             'tab'            => $tab,
-            'itemLedger'     => $itemLedger->sortBy('date')->values(),
+            'itemLedger'     => $itemLedger,
             'stockInHand'    => $stockInHand,
             'wastageStock'   => $wastageStock,
             'stockTransfers' => $stockTransfers,
