@@ -484,7 +484,11 @@ class InventoryReportController extends Controller
             $fgProductIds = $productsToProcess->filter(fn($p) => $p->item_type !== 'raw')->pluck('id')->toArray();
 
             $allReceivingsForFg = ProductionReceivingDetail::whereIn('product_id', $fgProductIds)
-                ->with(['receiving.production.details', 'receiving.production.receivings.details'])
+                ->with([
+                    'receiving.production.details',
+                    'receiving.production.receivings.details',
+                    'receiving.production.wastageReceivings.details',
+                ])
                 ->get()
                 ->groupBy(['product_id', 'variation_id']);
 
@@ -497,6 +501,42 @@ class InventoryReportController extends Controller
                     $rawRateCache[$key] = $agg ?? 0;
                 }
                 return $rawRateCache[$key];
+            };
+
+            // ── Cache: fraction of issued raw that was actually consumed, per production ──
+            // consumedFraction = (rawIssued - extraReturned - wastageWriteoff) / rawIssued
+            // This excludes raw that was returned to stock ('extra') or written off ('wastage')
+            // from loading onto the FG's per-piece cost.
+            $consumedFractionCache = [];
+            $rawConsumedFractionFor = function ($production) use (&$consumedFractionCache) {
+                if (!$production) return 1.0;
+
+                if (isset($consumedFractionCache[$production->id])) {
+                    return $consumedFractionCache[$production->id];
+                }
+
+                $totalRawGiven = (float) $production->details->sum('qty');
+
+                if ($totalRawGiven <= 0) {
+                    return $consumedFractionCache[$production->id] = 1.0;
+                }
+
+                $wastageDetails = $production->wastageReceivings
+                    ->flatMap->details;
+
+                // null/legacy return_type defaults to 'extra' (back to stock) — matches
+                // convention used elsewhere (Item Ledger, Wastage Stock report, etc.)
+                $totalExtraReturned   = (float) $wastageDetails
+                    ->filter(fn($wd) => ($wd->return_type ?? 'extra') === 'extra')
+                    ->sum('quantity');
+
+                $totalWastageWriteoff = (float) $wastageDetails
+                    ->filter(fn($wd) => ($wd->return_type ?? 'extra') !== 'extra')
+                    ->sum('quantity');
+
+                $rawConsumedTotal = max(0, $totalRawGiven - $totalExtraReturned - $totalWastageWriteoff);
+
+                return $consumedFractionCache[$production->id] = $rawConsumedTotal / $totalRawGiven;
             };
 
             // ── Helper: sum from preloaded grouped collection ──
@@ -576,11 +616,17 @@ class InventoryReportController extends Controller
                             $batchFgQty = (float) $recDetail->received_qty;
 
                             if ($production) {
-                                $batchRawCost = 0;
+                                $batchRawCostIssued = 0;
                                 foreach ($production->details as $rawDetail) {
-                                    $rawRate       = $getRawRate($rawDetail->product_id, $costingMethod);
-                                    $batchRawCost += (float) $rawDetail->qty * $rawRate;
+                                    $rawRate             = $getRawRate($rawDetail->product_id, $costingMethod);
+                                    $batchRawCostIssued += (float) $rawDetail->qty * $rawRate;
                                 }
+
+                                // Scale down to only the raw actually consumed — exclude
+                                // extra raw returned to stock and wastage written off,
+                                // so their cost doesn't inflate this FG's per-piece cost.
+                                $consumedFraction = $rawConsumedFractionFor($production);
+                                $batchRawCost     = $batchRawCostIssued * $consumedFraction;
 
                                 $batchTotalFg = (float) $production->receivings
                                     ->flatMap->details
