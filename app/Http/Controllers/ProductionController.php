@@ -413,7 +413,6 @@ class ProductionController extends Controller
     }
 
     // ── Costing Summary PDF (per production) ──────────────────────────
-
     public function summary($id)
     {
         $production = Production::with([
@@ -508,6 +507,25 @@ class ProductionController extends Controller
         $pdf->writeHTML($html, true, false, true, false, '');
         $pdf->Ln(3);
 
+        // ── Pre-compute wastage/extra totals (needed for consumption calc) ────
+        // These must be calculated BEFORE Section 2's consumption math, since
+        // actual consumption depends on raw that was actually used (not returned).
+        $totalExtraReturned   = 0;
+        $totalWastageWriteoff = 0;
+
+        foreach ($production->wastageReceivings as $wr) {
+            foreach ($wr->details as $wd) {
+                $isExtra = ($wd->return_type ?? 'extra') === 'extra';
+                if ($isExtra) {
+                    $totalExtraReturned += (float) $wd->quantity;
+                } else {
+                    $totalWastageWriteoff += (float) $wd->quantity;
+                }
+            }
+        }
+
+        $totalReturned = $totalExtraReturned + $totalWastageWriteoff;
+
         // ── 2. Finished Goods Received ────────────────────────────────────
         $pdf->SetFillColor(23, 54, 93);
         $pdf->SetTextColor(255, 255, 255);
@@ -537,13 +555,23 @@ class ProductionController extends Controller
             }
         }
 
-        // Actual consumption ratio = total raw / total FG
+        // Raw actually consumed = issued - extra returned - wastage written off
+        // (raw that was returned to stock or scrapped was never "consumed" by production)
+        $rawConsumedTotal = max(0, $totalRawGiven - $totalExtraReturned - $totalWastageWriteoff);
+
+        // Actual consumption ratio = raw consumed / FG produced
         $actualConsumption = $totalProductsReceived > 0
-            ? round($totalRawGiven / $totalProductsReceived, 4)
+            ? round($rawConsumedTotal / $totalProductsReceived, 4)
+            : 0;
+
+        // Raw cost per FG piece is still based on cost of raw actually consumed,
+        // not the full issued amount (extra/wasted raw's cost shouldn't load onto FG cost)
+        $rawCostTotal = $totalRawGiven > 0
+            ? $totalRawCost * ($rawConsumedTotal / $totalRawGiven)
             : 0;
 
         $rawCostPerUnit = $totalProductsReceived > 0
-            ? $totalRawCost / $totalProductsReceived
+            ? $rawCostTotal / $totalProductsReceived
             : 0;
 
         // Build per-product consumption alerts
@@ -648,22 +676,7 @@ class ProductionController extends Controller
         $pdf->Ln(3);
 
         // ── 3. Raw Material Returned (split: Extra vs Wastage) ─────────────
-        $totalExtraReturned   = 0;
-        $totalWastageWriteoff = 0;
-
-        foreach ($production->wastageReceivings as $wr) {
-            foreach ($wr->details as $wd) {
-                $isExtra = ($wd->return_type ?? 'extra') === 'extra';
-                if ($isExtra) {
-                    $totalExtraReturned += (float) $wd->quantity;
-                } else {
-                    $totalWastageWriteoff += (float) $wd->quantity;
-                }
-            }
-        }
-
-        $totalReturned = $totalExtraReturned + $totalWastageWriteoff;
-        $nextSection   = 3;
+        $nextSection = 3;
 
         if ($totalReturned > 0) {
             $pdf->SetFillColor(23, 54, 93);
@@ -782,9 +795,10 @@ class ProductionController extends Controller
         }
 
         // ── Final Summary ─────────────────────────────────────────────────
-        $rawConsumed = $actualConsumption * $totalProductsReceived;
-        // Raw still at vendor = issued - consumed (used in production) - extra returned - wastage written off
-        $rawAtVendor = max(0, $totalRawGiven - $rawConsumed - $totalExtraReturned - $totalWastageWriteoff);
+        // rawConsumedTotal already computed above (Section 2)
+        // rawAtVendor = raw issued - raw consumed - extra returned - wastage written off
+        // (this represents raw not yet accounted for: still at vendor / not returned/recorded)
+        $rawAtVendor = max(0, $totalRawGiven - $rawConsumedTotal - $totalExtraReturned - $totalWastageWriteoff);
 
         $pdf->SetFillColor(23, 54, 93);
         $pdf->SetTextColor(255, 255, 255);
@@ -825,7 +839,7 @@ class ProductionController extends Controller
                 <td width="40%" align="right">' . number_format($totalRawGiven, 2) . '</td>
             </tr>
             <tr>
-                <td><b>Total Raw Cost</b></td>
+                <td><b>Total Raw Cost (Issued)</b></td>
                 <td align="right">PKR ' . number_format($totalRawCost, 2) . '</td>
             </tr>
             <tr style="background-color:#f0f4f8;">
@@ -833,6 +847,10 @@ class ProductionController extends Controller
                 <td align="right">' . number_format($totalProductsReceived, 2) . ' pcs</td>
             </tr>
             <tr>
+                <td><b>Raw Actually Consumed</b></td>
+                <td align="right">' . number_format($rawConsumedTotal, 2) . '</td>
+            </tr>
+            <tr style="background-color:#f0f4f8;">
                 <td><b>Actual Consumption (Raw per FG piece)</b></td>
                 <td align="right">' . number_format($actualConsumption, 4) . '</td>
             </tr>
@@ -846,11 +864,11 @@ class ProductionController extends Controller
                 <td align="right" style="color:#dc2626;">' . number_format($totalWastageWriteoff, 2) . '</td>
             </tr>
             <tr>
-                <td><b>Raw Still at Vendor</b></td>
+                <td><b>Raw Still at Vendor (unaccounted)</b></td>
                 <td align="right">' . number_format($rawAtVendor, 2) . '</td>
             </tr>
             <tr style="background-color:#e8f4e8;font-weight:bold;">
-                <td><b>Grand Total Cost (Raw + Mfg)</b></td>
+                <td><b>Grand Total Cost (Raw Consumed + Mfg)</b></td>
                 <td align="right">PKR ' . number_format($grandTotalCost, 2) . '</td>
             </tr>
         </table>';
