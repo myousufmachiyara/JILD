@@ -360,106 +360,219 @@ class InventoryReportController extends Controller
                 }
             }
 
+            $productIds = $productsToProcess->pluck('id')->toArray();
+
+            // ── Bulk preload all stock-movement sums, grouped by product_id + variation_id ──
+            $sumByProdVar = function ($model, string $qtyCol, ?string $extraWhere = null, $extraVal = null) use ($productIds) {
+                $q = $model::whereIn('product_id', $productIds);
+                if ($extraWhere) $q->where($extraWhere, $extraVal);
+                return $q->selectRaw("product_id, variation_id, SUM($qtyCol) as total")
+                    ->groupBy('product_id', 'variation_id')
+                    ->get()
+                    ->groupBy('product_id');
+            };
+
+            $purchasedSums = PurchaseInvoiceItem::whereIn('item_id', $productIds)
+                ->selectRaw('item_id as product_id, variation_id, SUM(quantity) as total')
+                ->groupBy('item_id', 'variation_id')->get()->groupBy('product_id');
+
+            $purchaseReturnSums = PurchaseReturnItem::whereIn('item_id', $productIds)
+                ->selectRaw('item_id as product_id, variation_id, SUM(quantity) as total')
+                ->groupBy('item_id', 'variation_id')->get()->groupBy('product_id');
+
+            $soldSums = SaleInvoiceItem::whereIn('product_id', $productIds)
+                ->selectRaw('product_id, variation_id, SUM(quantity) as total')
+                ->groupBy('product_id', 'variation_id')->get()->groupBy('product_id');
+
+            $saleReturnSums = SaleReturnItem::whereIn('product_id', $productIds)
+                ->selectRaw('product_id, variation_id, SUM(qty) as total')
+                ->groupBy('product_id', 'variation_id')->get()->groupBy('product_id');
+
+            $rawIssuedSums = ProductionDetail::whereIn('product_id', $productIds)
+                ->selectRaw('product_id, variation_id, SUM(qty) as total')
+                ->groupBy('product_id', 'variation_id')->get()->groupBy('product_id');
+
+            $fgReceivedSums = ProductionReceivingDetail::whereIn('product_id', $productIds)
+                ->selectRaw('product_id, variation_id, SUM(received_qty) as total')
+                ->groupBy('product_id', 'variation_id')->get()->groupBy('product_id');
+
+            $fgReturnedSums = ProductionReturnItem::whereIn('product_id', $productIds)
+                ->selectRaw('product_id, variation_id, SUM(quantity) as total')
+                ->groupBy('product_id', 'variation_id')->get()->groupBy('product_id');
+
+            $wastageExtraSums = ProductionWastageReceivingDetail::whereIn('product_id', $productIds)
+                ->where('return_type', 'extra')
+                ->selectRaw('product_id, variation_id, SUM(quantity) as total')
+                ->groupBy('product_id', 'variation_id')->get()->groupBy('product_id');
+
+            // ── Bulk preload purchase price aggregates (for raw cost), per product+variation AND per product (null variation) ──
+            $purchasePriceAgg = PurchaseInvoiceItem::whereIn('item_id', $productIds)
+                ->selectRaw('item_id as product_id, variation_id,
+                    SUM(quantity * price) as sum_value,
+                    SUM(quantity) as sum_qty,
+                    MAX(price) as max_price,
+                    MIN(price) as min_price')
+                ->groupBy('item_id', 'variation_id')
+                ->get()
+                ->groupBy('product_id');
+
+            // Latest price per product+variation (and per product null-variation)
+            $latestPriceRows = PurchaseInvoiceItem::whereIn('item_id', $productIds)
+                ->orderBy('id', 'desc')
+                ->get(['item_id', 'variation_id', 'price', 'id'])
+                ->groupBy('item_id');
+
+            $latestPriceFor = function ($productId, $vid) use ($latestPriceRows) {
+                $rows = $latestPriceRows->get($productId, collect());
+                $match = $rows->firstWhere('variation_id', $vid);
+                if (!$match && $vid !== null) {
+                    $match = $rows->firstWhere('variation_id', null);
+                }
+                return $match ? (float) $match->price : 0;
+            };
+
+            $purchaseAggFor = function ($productId, $vid, $method) use ($purchasePriceAgg, $latestPriceFor) {
+                $rows = $purchasePriceAgg->get($productId, collect());
+
+                $row = $rows->firstWhere('variation_id', $vid);
+                $hasVarSpecific = $vid !== null && $row !== null;
+
+                if ($vid !== null && !$hasVarSpecific) {
+                    // fall back to null-variation row for this product
+                    $row = $rows->firstWhere('variation_id', null);
+                    if (!$row) return null; // no purchase data at all
+                }
+
+                if (!$row) return 0;
+
+                return match ($method) {
+                    'max'    => (float) $row->max_price,
+                    'min'    => (float) $row->min_price,
+                    'latest' => $latestPriceFor($productId, $hasVarSpecific ? $vid : null),
+                    default  => $row->sum_qty > 0 ? ((float) $row->sum_value / (float) $row->sum_qty) : 0,
+                };
+            };
+
+            $directlyPurchasedSet = $purchasePriceAgg->keys()->flip(); // product_id => true if any purchase exists
+
+            // ── For manufactured FG: preload production receivings with production+details in one go ──
+            $fgProductIds = $productsToProcess->filter(fn($p) => $p->item_type !== 'raw')->pluck('id')->toArray();
+
+            $allReceivingsForFg = ProductionReceivingDetail::whereIn('product_id', $fgProductIds)
+                ->with(['receiving.production.details', 'receiving.production.receivings.details'])
+                ->get()
+                ->groupBy(['product_id', 'variation_id']);
+
+            // Cache raw rate per raw-product (avoids re-querying same raw material repeatedly)
+            $rawRateCache = [];
+            $getRawRate = function ($rawProductId, $method) use (&$rawRateCache, $purchaseAggFor) {
+                $key = $rawProductId . '-' . $method;
+                if (!isset($rawRateCache[$key])) {
+                    $agg = $purchaseAggFor($rawProductId, null, $method);
+                    $rawRateCache[$key] = $agg ?? 0;
+                }
+                return $rawRateCache[$key];
+            };
+
+            // ── Helper: sum from preloaded grouped collection ──
+            $getSum = function ($groupedByProduct, $productId, $vid) {
+                $rows = $groupedByProduct->get($productId, collect());
+                $row  = $rows->first(fn($r) => $r->variation_id == $vid);
+                return $row ? (float) $row->total : 0;
+            };
+
             foreach ($productsToProcess as $product) {
                 $variations = $product->variations->isNotEmpty()
                     ? $product->variations
                     : collect([(object)['id' => null, 'sku' => null, 'stock_quantity' => 0]]);
 
                 foreach ($variations as $var) {
-                    $vid      = $var->id ?? null;
-                    $stockQty = $getStockQty($product, $var);
+                    $vid = $var->id ?? null;
+
+                    // ── Stock qty (from preloaded sums) ──
+                    $openingStock   = $vid
+                        ? (float) ($var->stock_quantity ?? 0)
+                        : (float) ($product->opening_stock ?? 0);
+
+                    $purchased      = $getSum($purchasedSums,       $product->id, $vid);
+                    $purchaseReturn = $getSum($purchaseReturnSums,  $product->id, $vid);
+                    $sold           = $getSum($soldSums,            $product->id, $vid);
+                    $saleReturn     = $getSum($saleReturnSums,      $product->id, $vid);
+                    $rawIssued      = $getSum($rawIssuedSums,       $product->id, $vid);
+                    $fgReceived     = $getSum($fgReceivedSums,      $product->id, $vid);
+                    $fgReturned     = $getSum($fgReturnedSums,      $product->id, $vid);
+                    $wastageIn      = $getSum($wastageExtraSums,    $product->id, $vid);
+
+                    $stockQty = $openingStock
+                        + $purchased
+                        - $purchaseReturn
+                        + $saleReturn
+                        + $fgReceived
+                        + $wastageIn
+                        - $sold
+                        - $rawIssued
+                        - $fgReturned;
 
                     $rawCostPerPiece = 0;
                     $mfgCostPerPiece = 0;
 
                     $isRaw             = $product->item_type === 'raw';
                     $isFg              = !$isRaw;
-                    $directlyPurchased = PurchaseInvoiceItem::where('item_id', $product->id)->exists();
+                    $directlyPurchased = $directlyPurchasedSet->has($product->id);
 
                     if ($isRaw || ($isFg && $directlyPurchased)) {
-                        if ($vid) {
-                            $hasVarSpecific = PurchaseInvoiceItem::where('item_id', $product->id)
-                                ->where('variation_id', $vid)->exists();
+                        $agg = $purchaseAggFor($product->id, $vid, $costingMethod);
 
-                            if ($hasVarSpecific) {
-                                $purchaseQuery = PurchaseInvoiceItem::where('item_id', $product->id)
-                                    ->where('variation_id', $vid);
-                            } else {
-                                $hasNullVar = PurchaseInvoiceItem::where('item_id', $product->id)
-                                    ->whereNull('variation_id')->exists();
-
-                                if ($hasNullVar) {
-                                    $purchaseQuery = PurchaseInvoiceItem::where('item_id', $product->id)
-                                        ->whereNull('variation_id');
-                                } else {
-                                    $stockInHand->push([
-                                        'product'   => $product->name,
-                                        'variation' => $var->sku ?? null,
-                                        'quantity'  => round($stockQty, 4),
-                                        'raw_cost'  => 0, 'mfg_cost' => 0,
-                                        'price'     => 0, 'total'    => 0,
-                                    ]);
-                                    continue;
-                                }
-                            }
-                        } else {
-                            $purchaseQuery = PurchaseInvoiceItem::where('item_id', $product->id);
+                        if ($agg === null) {
+                            // No purchase data at all for this var or fallback — zero row
+                            $stockInHand->push([
+                                'product'   => $product->name,
+                                'variation' => $var->sku ?? null,
+                                'quantity'  => round($stockQty, 4),
+                                'raw_cost'  => 0, 'mfg_cost' => 0,
+                                'price'     => 0, 'total'    => 0,
+                            ]);
+                            continue;
                         }
 
-                        $rawCostPerPiece = match ($costingMethod) {
-                            'max'    => (float) ($purchaseQuery->max('price') ?? 0),
-                            'min'    => (float) ($purchaseQuery->min('price') ?? 0),
-                            'latest' => (float) (optional($purchaseQuery->latest('id')->first())->price ?? 0),
-                            default  => (function () use ($purchaseQuery) {
-                                $agg = $purchaseQuery
-                                    ->selectRaw('SUM(quantity * price) as v, SUM(quantity) as q')
-                                    ->first();
-                                return ($agg && $agg->q > 0) ? ($agg->v / $agg->q) : 0;
-                            })(),
-                        };
+                        $rawCostPerPiece = $agg;
 
                     } elseif ($isFg && !$directlyPurchased) {
-                        $prodReceivings = ProductionReceivingDetail::where('product_id', $product->id)
-                            ->when($vid, fn($q) => $q->where('variation_id', $vid))
-                            ->with('receiving.production.details')
-                            ->get();
+                        $prodReceivings = $allReceivingsForFg->get($product->id, collect())->get($vid, collect());
 
                         $totalWeightedRawCost = 0;
                         $totalFgQty           = 0;
+                        $totalMfgValue        = 0;
+                        $totalMfgQty          = 0;
 
                         foreach ($prodReceivings as $recDetail) {
                             $production = $recDetail->receiving->production ?? null;
-                            if (!$production) continue;
 
-                            $batchFgQty   = (float) $recDetail->received_qty;
-                            $batchRawCost = 0;
+                            $batchFgQty = (float) $recDetail->received_qty;
 
-                            foreach ($production->details as $rawDetail) {
-                                $rawRate       = $getPurchaseCost($rawDetail->product_id, $costingMethod, null);
-                                $batchRawCost += (float) $rawDetail->qty * $rawRate;
+                            if ($production) {
+                                $batchRawCost = 0;
+                                foreach ($production->details as $rawDetail) {
+                                    $rawRate       = $getRawRate($rawDetail->product_id, $costingMethod);
+                                    $batchRawCost += (float) $rawDetail->qty * $rawRate;
+                                }
+
+                                $batchTotalFg = (float) $production->receivings
+                                    ->flatMap->details
+                                    ->where('product_id', $product->id)
+                                    ->sum('received_qty');
+
+                                if ($batchTotalFg > 0 && $batchFgQty > 0) {
+                                    $totalWeightedRawCost += ($batchRawCost / $batchTotalFg) * $batchFgQty;
+                                }
                             }
 
-                            $batchTotalFg = (float) ($production->receivings
-                                ->flatMap->details
-                                ->where('product_id', $product->id)
-                                ->sum('received_qty'));
-
-                            if ($batchTotalFg > 0 && $batchFgQty > 0) {
-                                $totalWeightedRawCost += ($batchRawCost / $batchTotalFg) * $batchFgQty;
-                            }
-                            $totalFgQty += $batchFgQty;
+                            $totalFgQty    += $batchFgQty;
+                            $totalMfgValue += (float) $recDetail->manufacturing_cost * $batchFgQty;
+                            $totalMfgQty   += $batchFgQty;
                         }
 
-                        $rawCostPerPiece = $totalFgQty > 0
-                            ? $totalWeightedRawCost / $totalFgQty
-                            : 0;
-
-                        $mfgRows = ProductionReceivingDetail::where('product_id', $product->id)
-                            ->when($vid, fn($q) => $q->where('variation_id', $vid))
-                            ->get(['manufacturing_cost', 'received_qty']);
-
-                        $totalMfgValue   = $mfgRows->sum(fn($r) => (float) $r->manufacturing_cost * (float) $r->received_qty);
-                        $totalMfgQty     = (float) $mfgRows->sum('received_qty');
+                        $rawCostPerPiece = $totalFgQty > 0 ? $totalWeightedRawCost / $totalFgQty : 0;
                         $mfgCostPerPiece = $totalMfgQty > 0 ? $totalMfgValue / $totalMfgQty : 0;
                     }
 
