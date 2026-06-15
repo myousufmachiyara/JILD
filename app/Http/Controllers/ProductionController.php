@@ -647,39 +647,58 @@ class ProductionController extends Controller
         $pdf->writeHTML($html, true, false, true, false, '');
         $pdf->Ln(3);
 
-        // ── 3. Wastage Returned (only if exists) ──────────────────────────
-        $totalWastage = 0;
+        // ── 3. Raw Material Returned (split: Extra vs Wastage) ─────────────
+        $totalExtraReturned   = 0;
+        $totalWastageWriteoff = 0;
+
         foreach ($production->wastageReceivings as $wr) {
-            $totalWastage += $wr->details->sum('quantity');
+            foreach ($wr->details as $wd) {
+                $isExtra = ($wd->return_type ?? 'extra') === 'extra';
+                if ($isExtra) {
+                    $totalExtraReturned += (float) $wd->quantity;
+                } else {
+                    $totalWastageWriteoff += (float) $wd->quantity;
+                }
+            }
         }
 
-        $nextSection = 3;
+        $totalReturned = $totalExtraReturned + $totalWastageWriteoff;
+        $nextSection   = 3;
 
-        if ($totalWastage > 0) {
+        if ($totalReturned > 0) {
             $pdf->SetFillColor(23, 54, 93);
             $pdf->SetTextColor(255, 255, 255);
             $pdf->SetFont('helvetica', 'B', 9);
-            $pdf->Cell(0, 6, '  3. Wastage Returned', 0, 1, 'L', true);
+            $pdf->Cell(0, 6, '  3. Raw Material Returned', 0, 1, 'L', true);
             $pdf->SetTextColor(0, 0, 0);
             $pdf->Ln(1);
 
             $html = '
             <table border="0.3" cellpadding="3" style="text-align:center;font-size:9px;">
                 <tr style="background-color:#dce6f0;font-weight:bold;">
-                    <th width="8%">S.No</th>
-                    <th width="42%" align="left">Item</th>
-                    <th width="25%">Qty</th>
-                    <th width="25%">Remarks</th>
+                    <th width="6%">S.No</th>
+                    <th width="34%" align="left">Item</th>
+                    <th width="14%">Type</th>
+                    <th width="16%">Qty</th>
+                    <th width="30%">Remarks</th>
                 </tr>';
 
             $count = 0;
             foreach ($production->wastageReceivings as $wr) {
                 foreach ($wr->details as $wd) {
                     $count++;
+                    $isExtra   = ($wd->return_type ?? 'extra') === 'extra';
+                    $typeLabel = $isExtra ? 'Extra' : 'Wastage';
+                    $typeSub   = $isExtra ? '(Back to Stock)' : '(Write-off)';
+                    $typeColor = $isExtra ? '#166534' : '#dc2626';
+
                     $html .= '
                     <tr>
                         <td>' . $count . '</td>
                         <td align="left">' . ($wd->product->name ?? '-') . '</td>
+                        <td style="color:' . $typeColor . ';font-weight:bold;font-size:8px;">
+                            ' . $typeLabel . '<br><span style="font-weight:normal;color:#666;">' . $typeSub . '</span>
+                        </td>
                         <td>' . number_format($wd->quantity, 2) . ' '
                             . ($wd->product->measurementUnit->shortcode ?? '') . '</td>
                         <td>' . ($wd->remarks ?? '-') . '</td>
@@ -688,9 +707,19 @@ class ProductionController extends Controller
             }
 
             $html .= '
+                <tr style="background-color:#e8f4e8;font-weight:bold;">
+                    <td colspan="3" align="right">Extra Returned (Back to Stock)</td>
+                    <td style="color:#166534;">' . number_format($totalExtraReturned, 2) . '</td>
+                    <td></td>
+                </tr>
+                <tr style="background-color:#fde8e8;font-weight:bold;">
+                    <td colspan="3" align="right">Wastage Written-off</td>
+                    <td style="color:#dc2626;">' . number_format($totalWastageWriteoff, 2) . '</td>
+                    <td></td>
+                </tr>
                 <tr style="background-color:#f5f5f5;font-weight:bold;">
-                    <td colspan="2" align="right">Total Wastage</td>
-                    <td>' . number_format($totalWastage, 2) . '</td>
+                    <td colspan="3" align="right">Total Returned</td>
+                    <td>' . number_format($totalReturned, 2) . '</td>
                     <td></td>
                 </tr>
             </table>';
@@ -754,7 +783,8 @@ class ProductionController extends Controller
 
         // ── Final Summary ─────────────────────────────────────────────────
         $rawConsumed = $actualConsumption * $totalProductsReceived;
-        $rawAtVendor = max(0, $totalRawGiven - $rawConsumed - $totalWastage);
+        // Raw still at vendor = issued - consumed (used in production) - extra returned - wastage written off
+        $rawAtVendor = max(0, $totalRawGiven - $rawConsumed - $totalExtraReturned - $totalWastageWriteoff);
 
         $pdf->SetFillColor(23, 54, 93);
         $pdf->SetTextColor(255, 255, 255);
@@ -807,9 +837,13 @@ class ProductionController extends Controller
                 <td align="right">' . number_format($actualConsumption, 4) . '</td>
             </tr>
             ' . $estRows . '
-            <tr style="background-color:#f0f4f8;">
-                <td><b>Wastage Returned</b></td>
-                <td align="right">' . number_format($totalWastage, 2) . '</td>
+            <tr style="background-color:#e8f4e8;">
+                <td><b>Extra Raw Returned (Back to Stock)</b></td>
+                <td align="right" style="color:#166534;">' . number_format($totalExtraReturned, 2) . '</td>
+            </tr>
+            <tr style="background-color:#fde8e8;">
+                <td><b>Wastage Written-off</b></td>
+                <td align="right" style="color:#dc2626;">' . number_format($totalWastageWriteoff, 2) . '</td>
             </tr>
             <tr>
                 <td><b>Raw Still at Vendor</b></td>
