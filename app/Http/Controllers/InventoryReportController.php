@@ -396,6 +396,33 @@ class InventoryReportController extends Controller
 
             $productIds = $productsToProcess->pluck('id')->toArray();
 
+            // ── FIX: Build a wider product-ID set for purchase-price lookups only. ──
+            // $productIds (above) correctly stays scoped to whatever's being displayed
+            // in the table, and continues to drive purchasedSums/soldSums/etc below.
+            // But manufactured FG items need the purchase price of the RAW MATERIALS
+            // consumed in their production batches (see $getRawRate usage further down).
+            // When filtering to a single FG product/variation, $productIds only contains
+            // that FG's own ID — never the raw material's ID — so $purchasePriceAgg was
+            // coming back empty for the raw material and raw_cost silently fell back to 0,
+            // even though the same FG showed the correct raw_cost under "All Products"
+            // (where every raw material's ID happened to already be present in $productIds).
+            // We expand only the purchase-price lookup set below to include those raw
+            // material IDs; nothing else in this block changes.
+            $fgProductIdsForRawLookup = $productsToProcess
+                ->filter(fn($p) => $p->item_type !== 'raw')
+                ->pluck('id');
+
+            $rawMaterialIdsNeeded = ProductionReceivingDetail::whereIn('product_id', $fgProductIdsForRawLookup)
+                ->with('receiving.production.details')
+                ->get()
+                ->flatMap(fn($rd) => $rd->receiving->production->details ?? collect())
+                ->pluck('product_id')
+                ->unique()
+                ->values()
+                ->toArray();
+
+            $purchaseLookupProductIds = array_values(array_unique(array_merge($productIds, $rawMaterialIdsNeeded)));
+
             // ── Bulk preload all stock-movement sums, grouped by product_id + variation_id ──
             $purchasedSums = PurchaseInvoiceItem::whereIn('item_id', $productIds)
                 ->selectRaw('item_id as product_id, variation_id, SUM(quantity) as total')
@@ -431,7 +458,9 @@ class InventoryReportController extends Controller
                 ->groupBy('product_id', 'variation_id')->get()->groupBy('product_id');
 
             // ── Bulk preload purchase price aggregates (for raw cost), per product+variation AND per product (null variation) ──
-            $purchasePriceAgg = PurchaseInvoiceItem::whereIn('item_id', $productIds)
+            // FIX: uses $purchaseLookupProductIds (productIds + raw material IDs) instead of $productIds,
+            // so raw materials consumed by a filtered FG product are included.
+            $purchasePriceAgg = PurchaseInvoiceItem::whereIn('item_id', $purchaseLookupProductIds)
                 ->selectRaw('item_id as product_id, variation_id,
                     SUM(quantity * price) as sum_value,
                     SUM(quantity) as sum_qty,
@@ -442,7 +471,8 @@ class InventoryReportController extends Controller
                 ->groupBy('product_id');
 
             // Latest price per product+variation (and per product null-variation)
-            $latestPriceRows = PurchaseInvoiceItem::whereIn('item_id', $productIds)
+            // FIX: uses $purchaseLookupProductIds for the same reason as above.
+            $latestPriceRows = PurchaseInvoiceItem::whereIn('item_id', $purchaseLookupProductIds)
                 ->orderBy('id', 'desc')
                 ->get(['item_id', 'variation_id', 'price', 'id'])
                 ->groupBy('item_id');

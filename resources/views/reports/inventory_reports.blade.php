@@ -287,9 +287,9 @@
               <th>Product</th>
               <th>Variation</th>
               <th class="text-end">Qty</th>
-              <th class="text-end">Raw Cost/pc</th>
-              <th class="text-end">Mfg Cost/pc</th>
-              <th class="text-end">Total Cost/pc</th>
+              <th class="text-end">Raw Cost/unit</th>
+              <th class="text-end">Mfg Cost/unit</th>
+              <th class="text-end">Total Cost/unit</th>
               <th class="text-end">Total Value</th>
             </tr>
           </thead>
