@@ -394,14 +394,14 @@
     $.get(`/product/${productId}/invoices`, function (data) {
       let opts = '<option value="">Select Invoice</option>';
       (Array.isArray(data) ? data : []).forEach(inv => {
-        opts += `<option value="${inv.id}" data-rate="${inv.rate}">${inv.invoice_no}-${inv.vendor}</option>`;
+        const billPart = inv.bill_no ? ` | Bill: ${inv.bill_no}` : '';
+        opts += `<option value="${inv.id}" data-rate="${inv.rate}">${inv.invoice_no}${billPart} — ${inv.vendor}</option>`;
       });
       $inv.html(opts);
       if ($inv.hasClass('select2-hidden-accessible')) $inv.select2('destroy');
       $inv.select2({ width: '100%', dropdownAutoWidth: true });
     });
 
-    // Auto-fill price when invoice is selected
     $inv.off('change').on('change', function () {
       const rate = $(this).find(':selected').data('rate') || 0;
       const i    = row.find('select[id^="item_name"]').attr('id').replace('item_name', '');

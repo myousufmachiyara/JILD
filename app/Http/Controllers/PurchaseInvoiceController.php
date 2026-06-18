@@ -300,7 +300,7 @@ class PurchaseInvoiceController extends Controller
         $pdf->SetXY(28,  $y + 2); $pdf->Cell(40, 6, 'Received By',   0, 0, 'C');
         $pdf->SetXY(130, $y + 2); $pdf->Cell(40, 6, 'Authorized By', 0, 0, 'C');
 
-        return $pdf->Output('purchase_invoice_' . $invoice->invoice_no . '.pdf', 'I');
+        return $pdf->Output($invoice->invoice_no.'.pdf', 'I');
     }
 
     // ── API / Helper endpoints ────────────────────────────────────────

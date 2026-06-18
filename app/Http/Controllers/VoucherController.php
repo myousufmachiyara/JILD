@@ -17,16 +17,10 @@ class VoucherController extends Controller
     {
         $accounts = ChartOfAccounts::orderBy('name')->get();
 
-        $journal = Voucher::with(['debitAccount', 'creditAccount'])
-                        ->where('voucher_type', 'journal')->latest()->get();
-        $payment = Voucher::with(['debitAccount', 'creditAccount'])
-                        ->where('voucher_type', 'payment')->latest()->get();
-        $receipt = Voucher::with(['debitAccount', 'creditAccount'])
-                        ->where('voucher_type', 'receipt')->latest()->get();
-        $system  = Voucher::with(['debitAccount', 'creditAccount'])
-                        ->whereNotIn('voucher_type', self::MANUAL_TYPES)
-                        ->latest()
-                        ->get();
+        $journal = Voucher::with(['debitAccount', 'creditAccount'])->where('voucher_type', 'journal')->latest()->get();
+        $payment = Voucher::with(['debitAccount', 'creditAccount'])->where('voucher_type', 'payment')->latest()->get();
+        $receipt = Voucher::with(['debitAccount', 'creditAccount'])->where('voucher_type', 'receipt')->latest()->get();
+        $system  = Voucher::with(['debitAccount', 'creditAccount'])->whereNotIn('voucher_type', self::MANUAL_TYPES)->latest()->get();
 
         return view('vouchers.index', compact('accounts', 'journal', 'payment', 'receipt', 'system'));
     }

@@ -6,14 +6,18 @@ use Illuminate\Http\Request;
 use App\Models\SaleReturn;
 use App\Models\SaleReturnItem;
 use App\Models\SaleInvoice;
+use App\Models\PurchaseInvoiceItem;
 use App\Models\ChartOfAccounts;
 use App\Models\Product;
+use App\Traits\PostsAccountingEntries;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class SaleReturnController extends Controller
 {
+    use PostsAccountingEntries;
+
     public function index()
     {
         $returns = SaleReturn::with(['customer','items.product','items.variation'])->latest()->get()
@@ -99,6 +103,10 @@ class SaleReturnController extends Controller
                 }
             }
 
+            // ── Post accounting entries (reverse revenue + COGS) ──────────
+            $return->load('items.product');
+            $this->postSaleReturnEntries($return);
+
             DB::commit();
             Log::info('[SaleReturn] Completed successfully', [
                 'return_id' => $return->id,
@@ -134,7 +142,7 @@ class SaleReturnController extends Controller
             'invoices'  => SaleInvoice::latest()->get(),
         ]);
     }
-    
+
     public function update(Request $request, $id)
     {
         // Log the incoming request
@@ -182,6 +190,10 @@ class SaleReturnController extends Controller
                 ]);
             }
 
+            // ── Re-sync accounting entries with updated items ─────────────
+            $return->load('items.product');
+            $this->postSaleReturnEntries($return);
+
             DB::commit();
 
             Log::info('[SaleReturn] Update Success', [
@@ -216,11 +228,20 @@ class SaleReturnController extends Controller
 
     public function destroy($id)
     {
+        DB::beginTransaction();
         try {
             $return = SaleReturn::findOrFail($id);
+
+            // ── Remove accounting entries before deleting the return ──────
+            $this->deleteVoucherEntries($return);
+
+            $return->items()->delete();
             $return->delete();
+
+            DB::commit();
             return redirect()->route('sale_returns.index')->with('success','Sale return deleted.');
         } catch (\Throwable $e) {
+            DB::rollBack();
             Log::error('[SaleReturn] Delete failed', ['error'=>$e->getMessage()]);
             return back()->with('error','Error deleting sale return.');
         }
@@ -344,4 +365,77 @@ class SaleReturnController extends Controller
         return $pdf->Output('sale_return_'.$return->id.'.pdf', 'I');
     }
 
+    // ── Private helpers ───────────────────────────────────────────────
+
+    /**
+     * Sale Return accounting (reverses portion of original sale):
+     *   DR  Sales Revenue (401001)     ← reduce revenue by return amount
+     *   CR  Customer (AR)              ← reduce receivable
+     *   DR  Stock in Hand (104001)     ← stock comes back
+     *   CR  COGS (501001)              ← reduce COGS
+     *
+     * NOTE: This assumes the return reduces an outstanding receivable.
+     * If the original sale was a fully-paid cash sale, crediting AR here
+     * will not reflect reality (you'd owe the customer a cash refund
+     * instead). Revisit if cash-sale returns need a different credit
+     * account (e.g. a refund/cash account selected on the return form).
+     */
+    private function postSaleReturnEntries(SaleReturn $return): void
+    {
+        if (!$return->account_id) return;
+
+        $entries   = [];
+        $subTotal  = 0;
+        $totalCogs = 0;
+
+        foreach ($return->items as $item) {
+            $lineTotal = $item->qty * $item->price;
+            $subTotal += $lineTotal;
+
+            $pq = PurchaseInvoiceItem::where('item_id', $item->product_id);
+            if ($item->variation_id) {
+                $hasVarSpecific = (clone $pq)->where('variation_id', $item->variation_id)->exists();
+                $pq = $hasVarSpecific
+                    ? $pq->where('variation_id', $item->variation_id)
+                    : $pq->whereNull('variation_id');
+            }
+
+            $agg     = (clone $pq)->selectRaw('SUM(quantity * price) as v, SUM(quantity) as q')->first();
+            $avgCost = ($agg && $agg->q > 0)
+                ? ($agg->v / $agg->q)
+                : (float) ($item->product->manufacturing_cost ?? 0);
+
+            $totalCogs += round($avgCost * $item->qty, 2);
+        }
+
+        // Reverse revenue: DR Sales Revenue / CR Customer (AR)
+        if ($subTotal > 0) {
+            $entries[] = [
+                'dr'      => '401001',
+                'cr_id'   => $return->account_id,
+                'amount'  => $subTotal,
+                'remarks' => 'Sale return — reverse revenue #' . $return->id,
+            ];
+        }
+
+        // Reverse COGS: DR Stock in Hand / CR COGS
+        if ($totalCogs > 0) {
+            $entries[] = [
+                'dr'      => '104001',
+                'cr'      => '501001',
+                'amount'  => $totalCogs,
+                'remarks' => 'Sale return — reverse COGS #' . $return->id,
+            ];
+        }
+
+        if (empty($entries)) return;
+
+        $this->syncVoucherEntries($return, 'sale_return', $return->return_date, $entries);
+
+        Log::info('[SaleReturn] Accounting synced', [
+            'return_id' => $return->id,
+            'sub_total' => $subTotal,
+            'cogs'      => $totalCogs,
+        ]);
+    }
 }

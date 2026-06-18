@@ -267,7 +267,7 @@
       .then(res => res.json())
       .then(data => {
         document.getElementById('update_id').value       = id;
-        document.getElementById('update_date').value     = data.date;
+        document.getElementById('update_date').value     = data.date.substring(0, 10);        
         document.getElementById('update_amount').value   = data.amount;
         document.getElementById('update_remarks').value  = data.remarks ?? '';
         $('#update_ac_dr_sid').val(data.ac_dr_sid).trigger('change');

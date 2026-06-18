@@ -406,7 +406,7 @@ class SaleInvoiceController extends Controller
         $pdf->SetXY(28,  $y + 2); $pdf->Cell(40, 6, 'Customer Signature', 0, 0, 'C');
         $pdf->SetXY(130, $y + 2); $pdf->Cell(40, 6, 'Authorized By',       0, 0, 'C');
 
-        return $pdf->Output('sale_invoice_' . $invoice->invoice_no . '.pdf', 'I');
+        return $pdf->Output($invoice->invoice_no.'.pdf', 'I');
     }
 
     // ── Private helpers ───────────────────────────────────────────────

@@ -30,8 +30,8 @@
             </div>
             <div class="col-md-3 mb-3">
               <label>Customer</label>
-              <select name="account_id" data-plugin-selecttwo class="form-control select2-js">
-                <option value="">Walk-in Customer</option>
+              <select name="account_id" data-plugin-selecttwo class="form-control select2-js" required>
+                <option disabled>Select Customer</option>
                 @foreach($customers as $c)
                   <option value="{{ $c->id }}">{{ $c->name }}</option>
                 @endforeach
@@ -255,7 +255,7 @@
     const price = opt.getAttribute('data-price') || 0;
     const unit  = opt.getAttribute('data-unit')  || '';
     document.getElementById(`price_${i}`).value = price;
-    document.getElementById(`unit_${i}`).value  = unit;
+    $(`#unit_${i}`).val(String(unit)).trigger('change.select2');   // ← fixed
     rowTotal(i);
   }
 
