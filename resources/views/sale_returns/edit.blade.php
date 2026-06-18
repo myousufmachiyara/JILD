@@ -104,6 +104,44 @@
             </div>
           </div>
 
+          {{-- Refund Section --}}
+          <div class="card border-success mt-3">
+            <div class="card-header bg-success text-white d-flex justify-content-between">
+              <h6 class="mb-0"><i class="fas fa-undo-alt me-1"></i> Refund (Optional)</h6>
+              <small>Leave blank to credit the customer's account instead</small>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-3">
+                  <label>Refund From Account</label>
+                  <select name="refund_account_id" id="refund_account_id" class="form-control">
+                    <option value="">-- No Refund --</option>
+                    @foreach($refundAccounts ?? [] as $acc)
+                      <option value="{{ $acc->id }}" {{ $return->refund_account_id == $acc->id ? 'selected' : '' }}>
+                        {{ $acc->name }}
+                      </option>
+                    @endforeach
+                  </select>
+                </div>
+                <div class="col-md-2">
+                  <label>Refund Amount</label>
+                  <input type="number" name="refund_amount" id="refund_amount"
+                         class="form-control" value="{{ $return->refund_amount ?? 0 }}" step="any" min="0">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                  <button type="button" class="btn btn-outline-success btn-sm w-100" id="refundFullBtn">
+                    Refund Full
+                  </button>
+                </div>
+                <div class="col-md-5 d-flex align-items-end">
+                  <small class="text-muted">
+                    Any unrefunded portion of the return amount is credited to the customer's account balance.
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="mt-3">
             <button type="submit" class="btn btn-primary">Update Return</button>
           </div>
@@ -263,6 +301,7 @@ $(document).ready(function () {
             grandTotal += parseFloat($(this).val()) || 0;
         });
         $("#net_amount").val(grandTotal.toFixed(2));
+        clampRefundAmount();
     }
 
     function resetRow(row) {
@@ -291,6 +330,33 @@ $(document).ready(function () {
             }
         });
     }
+
+    // ✅ Refund helpers
+    function clampRefundAmount() {
+        let net = parseFloat($("#net_amount").val()) || 0;
+        let refund = parseFloat($("#refund_amount").val()) || 0;
+        if (refund > net) {
+            $("#refund_amount").val(net.toFixed(2));
+        }
+    }
+
+    $("#refundFullBtn").click(function () {
+        let net = parseFloat($("#net_amount").val()) || 0;
+        $("#refund_amount").val(net.toFixed(2));
+    });
+
+    $("#refund_amount").on('input', clampRefundAmount);
+
+    // Require a refund account if a refund amount is entered
+    $("#saleReturnForm").on('submit', function (e) {
+        let refund = parseFloat($("#refund_amount").val()) || 0;
+        let account = $("#refund_account_id").val();
+        if (refund > 0 && !account) {
+            e.preventDefault();
+            alert('Please select a refund account, or set the refund amount to 0 to credit the customer\'s account instead.');
+            $("#refund_account_id").focus();
+        }
+    });
 
     // ✅ Init: calculate totals for preloaded rows
     $("#itemsTable tbody tr").each(function () {

@@ -14,10 +14,11 @@ class SaleReturn extends Model
         'return_date',
         'sale_invoice_no',
         'remarks',
+        'refund_amount',
+        'refund_account_id',
         'created_by',
     ];
 
-    // Relationships
     public function customer()
     {
         return $this->belongsTo(ChartOfAccounts::class, 'account_id');
@@ -31,5 +32,10 @@ class SaleReturn extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function refundAccount()
+    {
+        return $this->belongsTo(ChartOfAccounts::class, 'refund_account_id');
     }
 }

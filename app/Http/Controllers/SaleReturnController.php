@@ -47,6 +47,8 @@ class SaleReturnController extends Controller
             'return_date'          => 'required|date',
             'sale_invoice_no'      => 'nullable|string|max:50',
             'remarks'              => 'nullable|string|max:500',
+            'refund_amount'        => 'nullable|numeric|min:0',
+            'refund_account_id'    => 'nullable|required_with:refund_amount|exists:chart_of_accounts,id',
             'items'                => 'required|array|min:1',
             'items.*.product_id'   => 'required|exists:products,id',
             'items.*.variation_id' => 'nullable|exists:product_variations,id',
@@ -64,11 +66,13 @@ class SaleReturnController extends Controller
 
             // Create Sale Return
             $return = SaleReturn::create([
-                'account_id'     => $validated['customer_id'],
-                'return_date'     => $validated['return_date'],
-                'sale_invoice_no' => $validated['sale_invoice_no'] ?? null,
-                'remarks'         => $validated['remarks'] ?? null,
-                'created_by'      => Auth::id(),
+                'account_id'         => $validated['customer_id'],
+                'return_date'        => $validated['return_date'],
+                'sale_invoice_no'    => $validated['sale_invoice_no'] ?? null,
+                'remarks'            => $validated['remarks'] ?? null,
+                'refund_amount'      => $validated['refund_amount'] ?? 0,
+                'refund_account_id'  => $validated['refund_account_id'] ?? null,
+                'created_by'         => Auth::id(),
             ]);
 
             Log::info('[SaleReturn] Main record created', [
@@ -156,6 +160,8 @@ class SaleReturnController extends Controller
             'return_date'          => 'required|date',
             'sale_invoice_no'      => 'nullable|string|max:50',
             'remarks'              => 'nullable|string|max:500',
+            'refund_amount'        => 'nullable|numeric|min:0',
+            'refund_account_id'    => 'nullable|required_with:refund_amount|exists:chart_of_accounts,id',
             'items'                => 'required|array|min:1',
             'items.*.product_id'   => 'required|exists:products,id',
             'items.*.variation_id' => 'nullable|exists:product_variations,id',
@@ -171,10 +177,12 @@ class SaleReturnController extends Controller
             $return = SaleReturn::findOrFail($id);
 
             $return->update([
-                'account_id'      => $validated['account_id'],
-                'return_date'     => $validated['return_date'],
-                'sale_invoice_no' => $validated['sale_invoice_no'] ?? null,
-                'remarks'         => $validated['remarks'] ?? null,
+                'account_id'         => $validated['account_id'],
+                'return_date'        => $validated['return_date'],
+                'sale_invoice_no'    => $validated['sale_invoice_no'] ?? null,
+                'remarks'            => $validated['remarks'] ?? null,
+                'refund_amount'      => $validated['refund_amount'] ?? 0,
+                'refund_account_id'  => $validated['refund_account_id'] ?? null,
             ]);
 
             // Delete old items and reinsert
@@ -369,16 +377,19 @@ class SaleReturnController extends Controller
 
     /**
      * Sale Return accounting (reverses portion of original sale):
-     *   DR  Sales Revenue (401001)     ← reduce revenue by return amount
-     *   CR  Customer (AR)              ← reduce receivable
+     *   DR  Sales Revenue (401001)     ← reduce revenue by return amount (full subTotal)
+     *   CR  Customer (AR)              ← portion of return NOT refunded in cash
+     *   CR  Refund Account             ← portion of return paid back as cash/bank refund
      *   DR  Stock in Hand (104001)     ← stock comes back
      *   CR  COGS (501001)              ← reduce COGS
      *
-     * NOTE: This assumes the return reduces an outstanding receivable.
-     * If the original sale was a fully-paid cash sale, crediting AR here
-     * will not reflect reality (you'd owe the customer a cash refund
-     * instead). Revisit if cash-sale returns need a different credit
-     * account (e.g. a refund/cash account selected on the return form).
+     * refund_amount on the return determines the split:
+     *   - refund_amount = 0            → entire subTotal credited to AR (old behavior)
+     *   - refund_amount = subTotal     → entire subTotal paid out of refund_account_id
+     *   - 0 < refund_amount < subTotal → split between the two
+     *
+     * refund_amount is clamped to subTotal so a typo can't refund more than
+     * the return is actually worth.
      */
     private function postSaleReturnEntries(SaleReturn $return): void
     {
@@ -408,13 +419,28 @@ class SaleReturnController extends Controller
             $totalCogs += round($avgCost * $item->qty, 2);
         }
 
-        // Reverse revenue: DR Sales Revenue / CR Customer (AR)
-        if ($subTotal > 0) {
+        // Clamp refund amount so it can never exceed the return's value
+        $refundAmount = min((float)($return->refund_amount ?? 0), $subTotal);
+        $arCredit     = round($subTotal - $refundAmount, 2);
+
+        // Reverse revenue, split across AR credit and/or cash refund as applicable
+        if ($arCredit > 0) {
             $entries[] = [
                 'dr'      => '401001',
                 'cr_id'   => $return->account_id,
-                'amount'  => $subTotal,
-                'remarks' => 'Sale return — reverse revenue #' . $return->id,
+                'amount'  => $arCredit,
+                'remarks' => $refundAmount > 0
+                    ? 'Sale return — revenue reversal (AR credit) #' . $return->id
+                    : 'Sale return — reverse revenue #' . $return->id,
+            ];
+        }
+
+        if ($refundAmount > 0 && $return->refund_account_id) {
+            $entries[] = [
+                'dr'      => '401001',
+                'cr_id'   => $return->refund_account_id,
+                'amount'  => $refundAmount,
+                'remarks' => 'Sale return — cash refund #' . $return->id,
             ];
         }
 
@@ -433,9 +459,11 @@ class SaleReturnController extends Controller
         $this->syncVoucherEntries($return, 'sale_return', $return->return_date, $entries);
 
         Log::info('[SaleReturn] Accounting synced', [
-            'return_id' => $return->id,
-            'sub_total' => $subTotal,
-            'cogs'      => $totalCogs,
+            'return_id'     => $return->id,
+            'sub_total'     => $subTotal,
+            'refund_amount' => $refundAmount,
+            'ar_credit'     => $arCredit,
+            'cogs'          => $totalCogs,
         ]);
     }
 }

@@ -17,10 +17,13 @@ return new class extends Migration
             $table->date('return_date');
             $table->string('sale_invoice_no', 50)->nullable(); // invoice reference
             $table->text('remarks')->nullable();
+            $table->decimal('refund_amount', 15, 2)->default(0);
+            $table->unsignedBigInteger('refund_account_id')->nullable();
             $table->unsignedBigInteger('created_by');
             $table->timestamps();
 
             $table->foreign('account_id')->references('id')->on('chart_of_accounts')->onDelete('cascade');
+            $table->foreign('refund_account_id')->references('id')->on('chart_of_accounts')->onDelete('cascade');
             $table->foreign('created_by')->references('id')->on('users')->onDelete('cascade');
         });
     }
