@@ -27,7 +27,7 @@ class SaleInvoiceController extends Controller
 
     public function create()
     {
-        $products  = Product::where('item_type', 'fg')->orWhereNull('item_type')->get();
+        $products = Product::get();
         $customers = ChartOfAccounts::where('account_type', 'customer')->get();
         $accounts  = ChartOfAccounts::whereIn('account_type', ['cash', 'bank'])->get();
         $units     = MeasurementUnit::all();
@@ -117,7 +117,7 @@ class SaleInvoiceController extends Controller
     public function edit($id)
     {
         $invoice   = SaleInvoice::with(['items', 'payments'])->findOrFail($id);
-        $products  = Product::where('item_type', 'fg')->orWhereNull('item_type')->get();
+        $products = Product::get();
         $customers = ChartOfAccounts::where('account_type', 'customer')->get();
         $accounts  = ChartOfAccounts::whereIn('account_type', ['cash', 'bank'])->get();
         $units     = MeasurementUnit::all();

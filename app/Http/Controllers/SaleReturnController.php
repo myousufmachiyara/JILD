@@ -48,7 +48,11 @@ class SaleReturnController extends Controller
             'sale_invoice_no'      => 'nullable|string|max:50',
             'remarks'              => 'nullable|string|max:500',
             'refund_amount'        => 'nullable|numeric|min:0',
-            'refund_account_id'    => 'nullable|required_with:refund_amount|exists:chart_of_accounts,id',
+            'refund_account_id' => ['nullable', 'exists:chart_of_accounts,id', function ($attribute, $value, $fail) use ($request) {
+                    if ((float) $request->input('refund_amount', 0) > 0 && empty($value)) {
+                        $fail('Please select a refund account when a refund amount is entered.');
+                    }
+            }],
             'items'                => 'required|array|min:1',
             'items.*.product_id'   => 'required|exists:products,id',
             'items.*.variation_id' => 'nullable|exists:product_variations,id',
@@ -161,7 +165,11 @@ class SaleReturnController extends Controller
             'sale_invoice_no'      => 'nullable|string|max:50',
             'remarks'              => 'nullable|string|max:500',
             'refund_amount'        => 'nullable|numeric|min:0',
-            'refund_account_id'    => 'nullable|required_with:refund_amount|exists:chart_of_accounts,id',
+            'refund_account_id' => ['nullable', 'exists:chart_of_accounts,id', function ($attribute, $value, $fail) use ($request) {
+                if ((float) $request->input('refund_amount', 0) > 0 && empty($value)) {
+                    $fail('Please select a refund account when a refund amount is entered.');
+                }
+            }],
             'items'                => 'required|array|min:1',
             'items.*.product_id'   => 'required|exists:products,id',
             'items.*.variation_id' => 'nullable|exists:product_variations,id',
