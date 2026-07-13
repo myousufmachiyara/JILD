@@ -471,6 +471,18 @@ class SaleInvoiceController extends Controller
      *   DR  Cash/Bank Account          ← payment received
      *   CR  Customer (AR)              ← reduces receivable
      */
+    /**
+     * Sale Invoice accounting:
+     *   DR  Customer (AR)              ← sub_total receivable
+     *   CR  Sales Revenue (401001)     ← sub total
+     *   DR  Sales Discount (401003)    ← bill discount
+     *   DR  COGS (501001)              ← cost of goods sold (per item, correct account)
+     *   CR  104001 / 104004            ← raw stock or FG stock depending on item_type
+     *
+     * Per payment received:
+     *   DR  Cash/Bank Account          ← payment received
+     *   CR  Customer (AR)              ← reduces receivable
+     */
     private function postSaleEntries(SaleInvoice $invoice): void
     {
         if (!$invoice->account_id) return;
@@ -497,45 +509,146 @@ class SaleInvoiceController extends Controller
             ];
         }
 
-        // ── Entry 3: COGS DR / Stock in Hand CR ───────────────────────────
-        // Calculated per line item using average purchase cost for that
-        // specific variation (or product-level if no variation).
-        $totalCogs = 0;
+        // ── Entry 3: COGS DR / correct Stock account CR ───────────────────
+        // Raw items    → CR 104001 (Stock in Hand / Raw Material Stock)
+        // Manufactured → CR 104004 (Finished Goods Stock)
+        // Cost method  → average purchase price for raw/directly-purchased FG
+        //                weighted average (consumed raw + mfg cost) for manufactured FG
+        $rawCogsTotal = 0;
+        $fgCogsTotal  = 0;
+
+        // Cache raw average rates to avoid re-querying same raw per batch
+        $rawRateCache = [];
+
+        $getRawAvgCost = function (int $itemId, ?int $varId) use (&$rawRateCache): float {
+            $key = $itemId . '-' . ($varId ?? 'null');
+            if (isset($rawRateCache[$key])) return $rawRateCache[$key];
+
+            $hasVarSpecific = $varId
+                ? \App\Models\PurchaseInvoiceItem::where('item_id', $itemId)->where('variation_id', $varId)->exists()
+                : false;
+
+            if ($varId && $hasVarSpecific) {
+                $pq = \App\Models\PurchaseInvoiceItem::where('item_id', $itemId)->where('variation_id', $varId);
+            } elseif ($varId && !$hasVarSpecific) {
+                $pq = \App\Models\PurchaseInvoiceItem::where('item_id', $itemId)->whereNull('variation_id');
+                if (!$pq->exists()) {
+                    return $rawRateCache[$key] = 0;
+                }
+            } else {
+                $pq = \App\Models\PurchaseInvoiceItem::where('item_id', $itemId);
+            }
+
+            $agg = $pq->selectRaw('SUM(quantity * price) as v, SUM(quantity) as q')->first();
+            return $rawRateCache[$key] = ($agg && $agg->q > 0)
+                ? (float) ($agg->v / $agg->q)
+                : 0;
+        };
+
+        $getManufacturedAvgCost = function (int $productId, ?int $varId) use ($getRawAvgCost): float {
+            $receivings = \App\Models\ProductionReceivingDetail::where('product_id', $productId)
+                ->when($varId, fn($q) => $q->where('variation_id', $varId))
+                ->with([
+                    'receiving.production.details',
+                    'receiving.production.receivings.details',
+                    'receiving.production.wastageReceivings.details',
+                ])
+                ->get();
+
+            if ($receivings->isEmpty()) return 0;
+
+            $totalWeightedRawCost = 0;
+            $totalFgQty           = 0;
+            $totalMfgValue        = 0;
+            $totalMfgQty          = 0;
+
+            foreach ($receivings as $recDetail) {
+                $production = $recDetail->receiving->production ?? null;
+                $batchFgQty = (float) $recDetail->received_qty;
+
+                if ($production) {
+                    // Raw cost for this entire batch (all raw issued × avg rate)
+                    $batchRawCostIssued = 0;
+                    foreach ($production->details as $rawDetail) {
+                        $rawRate             = $getRawAvgCost($rawDetail->product_id, null);
+                        $batchRawCostIssued += (float) $rawDetail->qty * $rawRate;
+                    }
+
+                    // Apply consumed fraction (exclude extra returned + wastage written off)
+                    $totalRawGiven = (float) $production->details->sum('qty');
+                    if ($totalRawGiven > 0) {
+                        $wastageDetails   = $production->wastageReceivings->flatMap->details;
+                        $totalExtra       = (float) $wastageDetails
+                            ->filter(fn($w) => ($w->return_type ?? 'extra') === 'extra')
+                            ->sum('quantity');
+                        $totalWastage     = (float) $wastageDetails
+                            ->filter(fn($w) => ($w->return_type ?? 'extra') !== 'extra')
+                            ->sum('quantity');
+                        $consumedFraction = max(0, $totalRawGiven - $totalExtra - $totalWastage) / $totalRawGiven;
+                    } else {
+                        $consumedFraction = 1.0;
+                    }
+
+                    $batchRawCost = $batchRawCostIssued * $consumedFraction;
+
+                    // Allocate proportionally to this FG product's qty within the PO
+                    $batchTotalFg = (float) $production->receivings
+                        ->flatMap->details
+                        ->where('product_id', $productId)
+                        ->sum('received_qty');
+
+                    if ($batchTotalFg > 0 && $batchFgQty > 0) {
+                        $totalWeightedRawCost += ($batchRawCost / $batchTotalFg) * $batchFgQty;
+                    }
+                }
+
+                $totalFgQty    += $batchFgQty;
+                $totalMfgValue += (float) $recDetail->manufacturing_cost * $batchFgQty;
+                $totalMfgQty   += $batchFgQty;
+            }
+
+            $rawCostPerPiece = $totalFgQty > 0 ? $totalWeightedRawCost / $totalFgQty : 0;
+            $mfgCostPerPiece = $totalMfgQty > 0 ? $totalMfgValue / $totalMfgQty : 0;
+
+            return $rawCostPerPiece + $mfgCostPerPiece;
+        };
 
         foreach ($invoice->items as $item) {
             $productId   = $item->product_id;
             $variationId = $item->variation_id;
             $qty         = (float) $item->quantity;
+            $itemType    = $item->product->item_type ?? 'fg';
 
-            // Build purchase cost query
-            $pq = \App\Models\PurchaseInvoiceItem::where('item_id', $productId);
+            $isRaw             = $itemType === 'raw';
+            $directlyPurchased = \App\Models\PurchaseInvoiceItem::where('item_id', $productId)->exists();
 
-            if ($variationId) {
-                $hasVarSpecific = (clone $pq)->where('variation_id', $variationId)->exists();
-
-                if ($hasVarSpecific) {
-                    $pq = $pq->where('variation_id', $variationId);
-                } else {
-                    // Fall back to null-variation purchases for this product
-                    $pq = $pq->whereNull('variation_id');
-                }
+            if ($isRaw || $directlyPurchased) {
+                // Raw material or directly-purchased FG — use avg purchase price
+                $avgCost      = $getRawAvgCost($productId, $variationId);
+                $rawCogsTotal += round($avgCost * $qty, 2);
+            } else {
+                // Manufactured FG — avg (consumed raw cost + mfg cost) per piece
+                $avgCost     = $getManufacturedAvgCost($productId, $variationId);
+                $fgCogsTotal += round($avgCost * $qty, 2);
             }
-            // If no variation at all — query runs on item_id only (correct)
-
-            $agg     = (clone $pq)->selectRaw('SUM(quantity * price) as v, SUM(quantity) as q')->first();
-            $avgCost = ($agg && $agg->q > 0)
-                ? ($agg->v / $agg->q)
-                : (float) ($item->product->manufacturing_cost ?? 0); // fallback for manufactured items
-
-            $totalCogs += round($avgCost * $qty, 2);
         }
 
-        if ($totalCogs > 0) {
+        // Post one COGS entry per stock account type (combine same-account lines)
+        if ($rawCogsTotal > 0) {
             $entries[] = [
-                'dr'      => '501001', // Cost of Goods Sold
-                'cr'      => '104001', // Stock in Hand
-                'amount'  => $totalCogs,
-                'remarks' => 'COGS — ' . $invoice->invoice_no,
+                'dr'      => '501001', // COGS
+                'cr'      => '104001', // Raw Material Stock / Stock in Hand
+                'amount'  => round($rawCogsTotal, 2),
+                'remarks' => 'COGS (raw/purchased) — ' . $invoice->invoice_no,
+            ];
+        }
+
+        if ($fgCogsTotal > 0) {
+            $entries[] = [
+                'dr'      => '501001', // COGS
+                'cr'      => '104004', // Finished Goods Stock
+                'amount'  => round($fgCogsTotal, 2),
+                'remarks' => 'COGS (manufactured FG) — ' . $invoice->invoice_no,
             ];
         }
 
@@ -561,8 +674,10 @@ class SaleInvoiceController extends Controller
         );
 
         Log::info('[Sale] Accounting synced', [
-            'invoice_id' => $invoice->id,
-            'cogs'       => $totalCogs,
+            'invoice_id'   => $invoice->id,
+            'raw_cogs'     => $rawCogsTotal,
+            'fg_cogs'      => $fgCogsTotal,
+            'total_cogs'   => $rawCogsTotal + $fgCogsTotal,
         ]);
     }
 }
