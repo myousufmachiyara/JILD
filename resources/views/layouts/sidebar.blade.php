@@ -139,7 +139,7 @@
               <li><a class="nav-link" href="{{ route('production.index') }}">Raw Issue</a></li>
               <li><a class="nav-link" href="{{ route('production_receiving.index') }}">FG Receiving</a></li>
               <li><a class="nav-link" href="{{ route('production_return.index') }}">FG Returns</a></li>
-              <li><a class="nav-link" href="{{ route('production_wastage.index') }}">Raw Wastage</a></li>
+              <li><a class="nav-link" href="{{ route('production_wastage.index') }}">Raw Return</a></li>
             </ul>
           </li>
           @endif
