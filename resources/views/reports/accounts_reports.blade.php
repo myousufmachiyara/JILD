@@ -49,10 +49,19 @@
         <input type="date" name="to_date" value="{{ $to }}" class="form-control" required>
       </div>
 
+      {{-- Show account dropdown for both GL and Party Ledger; required only for Party Ledger --}}
       @if(in_array($report, ['general_ledger', 'party_ledger']))
         <div class="col-md-4">
-          <label class="form-label small text-muted">Account</label>
-          <select name="account_id" class="form-control select2-js">
+          <label class="form-label small text-muted">
+            Account
+            @if($report === 'party_ledger')
+              <span class="text-danger">*</span>
+            @else
+              <span class="text-muted">(optional — leave blank for all)</span>
+            @endif
+          </label>
+          <select name="account_id" class="form-control select2-js"
+            {{ $report === 'party_ledger' ? 'required' : '' }}>
             <option value="">-- All Accounts --</option>
             @foreach($chartOfAccounts as $coa)
               <option value="{{ $coa->id }}"
@@ -73,42 +82,50 @@
 
     {{-- ── 1. GENERAL LEDGER ───────────────────────────────────── --}}
     @if($report === 'general_ledger')
-      @if(!$accountId)
+      @if(count($reportData) === 0)
         <div class="alert alert-info">
           <i class="fas fa-info-circle me-1"></i>
-          Please select an account from the filter above to view the General Ledger.
+          No transactions found for the selected period.
         </div>
-      @elseif(count($reportData) === 0)
-        <div class="alert alert-warning">No transactions found for the selected account and date range.</div>
       @else
         @php
-          $totalDr  = collect($reportData)->sum(fn($r) => (float) str_replace(',', '', $r['debit']));
-          $totalCr  = collect($reportData)->sum(fn($r) => (float) str_replace(',', '', $r['credit']));
-          $lastBal  = end($reportData);
+          $isAllAccounts = !$accountId;
+          $totalDr = collect($reportData)->sum(fn($r) => $r['balance'] === '—' ? 0 : (float) str_replace(',', '', $r['debit']));
+          $totalCr = collect($reportData)->sum(fn($r) => $r['balance'] === '—' ? 0 : (float) str_replace(',', '', $r['credit']));
+          $lastBal = end($reportData);
         @endphp
-        <div class="row mb-2 text-center">
-          <div class="col-md-4">
-            <div class="border rounded p-2 bg-light">
-              <small class="text-muted d-block">Total Debit</small>
-              <strong class="text-success">{{ number_format($totalDr, 2) }}</strong>
+
+        @if(!$isAllAccounts)
+          <div class="row mb-2 text-center">
+            <div class="col-md-4">
+              <div class="border rounded p-2 bg-light">
+                <small class="text-muted d-block">Total Debit</small>
+                <strong class="text-success">{{ number_format($totalDr, 2) }}</strong>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="border rounded p-2 bg-light">
+                <small class="text-muted d-block">Total Credit</small>
+                <strong class="text-danger">{{ number_format($totalCr, 2) }}</strong>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="border rounded p-2 bg-light">
+                <small class="text-muted d-block">Closing Balance</small>
+                <strong class="{{ ($lastBal['balance_dr'] ?? true) ? 'text-success' : 'text-danger' }}">
+                  {{ $lastBal['balance'] ?? '0.00' }}
+                  {{ ($lastBal['balance_dr'] ?? true) ? 'DR' : 'CR' }}
+                </strong>
+              </div>
             </div>
           </div>
-          <div class="col-md-4">
-            <div class="border rounded p-2 bg-light">
-              <small class="text-muted d-block">Total Credit</small>
-              <strong class="text-danger">{{ number_format($totalCr, 2) }}</strong>
-            </div>
+        @else
+          <div class="alert alert-secondary mb-3">
+            <i class="fas fa-info-circle me-1"></i>
+            Showing all {{ count($reportData) }} voucher entries for this period.
+            Select a specific account above to see a running balance ledger.
           </div>
-          <div class="col-md-4">
-            <div class="border rounded p-2 bg-light">
-              <small class="text-muted d-block">Closing Balance</small>
-              <strong class="{{ ($lastBal['balance_dr'] ?? true) ? 'text-success' : 'text-danger' }}">
-                {{ $lastBal['balance'] ?? '0.00' }}
-                {{ ($lastBal['balance_dr'] ?? true) ? 'DR' : 'CR' }}
-              </strong>
-            </div>
-          </div>
-        </div>
+        @endif
 
         <div class="table-responsive">
           <table class="table table-bordered table-sm table-striped" id="glTable">
@@ -116,10 +133,16 @@
               <tr>
                 <th>Date</th>
                 <th>Voucher / Ref</th>
-                <th>Contra Account</th>
-                <th class="text-end">Debit</th>
-                <th class="text-end">Credit</th>
-                <th class="text-end">Balance</th>
+                @if($isAllAccounts)
+                  <th>Debit Account</th>
+                  <th>Credit Account</th>
+                  <th class="text-end">Amount</th>
+                @else
+                  <th>Contra Account</th>
+                  <th class="text-end">Debit</th>
+                  <th class="text-end">Credit</th>
+                  <th class="text-end">Balance</th>
+                @endif
               </tr>
             </thead>
             <tbody>
@@ -127,28 +150,41 @@
                 <tr>
                   <td>{{ \Carbon\Carbon::parse($row['date'])->format('d-M-Y') }}</td>
                   <td><small>{{ $row['voucher'] }}</small></td>
-                  <td>{{ $row['account'] }}</td>
-                  <td class="text-end text-success">
-                    {{ $row['debit'] !== '0.00' ? $row['debit'] : '—' }}
-                  </td>
-                  <td class="text-end text-danger">
-                    {{ $row['credit'] !== '0.00' ? $row['credit'] : '—' }}
-                  </td>
-                  <td class="text-end fw-bold {{ ($row['balance_dr'] ?? true) ? 'text-primary' : 'text-danger' }}">
-                    {{ $row['balance'] }}
-                    <small class="text-muted">{{ ($row['balance_dr'] ?? true) ? 'DR' : 'CR' }}</small>
-                  </td>
+                  @if($isAllAccounts)
+                    @php
+                      $parts = explode(' / ', $row['account'], 2);
+                    @endphp
+                    <td class="text-success">{{ $parts[0] ?? '—' }}</td>
+                    <td class="text-danger">{{ $parts[1] ?? '—' }}</td>
+                    <td class="text-end fw-bold">{{ $row['debit'] }}</td>
+                  @else
+                    <td>{{ $row['account'] }}</td>
+                    <td class="text-end text-success">
+                      {{ $row['debit'] !== '0.00' ? $row['debit'] : '—' }}
+                    </td>
+                    <td class="text-end text-danger">
+                      {{ $row['credit'] !== '0.00' ? $row['credit'] : '—' }}
+                    </td>
+                    <td class="text-end fw-bold {{ ($row['balance_dr'] ?? true) ? 'text-primary' : 'text-danger' }}">
+                      {{ $row['balance'] }}
+                      @if($row['balance'] !== '—')
+                        <small class="text-muted">{{ ($row['balance_dr'] ?? true) ? 'DR' : 'CR' }}</small>
+                      @endif
+                    </td>
+                  @endif
                 </tr>
               @endforeach
             </tbody>
-            <tfoot class="table-light fw-bold">
-              <tr>
-                <td colspan="3" class="text-end">Totals</td>
-                <td class="text-end text-success">{{ number_format($totalDr, 2) }}</td>
-                <td class="text-end text-danger">{{ number_format($totalCr, 2) }}</td>
-                <td></td>
-              </tr>
-            </tfoot>
+            @if(!$isAllAccounts)
+              <tfoot class="table-light fw-bold">
+                <tr>
+                  <td colspan="3" class="text-end">Totals</td>
+                  <td class="text-end text-success">{{ number_format($totalDr, 2) }}</td>
+                  <td class="text-end text-danger">{{ number_format($totalCr, 2) }}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            @endif
           </table>
         </div>
       @endif
@@ -285,12 +321,12 @@
     {{-- ── 5. PARTY LEDGER ─────────────────────────────────────── --}}
     @if($report === 'party_ledger')
       @if(!$accountId)
-        <div class="alert alert-info">
-          Select an account above to view a specific party ledger, or leave blank to see all party transactions.
+        <div class="alert alert-warning">
+          <i class="fas fa-exclamation-triangle me-1"></i>
+          Please select a customer or vendor account above to view their party ledger.
         </div>
-      @endif
 
-      @if(count($reportData))
+      @elseif(count($reportData))
         @php
           $totalDr = collect($reportData)->sum(fn($r) => (float) str_replace(',', '', $r['debit']));
           $totalCr = collect($reportData)->sum(fn($r) => (float) str_replace(',', '', $r['credit']));

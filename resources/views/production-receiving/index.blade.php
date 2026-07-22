@@ -43,6 +43,15 @@
                 <td>
                   <a href="{{ route('production_receiving.print', $rec->id) }}" target="_blank" class="text-success"><i class="fas fa-print"></i></a>
                   <a href="{{ route('production_receiving.edit', $rec->id) }}" class="text-primary"><i class="fa fa-edit"></i></a>
+                  <form action="{{ route('production_receiving.destroy', $rec->id) }}" method="POST"
+                        class="d-inline ms-2"
+                        onsubmit="return confirm('Delete GRN {{ $rec->grn_no }}? This will also reverse its accounting entries.')">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-link p-0 text-danger">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </form>
                 </td>
               </tr>
               @endforeach

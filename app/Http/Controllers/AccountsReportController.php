@@ -121,38 +121,56 @@ class AccountsReportController extends Controller
     // ── 1. General Ledger ─────────────────────────────────────────────
     private function generalLedger(?int $accountId, string $from, string $to): array
     {
-        if (!$accountId) return [];
+        $openingBalance = 0;
 
-        $account        = ChartOfAccounts::find($accountId);
-        $openingBalance = $account ? $this->partyOpeningBalance($account) : 0;
-
-        $vouchers = Voucher::with(['debitAccount', 'creditAccount'])
+        $query = Voucher::with(['debitAccount', 'creditAccount'])
             ->whereBetween('date', [$from, $to])
-            ->where(fn($q) => $q->where('ac_dr_sid', $accountId)
-                                ->orWhere('ac_cr_sid', $accountId))
             ->orderBy('date')
-            ->orderBy('id')
-            ->get();
+            ->orderBy('id');
 
-        $rows = $vouchers->map(function ($v) use ($accountId) {
-            $isDebit = $v->ac_dr_sid == $accountId;
-            $contra  = $isDebit
-                ? ($v->creditAccount->name ?? '-')
-                : ($v->debitAccount->name  ?? '-');
+        if ($accountId) {
+            // Filter to specific account
+            $query->where(fn($q) => $q->where('ac_dr_sid', $accountId)
+                                    ->orWhere('ac_cr_sid', $accountId));
 
-            return [
-                'date'    => $v->date,
-                'voucher' => $this->voucherLabel($v),
-                'account' => $contra,
-                'debit'   => $isDebit  ? $this->fmt($v->amount) : '0.00',
-                'credit'  => !$isDebit ? $this->fmt($v->amount) : '0.00',
-                'balance' => '0.00',
-                'balance_dr' => true,
-            ];
+            $account        = ChartOfAccounts::find($accountId);
+            $openingBalance = $account ? $this->partyOpeningBalance($account) : 0;
+        }
+        // If no account selected — fetch all vouchers (Day Book style but with balance column)
+
+        $rows = $query->get()->map(function ($v) use ($accountId) {
+            if ($accountId) {
+                // Account-specific view: show contra account, DR/CR from account's perspective
+                $isDebit = $v->ac_dr_sid == $accountId;
+                $contra  = $isDebit
+                    ? ($v->creditAccount->name ?? '-')
+                    : ($v->debitAccount->name  ?? '-');
+
+                return [
+                    'date'       => $v->date,
+                    'voucher'    => $this->voucherLabel($v),
+                    'account'    => $contra,
+                    'debit'      => $isDebit  ? $this->fmt($v->amount) : '0.00',
+                    'credit'     => !$isDebit ? $this->fmt($v->amount) : '0.00',
+                    'balance'    => '0.00',
+                    'balance_dr' => true,
+                ];
+            } else {
+                // All-accounts view: show both DR and CR account names
+                return [
+                    'date'       => $v->date,
+                    'voucher'    => $this->voucherLabel($v),
+                    'account'    => ($v->debitAccount->name ?? '-') . ' / ' . ($v->creditAccount->name ?? '-'),
+                    'debit'      => $this->fmt($v->amount),
+                    'credit'     => $this->fmt($v->amount),
+                    'balance'    => '—',
+                    'balance_dr' => true,
+                ];
+            }
         })->toArray();
 
-        // Prepend an opening balance row if non-zero
-        if ($openingBalance != 0) {
+        // Prepend opening balance row only when viewing a specific party/vendor account
+        if ($accountId && $openingBalance != 0) {
             array_unshift($rows, [
                 'date'       => $from,
                 'voucher'    => 'Opening Balance',
@@ -164,7 +182,10 @@ class AccountsReportController extends Controller
             ]);
         }
 
-        return $this->runningBalance($rows);
+        // Running balance only makes sense for a single account
+        return $accountId
+            ? $this->runningBalance($rows, $openingBalance != 0 ? 0 : 0)
+            : $rows; // no running balance for all-accounts view
     }
 
     // ── 2. Trial Balance ──────────────────────────────────────────────

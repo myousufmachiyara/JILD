@@ -2,15 +2,16 @@
   $grouped = $vouchers->groupBy('voucher_type');
 
   $moduleConfig = [
-    'purchase'          => ['label' => 'Purchase',           'icon' => 'fa-shopping-cart',    'badge' => 'bg-warning text-dark'],
-    'purchase_return'   => ['label' => 'Purchase Return',    'icon' => 'fa-undo',             'badge' => 'bg-danger'],
-    'sale'              => ['label' => 'Sale',               'icon' => 'fa-cash-register',    'badge' => 'bg-success'],
-    'sale_return'       => ['label' => 'Sale Return',        'icon' => 'fa-undo-alt',         'badge' => 'bg-secondary'],
-    'production'        => ['label' => 'Production',         'icon' => 'fa-industry',         'badge' => 'bg-info text-dark'],
-    'production_return' => ['label' => 'Production Return',  'icon' => 'fa-recycle',          'badge' => 'bg-dark'],
+    'purchase'             => ['label' => 'Purchase',             'icon' => 'fa-shopping-cart',    'badge' => 'bg-warning text-dark'],
+    'purchase_return'      => ['label' => 'Purchase Return',      'icon' => 'fa-undo',             'badge' => 'bg-danger'],
+    'sale'                 => ['label' => 'Sale',                 'icon' => 'fa-cash-register',    'badge' => 'bg-success'],
+    'sale_return'          => ['label' => 'Sale Return',          'icon' => 'fa-undo-alt',         'badge' => 'bg-secondary'],
+    'production'           => ['label' => 'Production',           'icon' => 'fa-industry',         'badge' => 'bg-info text-dark'],
+    'production_return'    => ['label' => 'Production Return',    'icon' => 'fa-recycle',          'badge' => 'bg-dark'],
+    'production_receiving' => ['label' => 'Production Receiving', 'icon' => 'fa-boxes',            'badge' => 'bg-primary'],
+    'production_wastage'   => ['label' => 'Wastage Return',       'icon' => 'fa-trash-alt',        'badge' => 'bg-danger'],
   ];
 
-  // Only show tabs that have data OR are known modules
   $availableTypes = collect($moduleConfig)->keys()
       ->merge($grouped->keys())
       ->unique();

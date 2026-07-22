@@ -149,7 +149,7 @@ class ProductionReportController extends Controller
         if ($tab === 'VRB') {
             $vendors = ChartOfAccounts::where('account_type', 'vendor')->get();
 
-            $vendorRawBalance = $vendors->map(function ($vendor) use ($to) {
+            $vendorRawBalance = $vendors->map(function ($vendor) use ($from, $to) {
                 $productions = Production::with([
                         'details.product.measurementUnit',
                         'receivings.details.product',
@@ -159,21 +159,26 @@ class ProductionReportController extends Controller
                     ->where('order_date', '<=', $to)
                     ->get();
 
+                if ($productions->isEmpty()) return null;
+
+                // Keyed by product_id
                 $balance = collect();
 
                 foreach ($productions as $prod) {
-                    // Sent
+                    $totalRawGiven = (float) $prod->details->sum('qty');
+
+                    // ── Raw sent ──────────────────────────────────────────────
                     foreach ($prod->details as $d) {
                         $pid = $d->product_id;
                         if (!$balance->has($pid)) {
                             $balance->put($pid, [
-                                'product'          => $d->product->name ?? '-',
-                                'unit'             => $d->product->measurementUnit->shortcode ?? '-',
-                                'sent'             => 0,
-                                'expected_consumed'=> 0,
-                                'actual_consumed'  => 0,
-                                'extra_returned'   => 0,  // back to stock
-                                'wastage_returned' => 0,  // write-off
+                                'product'            => $d->product->name ?? '-',
+                                'unit'               => $d->product->measurementUnit->shortcode ?? '-',
+                                'sent'               => 0,
+                                'expected_consumed'  => 0,
+                                'actual_consumed'    => 0,
+                                'extra_returned'     => 0,
+                                'wastage_returned'   => 0,
                             ]);
                         }
                         $row = $balance->get($pid);
@@ -181,41 +186,52 @@ class ProductionReportController extends Controller
                         $balance->put($pid, $row);
                     }
 
-                    // Expected consumed
+                    // ── Expected consumed ─────────────────────────────────────
+                    // For each FG received × its est_consumption, allocate proportionally
+                    // across raw materials based on qty share of total raw issued.
                     foreach ($prod->receivings as $rec) {
                         foreach ($rec->details as $rd) {
                             $fgQty       = (float) $rd->received_qty;
                             $consumption = (float) ($rd->product->consumption ?? 0);
-                            $totalRaw    = (float) $prod->details->sum('qty');
+                            $totalExpForBatch = $fgQty * $consumption;
 
                             foreach ($prod->details as $d) {
                                 $pid   = $d->product_id;
-                                $ratio = $totalRaw > 0 ? (float) $d->qty / $totalRaw : 0;
+                                $ratio = $totalRawGiven > 0 ? (float) $d->qty / $totalRawGiven : 0;
                                 if ($balance->has($pid)) {
                                     $row = $balance->get($pid);
-                                    $row['expected_consumed'] += $fgQty * $consumption * $ratio;
+                                    $row['expected_consumed'] += $totalExpForBatch * $ratio;
                                     $balance->put($pid, $row);
                                 }
                             }
                         }
                     }
 
-                    // Actual consumed
-                    $actualConPerPc = $prod->actual_consumption_per_pc;
-                    $totalFg        = $prod->total_finished_received;
-                    $totalRaw       = (float) $prod->details->sum('qty');
+                    // ── Actual consumed ───────────────────────────────────────
+                    // actual consumed = raw issued − extra returned − wastage written off
+                    // (same formula used in production summary PDF)
+                    $wastageDetails       = $prod->wastageReceivings->flatMap->details;
+                    $totalExtraReturned   = (float) $wastageDetails
+                        ->filter(fn($w) => ($w->return_type ?? 'extra') === 'extra')
+                        ->sum('quantity');
+                    $totalWastageWriteoff = (float) $wastageDetails
+                        ->filter(fn($w) => ($w->return_type ?? 'extra') !== 'extra')
+                        ->sum('quantity');
 
+                    $rawConsumedTotal = max(0, $totalRawGiven - $totalExtraReturned - $totalWastageWriteoff);
+
+                    // Allocate actual consumed proportionally across raw materials
                     foreach ($prod->details as $d) {
                         $pid   = $d->product_id;
-                        $ratio = $totalRaw > 0 ? (float) $d->qty / $totalRaw : 0;
+                        $ratio = $totalRawGiven > 0 ? (float) $d->qty / $totalRawGiven : 0;
                         if ($balance->has($pid)) {
                             $row = $balance->get($pid);
-                            $row['actual_consumed'] += $actualConPerPc * $totalFg * $ratio;
+                            $row['actual_consumed'] += $rawConsumedTotal * $ratio;
                             $balance->put($pid, $row);
                         }
                     }
 
-                    // Wastage split: extra vs wastage
+                    // ── Wastage split: extra vs write-off ─────────────────────
                     foreach ($prod->wastageReceivings as $wr) {
                         foreach ($wr->details as $wd) {
                             $pid = $wd->product_id;
@@ -233,15 +249,18 @@ class ProductionReportController extends Controller
                 }
 
                 $rows = $balance->map(function ($item) {
-                    $expConsumed   = round($item['expected_consumed'], 4);
-                    $actConsumed   = round($item['actual_consumed'],   4);
-                    $extraReturned = round($item['extra_returned'],    4);
-                    $wastage       = round($item['wastage_returned'],  4);
-                    $sent          = round($item['sent'],              4);
+                    $sent          = round($item['sent'],             4);
+                    $expConsumed   = round($item['expected_consumed'],4);
+                    $actConsumed   = round($item['actual_consumed'],  4);
+                    $extraReturned = round($item['extra_returned'],   4);
+                    $wastage       = round($item['wastage_returned'], 4);
 
-                    // Raw at vendor = sent − consumed − both types of returns
-                    $remainingExp = max(0, $sent - $expConsumed - $extraReturned - $wastage);
-                    $remainingAct = max(0, $sent - $actConsumed - $extraReturned - $wastage);
+                    // Raw still at vendor = sent − actually consumed − extra returned − wastage written off
+                    // If everything is accounted for this is 0. Positive means raw is still physically there.
+                    $rawAtVendor = max(0, round($sent - $actConsumed - $extraReturned - $wastage, 4));
+
+                    // Expected remaining = what should still be there based on est_consumption
+                    $remainingExpected = max(0, round($sent - $expConsumed - $extraReturned - $wastage, 4));
 
                     $variancePct = $expConsumed > 0
                         ? round(($actConsumed - $expConsumed) / $expConsumed * 100, 1)
@@ -255,8 +274,8 @@ class ProductionReportController extends Controller
                         'actual_consumed'    => $actConsumed,
                         'extra_returned'     => $extraReturned,
                         'wastage_returned'   => $wastage,
-                        'remaining_expected' => $remainingExp,
-                        'remaining_actual'   => $remainingAct,
+                        'raw_at_vendor'      => $rawAtVendor,       // ← key figure: physically at vendor
+                        'remaining_expected' => $remainingExpected, // ← based on est_consumption
                         'variance_pct'       => $variancePct,
                         'alert'              => $variancePct !== null && abs($variancePct) > 10,
                         'critical'           => $variancePct !== null && abs($variancePct) > 25,
@@ -268,7 +287,7 @@ class ProductionReportController extends Controller
                     'balance' => $rows,
                     'total'   => $rows->count(),
                 ];
-            })->filter(fn($v) => $v->total > 0)->values();
+            })->filter()->values();
         }
 
         // ── 5. Production Returns (RTN) ───────────────────────────────

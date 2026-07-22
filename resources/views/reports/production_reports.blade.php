@@ -393,22 +393,28 @@
 
       <div class="alert alert-info mb-3">
         <i class="fas fa-info-circle me-1"></i>
-        <strong>Extra Returned</strong> = unused raw returned to our stock.
-        <strong>Wastage Returned</strong> = actual scraps (write-off, does not return to stock).
-        <strong>Remaining (Expected)</strong> = Sent − Expected Consumed − Extra − Wastage.
-        Alert fires when consumption deviates &gt;10%.
+        <strong>Raw at Vendor</strong> = Sent − Actual Consumed − Extra Returned − Wastage Written-off.
+        A positive value means raw material is still physically at the vendor's location.
+        <strong>Remaining (Expected)</strong> uses estimated consumption per piece instead.
+        Alert fires when actual consumption deviates &gt;10% from estimated.
       </div>
 
       @forelse($vendorRawBalance as $vb)
         @php
           $hasAlert = $vb->balance->contains(fn($b) => $b->alert);
           $hasCrit  = $vb->balance->contains(fn($b) => $b->critical);
+          $totalRawAtVendor = $vb->balance->sum('raw_at_vendor');
         @endphp
         <div class="card mb-3 {{ $hasCrit ? 'border-danger' : ($hasAlert ? 'border-warning' : '') }}">
           <div class="card-header d-flex justify-content-between align-items-center
-                       {{ $hasCrit ? 'bg-danger text-white' : ($hasAlert ? 'bg-warning' : 'bg-light') }}">
+                      {{ $hasCrit ? 'bg-danger text-white' : ($hasAlert ? 'bg-warning' : 'bg-light') }}">
             <strong><i class="fas fa-user me-1"></i> {{ $vb->vendor }}</strong>
             <div>
+              @if($totalRawAtVendor > 0)
+                <span class="badge bg-warning text-dark me-1">
+                  {{ number_format($totalRawAtVendor, 3) }} units still at vendor
+                </span>
+              @endif
               @if($hasCrit)<span class="badge bg-danger me-1">⚠ Critical</span>
               @elseif($hasAlert)<span class="badge bg-warning text-dark me-1">⚠ Alert</span>
               @endif
@@ -425,8 +431,8 @@
                   <th class="text-end">Act. Consumed</th>
                   <th class="text-end">Extra Returned<br><small class="text-success">Back to Stock</small></th>
                   <th class="text-end">Wastage<br><small class="text-danger">Write-off</small></th>
-                  <th class="text-end">Remaining (Exp)</th>
-                  <th class="text-end">Remaining (Act)</th>
+                  <th class="text-end bg-warning bg-opacity-25">Raw at Vendor<br><small>(Actual)</small></th>
+                  <th class="text-end">Remaining<br><small>(Expected)</small></th>
                   <th class="text-end">Variance %</th>
                 </tr>
               </thead>
@@ -439,10 +445,15 @@
                     <td class="text-end text-primary">{{ number_format($b->actual_consumed, 4) }}</td>
                     <td class="text-end text-success fw-bold">{{ number_format($b->extra_returned, 3) }}</td>
                     <td class="text-end text-danger">{{ number_format($b->wastage_returned, 3) }}</td>
-                    <td class="text-end fw-bold {{ $b->remaining_expected > 0 ? 'text-warning' : 'text-success' }}">
-                      {{ number_format($b->remaining_expected, 4) }}
+                    <td class="text-end fw-bold {{ $b->raw_at_vendor > 0 ? 'text-warning' : 'text-success' }}">
+                      {{ number_format($b->raw_at_vendor, 4) }}
+                      @if($b->raw_at_vendor > 0)
+                        <i class="fas fa-exclamation-circle text-warning ms-1" title="Still at vendor"></i>
+                      @else
+                        <i class="fas fa-check-circle text-success ms-1" title="Fully accounted"></i>
+                      @endif
                     </td>
-                    <td class="text-end text-muted">{{ number_format($b->remaining_actual, 4) }}</td>
+                    <td class="text-end text-muted">{{ number_format($b->remaining_expected, 4) }}</td>
                     <td class="text-end">
                       @if($b->variance_pct !== null)
                         <span class="{{ $b->critical ? 'text-danger fw-bold' : ($b->alert ? 'text-warning fw-bold' : 'text-success') }}">
@@ -458,6 +469,15 @@
                   </tr>
                 @endforeach
               </tbody>
+              <tfoot class="table-light fw-bold">
+                <tr>
+                  <td colspan="6" class="text-end">Total Raw at Vendor</td>
+                  <td class="text-end {{ $totalRawAtVendor > 0 ? 'text-warning' : 'text-success' }}">
+                    {{ number_format($totalRawAtVendor, 3) }}
+                  </td>
+                  <td colspan="2"></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>

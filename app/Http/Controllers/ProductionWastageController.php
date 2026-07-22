@@ -8,6 +8,7 @@ use App\Models\Production;
 use App\Models\Product;
 use App\Models\ChartOfAccounts;
 use App\Models\MeasurementUnit;
+use App\Traits\PostsAccountingEntries;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -15,6 +16,8 @@ use Carbon\Carbon;
 
 class ProductionWastageController extends Controller
 {
+    use PostsAccountingEntries;
+
     public function index()
     {
         $wastages = ProductionWastageReceiving::with(['vendor', 'production', 'details'])
@@ -49,6 +52,7 @@ class ProductionWastageController extends Controller
             'items.*.variation_id'       => 'nullable|exists:product_variations,id',
             'items.*.unit_id'            => 'required|exists:measurement_units,id',
             'items.*.quantity'           => 'required|numeric|min:0.01',
+            'items.*.return_type'        => 'required|in:extra,wastage',
             'items.*.remarks'            => 'nullable|string',
         ]);
 
@@ -75,10 +79,13 @@ class ProductionWastageController extends Controller
                     'variation_id'         => $item['variation_id'] ?? null,
                     'unit_id'              => $item['unit_id'],
                     'quantity'             => $item['quantity'],
-                    'return_type'          => $item['return_type'],   // ← add
+                    'return_type'          => $item['return_type'],
                     'remarks'              => $item['remarks'] ?? null,
                 ]);
             }
+
+            $wastage->load('details');
+            $this->postWastageEntries($wastage);
 
             DB::commit();
             Log::info('[Wastage] Created', ['id' => $wastage->id]);
@@ -115,6 +122,7 @@ class ProductionWastageController extends Controller
             'items.*.variation_id'       => 'nullable|exists:product_variations,id',
             'items.*.unit_id'            => 'required|exists:measurement_units,id',
             'items.*.quantity'           => 'required|numeric|min:0.01',
+            'items.*.return_type'        => 'required|in:extra,wastage',
             'items.*.remarks'            => 'nullable|string',
         ]);
 
@@ -136,10 +144,13 @@ class ProductionWastageController extends Controller
                     'variation_id'         => $item['variation_id'] ?? null,
                     'unit_id'              => $item['unit_id'],
                     'quantity'             => $item['quantity'],
-                    'return_type'          => $item['return_type'],   // ← add
+                    'return_type'          => $item['return_type'],
                     'remarks'              => $item['remarks'] ?? null,
                 ]);
             }
+
+            $wastage->load('details');
+            $this->postWastageEntries($wastage);
 
             DB::commit();
             Log::info('[Wastage] Updated', ['id' => $id]);
@@ -158,6 +169,7 @@ class ProductionWastageController extends Controller
         DB::beginTransaction();
         try {
             $wastage = ProductionWastageReceiving::findOrFail($id);
+            $this->deleteVoucherEntries($wastage);  // ← was missing
             $wastage->details()->delete();
             $wastage->delete();
             DB::commit();
@@ -191,7 +203,6 @@ class ProductionWastageController extends Controller
         $logoPath = public_path('assets/img/Jild-Logo.png');
         if (file_exists($logoPath)) $pdf->Image($logoPath, 10, 10, 30);
 
-        // Totals for summary box
         $totalExtra   = $wastage->details->where('return_type', 'extra')->sum('quantity');
         $totalWastage = $wastage->details->where('return_type', 'wastage')->sum('quantity');
 
@@ -228,16 +239,14 @@ class ProductionWastageController extends Controller
                 <th width="19%">Remarks</th>
             </tr>';
 
-        $count    = 0;
-        $sumExtra = 0;
-        $sumWaste = 0;
+        $count = $sumExtra = $sumWaste = 0;
 
         foreach ($wastage->details as $detail) {
             $count++;
-            $isExtra     = ($detail->return_type ?? 'extra') === 'extra';
-            $typeLabel   = $isExtra ? 'Extra'   : 'Wastage';
-            $typeColor   = $isExtra ? '#166534' : '#dc2626';
-            $typeSub     = $isExtra ? '(Back to Stock)' : '(Write-off)';
+            $isExtra   = ($detail->return_type ?? 'extra') === 'extra';
+            $typeLabel = $isExtra ? 'Extra'   : 'Wastage';
+            $typeColor = $isExtra ? '#166534' : '#dc2626';
+            $typeSub   = $isExtra ? '(Back to Stock)' : '(Write-off)';
 
             if ($isExtra) $sumExtra += $detail->quantity;
             else          $sumWaste += $detail->quantity;
@@ -294,5 +303,133 @@ class ProductionWastageController extends Controller
         $pdf->SetXY(130, $y + 2); $pdf->Cell(40, 6, 'Authorized By', 0, 0, 'C');
 
         return $pdf->Output('wastage_' . $wastage->grn_no . '.pdf', 'I');
+    }
+
+    // ── Accounting ────────────────────────────────────────────────────
+
+    /**
+     * Extra (unused raw back to stock):
+     *   DR  Raw Material Stock (104002)   ← raw physically returns to warehouse
+     *   CR  WIP / Raw at Vendor (104003)  ← leaves work-in-progress
+     *
+     * Wastage (written off):
+     *   DR  Production Wastage Loss (502003)  ← loss/expense
+     *   CR  WIP / Raw at Vendor (104003)      ← leaves work-in-progress
+     *
+     * Both types reduce WIP (104003) since the raw was originally moved there
+     * when the Production Order was created (DR WIP CR Raw Material Stock).
+     *
+     * NOTE: Qty-based entries — we use the purchase avg cost to value the quantity.
+     * If no purchase cost is found, amount = 0 and a log warning is emitted.
+     */
+    private function postWastageEntries(ProductionWastageReceiving $wastage): void
+    {
+        $entries = [];
+        $extraTotal   = 0;
+        $wastageTotal = 0;
+
+        // Determine if this wastage is linked to a sale_leather production
+        // In sale_leather: raw was SOLD to vendor (vendor owes us via Vendor account)
+        //   → returning raw reduces vendor's receivable: DR Raw Stock CR Vendor
+        // In CMT: raw was sent as WIP (DR WIP CR Raw Stock)
+        //   → returning raw reverses WIP: DR Raw Stock CR WIP
+        $isSaleLeather = false;
+        if ($wastage->production_id) {
+            $production = \App\Models\Production::find($wastage->production_id);
+            $isSaleLeather = $production && $production->production_type === 'sale_leather';
+        }
+
+        foreach ($wastage->details as $detail) {
+            $agg = \App\Models\PurchaseInvoiceItem::where('item_id', $detail->product_id)
+                ->selectRaw('SUM(quantity * price) as v, SUM(quantity) as q')
+                ->first();
+
+            $avgCost    = ($agg && $agg->q > 0) ? (float)($agg->v / $agg->q) : 0;
+            $lineAmount = round($avgCost * (float)$detail->quantity, 2);
+
+            if ($lineAmount <= 0) {
+                Log::warning('[Wastage] No purchase cost found for product, skipping accounting', [
+                    'product_id' => $detail->product_id,
+                    'quantity'   => $detail->quantity,
+                ]);
+                continue;
+            }
+
+            $isExtra = ($detail->return_type ?? 'extra') === 'extra';
+
+            if ($isExtra) {
+                $extraTotal += $lineAmount;
+            } else {
+                $wastageTotal += $lineAmount;
+            }
+        }
+
+        if ($isSaleLeather) {
+            // ── Sale Leather wastage flows ────────────────────────────────
+            // Raw was sold to vendor. Vendor returning raw → reduces what vendor owes us.
+            // Extra raw back: DR Raw Material Stock (104002)  CR Vendor
+            // Wastage/loss:   DR Wastage Loss (502003)        CR Vendor
+            // Both reduce vendor's receivable balance.
+            if ($extraTotal > 0) {
+                $entries[] = [
+                    'dr'      => '104002',              // Raw Material Stock — back in warehouse
+                    'cr_id'   => $wastage->vendor_id,   // Vendor — reduces what they owe us
+                    'amount'  => $extraTotal,
+                    'remarks' => 'Extra raw returned by vendor (sale leather) — ' . $wastage->grn_no,
+                ];
+            }
+
+            if ($wastageTotal > 0) {
+                $entries[] = [
+                    'dr'      => '502003',              // Production Wastage Loss
+                    'cr_id'   => $wastage->vendor_id,   // Vendor — reduces what they owe us
+                    'amount'  => $wastageTotal,
+                    'remarks' => 'Raw material wastage by vendor (sale leather) — ' . $wastage->grn_no,
+                ];
+            }
+        } else {
+            // ── CMT wastage flows ─────────────────────────────────────────
+            // Raw was sent as WIP. Returning raw reverses the WIP entry.
+            // Extra raw back: DR Raw Material Stock (104002)  CR WIP (104003)
+            // Wastage/loss:   DR Wastage Loss (502003)        CR WIP (104003)
+            if ($extraTotal > 0) {
+                $entries[] = [
+                    'dr'      => '104002', // Raw Material Stock — back in warehouse
+                    'cr'      => '104003', // WIP — leaves work-in-progress
+                    'amount'  => $extraTotal,
+                    'remarks' => 'Extra raw returned to stock — ' . $wastage->grn_no,
+                ];
+            }
+
+            if ($wastageTotal > 0) {
+                $entries[] = [
+                    'dr'      => '502003', // Production Wastage Loss
+                    'cr'      => '104003', // WIP
+                    'amount'  => $wastageTotal,
+                    'remarks' => 'Raw material wastage written off — ' . $wastage->grn_no,
+                ];
+            }
+        }
+
+        if (empty($entries)) {
+            Log::info('[Wastage] No accounting entries posted (all lines had zero cost)', [
+                'wastage_id' => $wastage->id,
+            ]);
+            return;
+        }
+
+        $this->syncVoucherEntries(
+            $wastage,
+            'production_wastage',
+            $wastage->rec_date,
+            $entries
+        );
+
+        Log::info('[Wastage] Accounting synced', [
+            'wastage_id'    => $wastage->id,
+            'is_sale_leather' => $isSaleLeather,
+            'extra_total'   => $extraTotal,
+            'wastage_total' => $wastageTotal,
+        ]);
     }
 }
