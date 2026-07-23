@@ -21,7 +21,7 @@ class PurchaseReturnController extends Controller
 
     public function index()
     {
-        $returns = PurchaseReturn::with('vendor')->latest()->get();
+        $returns = PurchaseReturn::with(['vendor', 'items'])->orderBy('id', 'desc')->get();
         return view('purchase-returns.index', compact('returns'));
     }
 

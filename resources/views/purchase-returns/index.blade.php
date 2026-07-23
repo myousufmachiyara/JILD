@@ -30,6 +30,7 @@
                 <th>Vendor</th>
                 <th>Bill No</th>
                 <th>Ref No</th>
+                <th class="text-end">Total Qty</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -42,6 +43,7 @@
                   <td>{{ $return->vendor->name ?? 'N/A' }}</td>
                   <td>{{ $return->bill_no ?? '-' }}</td>
                   <td>{{ $return->ref_no ?? '-' }}</td>
+                  <td class="text-end">{{ number_format($return->items->sum('quantity'), 2) }}</td>
                   <td>
                     <a href="{{ route('purchase_return.edit', $return->id) }}" class="text-primary">
                       <i class="fas fa-edit"></i>
