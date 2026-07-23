@@ -31,7 +31,7 @@
             </div>
             <div class="col-md-3">
               <label>Production Order</label>
-              <select name="production_id" data-plugin-selecttwo class="form-control select2-js">
+              <select name="production_id" id="production_id" data-plugin-selecttwo class="form-control select2-js">
                 <option value="">-- No Production Order --</option>
                 @foreach($productions as $prod)
                   <option value="{{ $prod->id }}"
@@ -44,7 +44,7 @@
             </div>
             <div class="col-md-3">
               <label>Vendor <span class="text-danger">*</span></label>
-              <select name="vendor_id" data-plugin-selecttwo class="form-control select2-js" required>
+              <select name="vendor_id" id="vendor_id" data-plugin-selecttwo class="form-control select2-js" required>
                 <option value="">Select Vendor</option>
                 @foreach($vendors as $v)
                   <option value="{{ $v->id }}">{{ $v->name }}</option>
@@ -179,6 +179,25 @@
       }
     });
 
+    const productionVendorMap = {
+        @foreach($productions as $prod)
+            {{ $prod->id }}: { id: {{ $prod->vendor_id ?? 'null' }}, name: "{{ addslashes($prod->vendor->name ?? '') }}" },
+        @endforeach
+    };
+
+    $('#production_id').on('change', function () {
+        const pid = $(this).val();
+        if (pid && productionVendorMap[pid]) {
+            $('#vendor_id').val(productionVendorMap[pid].id).trigger('change');
+        } else {
+            $('#vendor_id').val('').trigger('change');
+        }
+    });
+
+    // Pre-fill on page load if production already selected
+    if ($('#production_id').val()) {
+        $('#production_id').trigger('change');
+    }
     // Add row
     $('#addRowBtn').on('click', addRow);
   });
