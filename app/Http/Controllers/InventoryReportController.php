@@ -190,7 +190,8 @@ class InventoryReportController extends Controller
                                 'date'        => $row->invoice->invoice_date,
                                 'type'        => 'Purchase',
                                 'description' => 'Invoice: ' . ($row->invoice->invoice_no ?? $row->invoice->id)
-                                    . ($row->invoice->bill_no ? ' | Bill: ' . $row->invoice->bill_no : ''),
+                                    . ($row->invoice->bill_no ? ' | Bill: ' . $row->invoice->bill_no : '')
+                                    . ' | Vendor: ' . ($row->invoice->vendor->name ?? '-'),  // ← add
                                 'qty_in'      => $row->quantity,
                                 'qty_out'     => 0,
                                 'rate'        => $row->price,
@@ -211,7 +212,8 @@ class InventoryReportController extends Controller
                             ->map(fn($row) => [
                                 'date'        => $row->purchaseReturn->return_date,
                                 'type'        => 'Purchase Return',
-                                'description' => 'Return #' . ($row->purchaseReturn->reference_no ?? $row->purchaseReturn->id),
+                                'description' => 'Return #' . ($row->purchaseReturn->reference_no ?? $row->purchaseReturn->id)
+                                                . ' | Vendor: ' . ($row->purchaseReturn->vendor->name ?? '-'),
                                 'qty_in'      => 0,
                                 'qty_out'     => $row->quantity,
                                 'rate'        => $row->price ?? 0,
@@ -275,7 +277,8 @@ class InventoryReportController extends Controller
                                 'date'        => $row->production->order_date,
                                 'type'        => 'Production Order',
                                 'description' => 'PO-' . str_pad($row->production->id, 4, '0', STR_PAD_LEFT)
-                                    . ' — Raw issued to vendor',
+                                . ' — Raw issued to vendor'
+                                . ' | Vendor: ' . ($row->production->vendor->name ?? '-'),
                                 'qty_in'      => 0,
                                 'qty_out'     => $row->qty,
                                 'rate'        => $row->rate ?? 0,
@@ -297,9 +300,9 @@ class InventoryReportController extends Controller
                                 'date'        => $row->receiving->rec_date,
                                 'type'        => 'Production Receiving',
                                 'description' => 'GRN: ' . ($row->receiving->grn_no ?? $row->receiving->id)
-                                    . ($row->receiving->production_id
-                                        ? ' — PO-' . $row->receiving->production_id : '')
-                                    . ' | Mfg Cost: ' . number_format($row->manufacturing_cost ?? 0, 2),
+                                    . ($row->receiving->production_id ? ' — PO-' . $row->receiving->production_id : '')
+                                    . ' | Mfg Cost: ' . number_format($row->manufacturing_cost ?? 0, 2)
+                                    . ' | Vendor: ' . ($row->receiving->vendor->name ?? '-'),
                                 'qty_in'      => $row->received_qty,
                                 'qty_out'     => 0,
                                 'rate'        => $row->manufacturing_cost ?? 0,
@@ -322,7 +325,8 @@ class InventoryReportController extends Controller
                                 'type'        => 'Production Return',
                                 'description' => 'Return #' . $row->productionReturn->id
                                     . ($row->production_id ? ' — PO-' . $row->production_id : '')
-                                    . ' — Defective FG returned to vendor',
+                                    . ' — Defective FG returned to vendor'
+                                    . ' | Vendor: ' . ($row->productionReturn->vendor->name ?? '-'),
                                 'qty_in'      => 0,
                                 'qty_out'     => $row->quantity,
                                 'rate'        => $row->price ?? 0,
@@ -350,9 +354,8 @@ class InventoryReportController extends Controller
                                     'description' => 'WRN: ' . ($row->wastageReceiving->grn_no ?? $row->wastageReceiving->id)
                                         . ($row->wastageReceiving->production_id
                                             ? ' — PO-' . $row->wastageReceiving->production_id : '')
-                                        . ($isExtra
-                                            ? ' — Unused raw returned to stock'
-                                            : ' — Wastage written off (no stock movement)'),
+                                        . ($isExtra ? ' — Unused raw returned to stock' : ' — Wastage written off (no stock movement)')
+                                        . ' | Vendor: ' . ($row->wastageReceiving->vendor->name ?? '-'),
                                     'qty_in'      => $isExtra ? $row->quantity : 0,
                                     'qty_out'     => 0,
                                     'rate'        => 0,
