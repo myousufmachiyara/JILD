@@ -258,6 +258,27 @@
       }
     });
 
+    // Build production → vendor map from PHP data
+    const productionVendorMap = {
+        @foreach($productions as $prod)
+            {{ $prod->id }}: { id: {{ $prod->vendor_id ?? 'null' }}, name: "{{ addslashes($prod->vendor->name ?? '') }}" },
+        @endforeach
+    };
+
+    $('#production_id').on('change', function () {
+        const pid = $(this).val();
+        if (pid && productionVendorMap[pid]) {
+            $('#vendor_id').val(productionVendorMap[pid].id).trigger('change');
+        } else {
+            $('#vendor_id').val('').trigger('change');
+        }
+    });
+
+    // Trigger on page load if production already selected
+    if ($('#production_id').val()) {
+        $('#production_id').trigger('change');
+    }
+
     // Add row button
     $('#addRowBtn').on('click', addRow);
   });
