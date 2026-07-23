@@ -600,7 +600,7 @@ class ProductController extends Controller
                         foreach ([
                             'product name', 'category id', 'subcategory id', 'unit id',
                             'item type', 'description', 'vendor id',
-                            'cmt cost', 'cost price', 'selling price',
+                            'consumption', 'cmt cost', 'cost price', 'selling price',  // ← add consumption
                             'opening stock', 'reorder level', 'max stock level', 'min order qty',
                         ] as $col) {
                             if (($data[$col] ?? '') === '' || strtolower($data[$col] ?? '') === 'nan') {
@@ -673,8 +673,9 @@ class ProductController extends Controller
                             'item_type'         => trim($rowData['item type'] ?? 'fg') ?: 'fg',
                             'description'       => trim($rowData['description'] ?? '') ?: null,
                             'vendor_id'         => is_numeric($rowData['vendor id'] ?? '') && (int)($rowData['vendor id']) > 0
-                                                   ? (int)$rowData['vendor id'] : null,
-                            'cmt_cost'          => is_numeric($rowData['cmt cost']      ?? null) ? (float)$rowData['cmt cost']      : 0,
+                                                ? (int)$rowData['vendor id'] : null,
+                            'consumption'       => is_numeric($rowData['consumption'] ?? null) ? (float)$rowData['consumption'] : 0,
+                            'cmt_cost'          => is_numeric($rowData['cmt cost']    ?? null) ? (float)$rowData['cmt cost']    : 0,
                             'cost_price'        => is_numeric($rowData['cost price']    ?? null) ? (float)$rowData['cost price']    : 0,
                             'selling_price'     => is_numeric($rowData['selling price'] ?? null) ? (float)$rowData['selling price'] : 0,
                             'opening_stock'     => is_numeric($rowData['opening stock'] ?? null) ? (float)$rowData['opening stock'] : 0,
@@ -811,6 +812,7 @@ class ProductController extends Controller
                 'fg | raw | service',
                 'optional description',
                 'leave blank',
+                'raw qty consumed per piece',  // ← consumption
                 'CMT/making cost',
                 'default purchase rate',
                 'selling price',
